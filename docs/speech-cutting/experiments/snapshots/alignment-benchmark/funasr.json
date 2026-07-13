@@ -1,0 +1,1783 @@
+{
+  "schema_version": 1,
+  "provider": "funasr",
+  "case_set_fingerprint": "fa11670c83d0785b7a227f756ca895125c97496c6a01a6ba425c0f9deb6811cc",
+  "results": [
+    {
+      "case_id": "sample_01-b000000560-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "哈",
+          "start_ms": 400,
+          "end_ms": 560,
+          "score": null
+        },
+        {
+          "text": "喽，",
+          "start_ms": 560,
+          "end_ms": 840,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 1040,
+          "end_ms": 1320,
+          "score": null
+        },
+        {
+          "text": "极",
+          "start_ms": 1320,
+          "end_ms": 1440,
+          "score": null
+        },
+        {
+          "text": "客",
+          "start_ms": 1440,
+          "end_ms": 1560,
+          "score": null
+        },
+        {
+          "text": "同学们，",
+          "start_ms": 1560,
+          "end_ms": 2000,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_01-b000001040-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "哈",
+          "start_ms": 400,
+          "end_ms": 560,
+          "score": null
+        },
+        {
+          "text": "喽，",
+          "start_ms": 560,
+          "end_ms": 840,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 1040,
+          "end_ms": 1320,
+          "score": null
+        },
+        {
+          "text": "极",
+          "start_ms": 1320,
+          "end_ms": 1440,
+          "score": null
+        },
+        {
+          "text": "客",
+          "start_ms": 1440,
+          "end_ms": 1560,
+          "score": null
+        },
+        {
+          "text": "同学们，",
+          "start_ms": 1560,
+          "end_ms": 2000,
+          "score": null
+        },
+        {
+          "text": "欢迎",
+          "start_ms": 2360,
+          "end_ms": 2640,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_01-b000014680-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "是因为",
+          "start_ms": 0,
+          "end_ms": 360,
+          "score": null
+        },
+        {
+          "text": "它",
+          "start_ms": 360,
+          "end_ms": 520,
+          "score": null
+        },
+        {
+          "text": "能",
+          "start_ms": 520,
+          "end_ms": 640,
+          "score": null
+        },
+        {
+          "text": "改变",
+          "start_ms": 640,
+          "end_ms": 1000,
+          "score": null
+        },
+        {
+          "text": "世界。",
+          "start_ms": 1000,
+          "end_ms": 1360,
+          "score": null
+        },
+        {
+          "text": "但",
+          "start_ms": 1760,
+          "end_ms": 2000,
+          "score": null
+        },
+        {
+          "text": "今天",
+          "start_ms": 2000,
+          "end_ms": 2560,
+          "score": null
+        },
+        {
+          "text": "我想",
+          "start_ms": 2560,
+          "end_ms": 2880,
+          "score": null
+        },
+        {
+          "text": "邀请",
+          "start_ms": 2880,
+          "end_ms": 3200,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 13320
+      }
+    },
+    {
+      "case_id": "sample_01-b000001320-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "哈",
+          "start_ms": 400,
+          "end_ms": 560,
+          "score": null
+        },
+        {
+          "text": "喽，",
+          "start_ms": 560,
+          "end_ms": 840,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 1040,
+          "end_ms": 1320,
+          "score": null
+        },
+        {
+          "text": "极",
+          "start_ms": 1320,
+          "end_ms": 1440,
+          "score": null
+        },
+        {
+          "text": "客",
+          "start_ms": 1440,
+          "end_ms": 1560,
+          "score": null
+        },
+        {
+          "text": "同学们，",
+          "start_ms": 1560,
+          "end_ms": 2000,
+          "score": null
+        },
+        {
+          "text": "欢迎",
+          "start_ms": 2360,
+          "end_ms": 2640,
+          "score": null
+        },
+        {
+          "text": "来到",
+          "start_ms": 2640,
+          "end_ms": 2920,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_01-b000002000-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "喽，",
+          "start_ms": 0,
+          "end_ms": 280,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 480,
+          "end_ms": 760,
+          "score": null
+        },
+        {
+          "text": "极",
+          "start_ms": 760,
+          "end_ms": 880,
+          "score": null
+        },
+        {
+          "text": "客",
+          "start_ms": 880,
+          "end_ms": 1000,
+          "score": null
+        },
+        {
+          "text": "同学们，",
+          "start_ms": 1000,
+          "end_ms": 1440,
+          "score": null
+        },
+        {
+          "text": "欢迎",
+          "start_ms": 1800,
+          "end_ms": 2080,
+          "score": null
+        },
+        {
+          "text": "来到",
+          "start_ms": 2080,
+          "end_ms": 2360,
+          "score": null
+        },
+        {
+          "text": "本次",
+          "start_ms": 2360,
+          "end_ms": 2640,
+          "score": null
+        },
+        {
+          "text": "AI",
+          "start_ms": 2640,
+          "end_ms": 2920,
+          "score": null
+        },
+        {
+          "text": "冬",
+          "start_ms": 2920,
+          "end_ms": 3040,
+          "score": null
+        },
+        {
+          "text": "令",
+          "start_ms": 3040,
+          "end_ms": 3160,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 560
+      }
+    },
+    {
+      "case_id": "sample_01-b000019720-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "身边",
+          "start_ms": 0,
+          "end_ms": 280,
+          "score": null
+        },
+        {
+          "text": "的一",
+          "start_ms": 280,
+          "end_ms": 520,
+          "score": null
+        },
+        {
+          "text": "群",
+          "start_ms": 520,
+          "end_ms": 760,
+          "score": null
+        },
+        {
+          "text": "特殊",
+          "start_ms": 760,
+          "end_ms": 1080,
+          "score": null
+        },
+        {
+          "text": "朋友。",
+          "start_ms": 1080,
+          "end_ms": 1400,
+          "score": null
+        },
+        {
+          "text": "科技",
+          "start_ms": 1920,
+          "end_ms": 2320,
+          "score": null
+        },
+        {
+          "text": "的",
+          "start_ms": 2320,
+          "end_ms": 2440,
+          "score": null
+        },
+        {
+          "text": "最高",
+          "start_ms": 2440,
+          "end_ms": 2760,
+          "score": null
+        },
+        {
+          "text": "级",
+          "start_ms": 2760,
+          "end_ms": 3280,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 17800
+      }
+    },
+    {
+      "case_id": "sample_01-b000001440-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "哈",
+          "start_ms": 400,
+          "end_ms": 560,
+          "score": null
+        },
+        {
+          "text": "喽，",
+          "start_ms": 560,
+          "end_ms": 840,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 1040,
+          "end_ms": 1320,
+          "score": null
+        },
+        {
+          "text": "极",
+          "start_ms": 1320,
+          "end_ms": 1440,
+          "score": null
+        },
+        {
+          "text": "客",
+          "start_ms": 1440,
+          "end_ms": 1560,
+          "score": null
+        },
+        {
+          "text": "同学们，",
+          "start_ms": 1560,
+          "end_ms": 2000,
+          "score": null
+        },
+        {
+          "text": "欢迎",
+          "start_ms": 2360,
+          "end_ms": 2640,
+          "score": null
+        },
+        {
+          "text": "来到",
+          "start_ms": 2640,
+          "end_ms": 2920,
+          "score": null
+        },
+        {
+          "text": "本次",
+          "start_ms": 2920,
+          "end_ms": 3200,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_01-b000005280-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "令",
+          "start_ms": 0,
+          "end_ms": 120,
+          "score": null
+        },
+        {
+          "text": "营",
+          "start_ms": 120,
+          "end_ms": 240,
+          "score": null
+        },
+        {
+          "text": "的",
+          "start_ms": 240,
+          "end_ms": 360,
+          "score": null
+        },
+        {
+          "text": "公益",
+          "start_ms": 360,
+          "end_ms": 640,
+          "score": null
+        },
+        {
+          "text": "挑战",
+          "start_ms": 640,
+          "end_ms": 960,
+          "score": null
+        },
+        {
+          "text": "赛道。",
+          "start_ms": 960,
+          "end_ms": 1360,
+          "score": null
+        },
+        {
+          "text": "我",
+          "start_ms": 1680,
+          "end_ms": 1880,
+          "score": null
+        },
+        {
+          "text": "来自",
+          "start_ms": 1880,
+          "end_ms": 2120,
+          "score": null
+        },
+        {
+          "text": "1",
+          "start_ms": 2120,
+          "end_ms": 2280,
+          "score": null
+        },
+        {
+          "text": "+",
+          "start_ms": 2280,
+          "end_ms": 2400,
+          "score": null
+        },
+        {
+          "text": "1",
+          "start_ms": 2400,
+          "end_ms": 2640,
+          "score": null
+        },
+        {
+          "text": "残",
+          "start_ms": 2640,
+          "end_ms": 2800,
+          "score": null
+        },
+        {
+          "text": "障",
+          "start_ms": 2800,
+          "end_ms": 3000,
+          "score": null
+        },
+        {
+          "text": "融合",
+          "start_ms": 3000,
+          "end_ms": 3320,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 3600
+      }
+    },
+    {
+      "case_id": "sample_02-b000000400-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大家",
+          "start_ms": 160,
+          "end_ms": 400,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 400,
+          "end_ms": 560,
+          "score": null
+        },
+        {
+          "text": "嘉",
+          "start_ms": 720,
+          "end_ms": 880,
+          "score": null
+        },
+        {
+          "text": "良",
+          "start_ms": 880,
+          "end_ms": 1040,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 1040,
+          "end_ms": 1240,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1240,
+          "end_ms": 1360,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 1440,
+          "end_ms": 1600,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 1600,
+          "end_ms": 1720,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 1720,
+          "end_ms": 1960,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_02-b000000720-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大家",
+          "start_ms": 160,
+          "end_ms": 400,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 400,
+          "end_ms": 560,
+          "score": null
+        },
+        {
+          "text": "嘉",
+          "start_ms": 720,
+          "end_ms": 880,
+          "score": null
+        },
+        {
+          "text": "良",
+          "start_ms": 880,
+          "end_ms": 1040,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 1040,
+          "end_ms": 1240,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1240,
+          "end_ms": 1360,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 1440,
+          "end_ms": 1600,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 1600,
+          "end_ms": 1720,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 1720,
+          "end_ms": 1960,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1960,
+          "end_ms": 2200,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_02-b000002200-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "良",
+          "start_ms": 0,
+          "end_ms": 160,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 160,
+          "end_ms": 360,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 360,
+          "end_ms": 480,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 560,
+          "end_ms": 720,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 720,
+          "end_ms": 840,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 840,
+          "end_ms": 1080,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1080,
+          "end_ms": 1320,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 1800,
+          "end_ms": 2120,
+          "score": null
+        },
+        {
+          "text": "同学们",
+          "start_ms": 2120,
+          "end_ms": 2480,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 2480,
+          "end_ms": 2640,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 2800,
+          "end_ms": 3360,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 880
+      }
+    },
+    {
+      "case_id": "sample_02-b000000880-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大家",
+          "start_ms": 160,
+          "end_ms": 400,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 400,
+          "end_ms": 560,
+          "score": null
+        },
+        {
+          "text": "嘉",
+          "start_ms": 720,
+          "end_ms": 880,
+          "score": null
+        },
+        {
+          "text": "良",
+          "start_ms": 880,
+          "end_ms": 1040,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 1040,
+          "end_ms": 1240,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1240,
+          "end_ms": 1360,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 1440,
+          "end_ms": 1600,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 1600,
+          "end_ms": 1720,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 1720,
+          "end_ms": 1960,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1960,
+          "end_ms": 2200,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_02-b000003520-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "好，",
+          "start_ms": 0,
+          "end_ms": 240,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 720,
+          "end_ms": 1040,
+          "score": null
+        },
+        {
+          "text": "同学们",
+          "start_ms": 1040,
+          "end_ms": 1400,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1400,
+          "end_ms": 1560,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 1720,
+          "end_ms": 2280,
+          "score": null
+        },
+        {
+          "text": "助",
+          "start_ms": 2280,
+          "end_ms": 2440,
+          "score": null
+        },
+        {
+          "text": "教",
+          "start_ms": 2440,
+          "end_ms": 2600,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 2600,
+          "end_ms": 2880,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 2880,
+          "end_ms": 3120,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 1960
+      }
+    },
+    {
+      "case_id": "sample_02-b000005480-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "各位",
+          "start_ms": 0,
+          "end_ms": 560,
+          "score": null
+        },
+        {
+          "text": "助",
+          "start_ms": 560,
+          "end_ms": 720,
+          "score": null
+        },
+        {
+          "text": "教",
+          "start_ms": 720,
+          "end_ms": 880,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 880,
+          "end_ms": 1160,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1160,
+          "end_ms": 1400,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 1800,
+          "end_ms": 2040,
+          "score": null
+        },
+        {
+          "text": "家长",
+          "start_ms": 2040,
+          "end_ms": 2320,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 2320,
+          "end_ms": 2520,
+          "score": null
+        },
+        {
+          "text": "所有的",
+          "start_ms": 2760,
+          "end_ms": 3080,
+          "score": null
+        },
+        {
+          "text": "朋友们",
+          "start_ms": 3080,
+          "end_ms": 3400,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 3680
+      }
+    },
+    {
+      "case_id": "sample_02-b000001040-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大家",
+          "start_ms": 160,
+          "end_ms": 400,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 400,
+          "end_ms": 560,
+          "score": null
+        },
+        {
+          "text": "嘉",
+          "start_ms": 720,
+          "end_ms": 880,
+          "score": null
+        },
+        {
+          "text": "良",
+          "start_ms": 880,
+          "end_ms": 1040,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 1040,
+          "end_ms": 1240,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1240,
+          "end_ms": 1360,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 1440,
+          "end_ms": 1600,
+          "score": null
+        },
+        {
+          "text": "毛",
+          "start_ms": 1600,
+          "end_ms": 1720,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 1720,
+          "end_ms": 1960,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1960,
+          "end_ms": 2200,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_02-b000006440-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "老师",
+          "start_ms": 0,
+          "end_ms": 280,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 280,
+          "end_ms": 520,
+          "score": null
+        },
+        {
+          "text": "各位",
+          "start_ms": 920,
+          "end_ms": 1160,
+          "score": null
+        },
+        {
+          "text": "家长",
+          "start_ms": 1160,
+          "end_ms": 1440,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1440,
+          "end_ms": 1640,
+          "score": null
+        },
+        {
+          "text": "所有的",
+          "start_ms": 1880,
+          "end_ms": 2200,
+          "score": null
+        },
+        {
+          "text": "朋友们",
+          "start_ms": 2200,
+          "end_ms": 2520,
+          "score": null
+        },
+        {
+          "text": "你们",
+          "start_ms": 2520,
+          "end_ms": 2720,
+          "score": null
+        },
+        {
+          "text": "好。",
+          "start_ms": 2720,
+          "end_ms": 2960,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 4560
+      }
+    },
+    {
+      "case_id": "sample_03-b000000520-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大家",
+          "start_ms": 240,
+          "end_ms": 520,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 520,
+          "end_ms": 600,
+          "score": null
+        },
+        {
+          "text": "这位",
+          "start_ms": 680,
+          "end_ms": 920,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 920,
+          "end_ms": 1080,
+          "score": null
+        },
+        {
+          "text": "娜",
+          "start_ms": 1080,
+          "end_ms": 1200,
+          "score": null
+        },
+        {
+          "text": "娜",
+          "start_ms": 1200,
+          "end_ms": 1320,
+          "score": null
+        },
+        {
+          "text": "老师。",
+          "start_ms": 1320,
+          "end_ms": 1520,
+          "score": null
+        },
+        {
+          "text": "大家",
+          "start_ms": 1760,
+          "end_ms": 2040,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_03-b000001760-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大家",
+          "start_ms": 100,
+          "end_ms": 380,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 380,
+          "end_ms": 460,
+          "score": null
+        },
+        {
+          "text": "这位",
+          "start_ms": 540,
+          "end_ms": 780,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 780,
+          "end_ms": 940,
+          "score": null
+        },
+        {
+          "text": "娜",
+          "start_ms": 940,
+          "end_ms": 1060,
+          "score": null
+        },
+        {
+          "text": "娜",
+          "start_ms": 1060,
+          "end_ms": 1180,
+          "score": null
+        },
+        {
+          "text": "老师。",
+          "start_ms": 1180,
+          "end_ms": 1380,
+          "score": null
+        },
+        {
+          "text": "大家",
+          "start_ms": 1620,
+          "end_ms": 1900,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 1900,
+          "end_ms": 2020,
+          "score": null
+        },
+        {
+          "text": "这位",
+          "start_ms": 2100,
+          "end_ms": 2420,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 2420,
+          "end_ms": 2580,
+          "score": null
+        },
+        {
+          "text": "叶",
+          "start_ms": 2580,
+          "end_ms": 2780,
+          "score": null
+        },
+        {
+          "text": "一",
+          "start_ms": 2780,
+          "end_ms": 2900,
+          "score": null
+        },
+        {
+          "text": "飞",
+          "start_ms": 2900,
+          "end_ms": 3100,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 140
+      }
+    },
+    {
+      "case_id": "sample_03-b000027240-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "遇到了",
+          "start_ms": 0,
+          "end_ms": 280,
+          "score": null
+        },
+        {
+          "text": "一群",
+          "start_ms": 280,
+          "end_ms": 600,
+          "score": null
+        },
+        {
+          "text": "很",
+          "start_ms": 600,
+          "end_ms": 760,
+          "score": null
+        },
+        {
+          "text": "独特的",
+          "start_ms": 760,
+          "end_ms": 1080,
+          "score": null
+        },
+        {
+          "text": "学员",
+          "start_ms": 1080,
+          "end_ms": 1400,
+          "score": null
+        },
+        {
+          "text": "啊。",
+          "start_ms": 1400,
+          "end_ms": 1520,
+          "score": null
+        },
+        {
+          "text": "其实",
+          "start_ms": 1960,
+          "end_ms": 2160,
+          "score": null
+        },
+        {
+          "text": "就",
+          "start_ms": 2160,
+          "end_ms": 2320,
+          "score": null
+        },
+        {
+          "text": "上",
+          "start_ms": 2320,
+          "end_ms": 2440,
+          "score": null
+        },
+        {
+          "text": "个月",
+          "start_ms": 2440,
+          "end_ms": 2720,
+          "score": null
+        },
+        {
+          "text": "啊，",
+          "start_ms": 2720,
+          "end_ms": 2840,
+          "score": null
+        },
+        {
+          "text": "嗯，",
+          "start_ms": 2920,
+          "end_ms": 3000,
+          "score": null
+        },
+        {
+          "text": "我们",
+          "start_ms": 3080,
+          "end_ms": 3240,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 25720
+      }
+    },
+    {
+      "case_id": "sample_03-b000000680-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大家",
+          "start_ms": 240,
+          "end_ms": 520,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 520,
+          "end_ms": 600,
+          "score": null
+        },
+        {
+          "text": "这位",
+          "start_ms": 680,
+          "end_ms": 920,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 920,
+          "end_ms": 1080,
+          "score": null
+        },
+        {
+          "text": "娜",
+          "start_ms": 1080,
+          "end_ms": 1200,
+          "score": null
+        },
+        {
+          "text": "娜",
+          "start_ms": 1200,
+          "end_ms": 1320,
+          "score": null
+        },
+        {
+          "text": "老师。",
+          "start_ms": 1320,
+          "end_ms": 1520,
+          "score": null
+        },
+        {
+          "text": "大家",
+          "start_ms": 1760,
+          "end_ms": 2040,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 2040,
+          "end_ms": 2160,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_03-b000003600-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "这位",
+          "start_ms": 40,
+          "end_ms": 360,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 360,
+          "end_ms": 520,
+          "score": null
+        },
+        {
+          "text": "叶",
+          "start_ms": 520,
+          "end_ms": 720,
+          "score": null
+        },
+        {
+          "text": "一",
+          "start_ms": 720,
+          "end_ms": 840,
+          "score": null
+        },
+        {
+          "text": "飞",
+          "start_ms": 840,
+          "end_ms": 1040,
+          "score": null
+        },
+        {
+          "text": "老师。",
+          "start_ms": 1040,
+          "end_ms": 1400,
+          "score": null
+        },
+        {
+          "text": "嗯，",
+          "start_ms": 1600,
+          "end_ms": 1720,
+          "score": null
+        },
+        {
+          "text": "那",
+          "start_ms": 1920,
+          "end_ms": 2040,
+          "score": null
+        },
+        {
+          "text": "我们",
+          "start_ms": 2040,
+          "end_ms": 2200,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 2200,
+          "end_ms": 2320,
+          "score": null
+        },
+        {
+          "text": "干什么",
+          "start_ms": 2320,
+          "end_ms": 2640,
+          "score": null
+        },
+        {
+          "text": "的",
+          "start_ms": 2640,
+          "end_ms": 2800,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 2800,
+          "end_ms": 3040,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 2200
+      }
+    },
+    {
+      "case_id": "sample_03-b000382270-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "文字",
+          "start_ms": 0,
+          "end_ms": 360,
+          "score": null
+        },
+        {
+          "text": "他",
+          "start_ms": 360,
+          "end_ms": 480,
+          "score": null
+        },
+        {
+          "text": "就能",
+          "start_ms": 480,
+          "end_ms": 760,
+          "score": null
+        },
+        {
+          "text": "理解",
+          "start_ms": 760,
+          "end_ms": 1080,
+          "score": null
+        },
+        {
+          "text": "的。",
+          "start_ms": 1080,
+          "end_ms": 1160,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 1240,
+          "end_ms": 1360,
+          "score": null
+        },
+        {
+          "text": "的。",
+          "start_ms": 1360,
+          "end_ms": 1480,
+          "score": null
+        },
+        {
+          "text": "啊",
+          "start_ms": 1960,
+          "end_ms": 2200,
+          "score": null
+        },
+        {
+          "text": "我们的",
+          "start_ms": 2200,
+          "end_ms": 2600,
+          "score": null
+        },
+        {
+          "text": "这个",
+          "start_ms": 2600,
+          "end_ms": 3200,
+          "score": null
+        },
+        {
+          "text": "呃",
+          "start_ms": 3200,
+          "end_ms": 3400,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 380310
+      }
+    },
+    {
+      "case_id": "sample_03-b000000920-end",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大家",
+          "start_ms": 240,
+          "end_ms": 520,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 520,
+          "end_ms": 600,
+          "score": null
+        },
+        {
+          "text": "这位",
+          "start_ms": 680,
+          "end_ms": 920,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 920,
+          "end_ms": 1080,
+          "score": null
+        },
+        {
+          "text": "娜",
+          "start_ms": 1080,
+          "end_ms": 1200,
+          "score": null
+        },
+        {
+          "text": "娜",
+          "start_ms": 1200,
+          "end_ms": 1320,
+          "score": null
+        },
+        {
+          "text": "老师。",
+          "start_ms": 1320,
+          "end_ms": 1520,
+          "score": null
+        },
+        {
+          "text": "大家",
+          "start_ms": 1760,
+          "end_ms": 2040,
+          "score": null
+        },
+        {
+          "text": "好，",
+          "start_ms": 2040,
+          "end_ms": 2160,
+          "score": null
+        },
+        {
+          "text": "这位",
+          "start_ms": 2240,
+          "end_ms": 2560,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 0
+      }
+    },
+    {
+      "case_id": "sample_03-b000004120-start",
+      "provider": "funasr",
+      "status": "ok",
+      "words": [
+        {
+          "text": "这位",
+          "start_ms": 0,
+          "end_ms": 320,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 320,
+          "end_ms": 480,
+          "score": null
+        },
+        {
+          "text": "叶",
+          "start_ms": 480,
+          "end_ms": 680,
+          "score": null
+        },
+        {
+          "text": "一",
+          "start_ms": 680,
+          "end_ms": 800,
+          "score": null
+        },
+        {
+          "text": "飞",
+          "start_ms": 800,
+          "end_ms": 1000,
+          "score": null
+        },
+        {
+          "text": "老师。",
+          "start_ms": 1000,
+          "end_ms": 1360,
+          "score": null
+        },
+        {
+          "text": "嗯，",
+          "start_ms": 1560,
+          "end_ms": 1680,
+          "score": null
+        },
+        {
+          "text": "那",
+          "start_ms": 1880,
+          "end_ms": 2000,
+          "score": null
+        },
+        {
+          "text": "我们",
+          "start_ms": 2000,
+          "end_ms": 2160,
+          "score": null
+        },
+        {
+          "text": "是",
+          "start_ms": 2160,
+          "end_ms": 2280,
+          "score": null
+        },
+        {
+          "text": "干什么",
+          "start_ms": 2280,
+          "end_ms": 2600,
+          "score": null
+        },
+        {
+          "text": "的",
+          "start_ms": 2600,
+          "end_ms": 2760,
+          "score": null
+        },
+        {
+          "text": "老师",
+          "start_ms": 2760,
+          "end_ms": 3000,
+          "score": null
+        },
+        {
+          "text": "呢？",
+          "start_ms": 3000,
+          "end_ms": 3080,
+          "score": null
+        },
+        {
+          "text": "啊，",
+          "start_ms": 3160,
+          "end_ms": 3280,
+          "score": null
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "source": "existing_funasr_transcript",
+        "source_clip_start_ms": 2240
+      }
+    }
+  ]
+}

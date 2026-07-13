@@ -1,0 +1,5 @@
+provider,total_cases,ok_count,unavailable_count,failed_count,annotated_count,evaluated_count,forbidden_evaluated_count,forbidden_hit_count,forbidden_hit_rate,coverage_rate,safe_interval_hit_rate,interval_error_p50_ms,interval_error_p95_ms,midpoint_error_mean_ms
+ctc_mms_300m,24,24,0,0,0,0,0,0,,1.0,,,,
+elevenlabs_forced_alignment,24,0,24,0,0,0,0,0,,0.0,,,,
+funasr,24,24,0,0,0,0,0,0,,1.0,,,,
+mfa_mandarin,24,19,0,5,0,0,0,0,,0.7917,,,,

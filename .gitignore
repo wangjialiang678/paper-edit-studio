@@ -1,0 +1,28 @@
+# Local ASR/API run artifacts may contain signed URLs, object paths, or raw transcripts.
+samples/asr/
+**/asr-recorded-*/
+**/dashscope-submit-request.json
+**/dashscope-transcript.json
+**/dashscope-task.json
+
+# Generated local test/export outputs.
+outputs/
+*.manifest.json
+
+# Large local media samples (personal voice recordings; regenerate via samples/manifests).
+samples/wav/
+samples/audio/
+samples/video/
+
+# Studio workspace: imported videos, extracted audio, ASR runs, exports.
+workspace/
+
+# Tooling / OS artifacts.
+.playwright-mcp/
+.freecut-workspace.json
+.DS_Store
+*.egg-info/
+__pycache__/
+*.pyc
+.claude/memory-bank/
+.venv/

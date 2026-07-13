@@ -1,0 +1,24 @@
+{
+  "frames": [
+    {"start_ms": 0, "end_ms": 200, "rms_db": -18.0},
+    {"start_ms": 200, "end_ms": 400, "rms_db": -18.0},
+    {"start_ms": 400, "end_ms": 600, "rms_db": -18.0},
+    {"start_ms": 600, "end_ms": 760, "rms_db": -18.0},
+    {"start_ms": 760, "end_ms": 860, "rms_db": -18.0},
+    {"start_ms": 860, "end_ms": 900, "rms_db": -56.0},
+    {"start_ms": 900, "end_ms": 940, "rms_db": -56.0},
+    {"start_ms": 940, "end_ms": 980, "rms_db": -56.0},
+    {"start_ms": 980, "end_ms": 1020, "rms_db": -56.0},
+    {"start_ms": 1020, "end_ms": 1040, "rms_db": -56.0},
+    {"start_ms": 1040, "end_ms": 1240, "rms_db": -18.0},
+    {"start_ms": 1240, "end_ms": 1440, "rms_db": -18.0},
+    {"start_ms": 1440, "end_ms": 1640, "rms_db": -18.0},
+    {"start_ms": 1640, "end_ms": 1760, "rms_db": -18.0},
+    {"start_ms": 1760, "end_ms": 1820, "rms_db": -56.0},
+    {"start_ms": 1820, "end_ms": 1880, "rms_db": -56.0},
+    {"start_ms": 1880, "end_ms": 1940, "rms_db": -56.0},
+    {"start_ms": 1940, "end_ms": 2020, "rms_db": -56.0},
+    {"start_ms": 2020, "end_ms": 2200, "rms_db": -18.0},
+    {"start_ms": 2200, "end_ms": 2400, "rms_db": -18.0}
+  ]
+}

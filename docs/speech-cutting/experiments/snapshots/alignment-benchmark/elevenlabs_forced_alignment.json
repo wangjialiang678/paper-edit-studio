@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "provider": "elevenlabs_forced_alignment",
+  "case_set_fingerprint": "fa11670c83d0785b7a227f756ca895125c97496c6a01a6ba425c0f9deb6811cc",
+  "results": [
+    {
+      "case_id": "sample_01-b000000560-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_01-b000001040-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_01-b000014680-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_01-b000001320-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_01-b000002000-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_01-b000019720-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_01-b000001440-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_01-b000005280-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_02-b000000400-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_02-b000000720-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_02-b000002200-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_02-b000000880-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_02-b000003520-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_02-b000005480-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_02-b000001040-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_02-b000006440-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_03-b000000520-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_03-b000001760-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_03-b000027240-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_03-b000000680-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_03-b000003600-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_03-b000382270-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_03-b000000920-end",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    },
+    {
+      "case_id": "sample_03-b000004120-start",
+      "provider": "elevenlabs_forced_alignment",
+      "status": "unavailable",
+      "words": [],
+      "predicted_boundary_ms": null,
+      "error": "ELEVENLABS_API_KEY is not configured",
+      "metadata": {}
+    }
+  ]
+}

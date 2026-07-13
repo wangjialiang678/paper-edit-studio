@@ -1,0 +1,519 @@
+{
+  "schema_version": 1,
+  "experiment_type": "sentence_deletion",
+  "status": "completed",
+  "passed": true,
+  "source": {
+    "probe": {
+      "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/reference_original.wav",
+      "duration_ms": 48650,
+      "codec_name": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1
+    },
+    "reference_m4a_probe": {
+      "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/reference_original.m4a",
+      "duration_ms": 48650,
+      "codec_name": "aac",
+      "sample_rate": 48000,
+      "channels": 1
+    },
+    "reference_wav_sha256": "a01743e4f3c311e38daded57248c7157d33104f1ad646df057b95eebdbc0f723",
+    "reference_m4a_sha256": "ae04a7511a6c9f444bd1aa96c13175304acf7be0d549422590326bee64f5955a"
+  },
+  "alignment": {
+    "ctc_real": true,
+    "mfa_real": true,
+    "mfa_fallback_side_count": 1,
+    "mfa_real_side_count": 7,
+    "all_strategy_outputs_unique": true
+  },
+  "strategies": {
+    "funasr_direct": {
+      "strategy": "funasr_direct",
+      "join_count": 4,
+      "labels": [
+        "remove_sentence_0025",
+        "remove_sentence_0027",
+        "remove_sentence_0029",
+        "remove_sentence_0031"
+      ],
+      "fallback_side_count": 0,
+      "expected_duration_ms": 30674,
+      "wav": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/named/funasr_direct.wav",
+        "duration_ms": 30674,
+        "codec_name": "pcm_s16le",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "m4a": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/named/funasr_direct.m4a",
+        "duration_ms": 30674,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "wav_duration_error_ms": 0,
+      "m4a_duration_error_ms": 0,
+      "joins": [
+        {
+          "label": "remove_sentence_0025",
+          "join_output_ms": 2398,
+          "rms_before_db": -47.901,
+          "rms_after_db": -28.408,
+          "rms_delta_db": 19.494,
+          "sample_jump_ratio": 0.007507
+        },
+        {
+          "label": "remove_sentence_0027",
+          "join_output_ms": 5594,
+          "rms_before_db": -40.436,
+          "rms_after_db": -25.598,
+          "rms_delta_db": 14.839,
+          "sample_jump_ratio": 0.008957
+        },
+        {
+          "label": "remove_sentence_0029",
+          "join_output_ms": 21590,
+          "rms_before_db": -43.137,
+          "rms_after_db": -24.383,
+          "rms_delta_db": 18.754,
+          "sample_jump_ratio": 0.00856
+        },
+        {
+          "label": "remove_sentence_0031",
+          "join_output_ms": 29586,
+          "rms_before_db": -23.833,
+          "rms_after_db": -20.726,
+          "rms_delta_db": 3.107,
+          "sample_jump_ratio": 0.026551
+        }
+      ],
+      "fingerprints": {
+        "wav_sha256": "abe3eecb9c5b5b879f213d4397ccb1b1bcba2fa00b611415a94c21c1750f237d",
+        "m4a_sha256": "8d7638a2ccafe4b13e0bb91507a45dce8f017e259c5c2da6a2d94e1aa981dc30",
+        "plan_sha256": "1994d3a9e624e766b172e88a8ebdda84607b567d7cf0aa1360c8ad1977ab8a2f"
+      },
+      "maximum_sample_jump_ratio": 0.026551,
+      "semantic_content_coverage": {
+        "remove_sentence_0025": true,
+        "remove_sentence_0027": true,
+        "remove_sentence_0029": true,
+        "remove_sentence_0031": true
+      },
+      "semantic_content_fully_covered": true,
+      "passed": true,
+      "manifest_semantic_guard": {
+        "remove_sentence_0025": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0027": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0029": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0031": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        }
+      },
+      "removed_sentence_fully_covered": true,
+      "kept_content_intrusion_total_ms": 0
+    },
+    "ctc_char": {
+      "strategy": "ctc_char",
+      "join_count": 4,
+      "labels": [
+        "remove_sentence_0025",
+        "remove_sentence_0027",
+        "remove_sentence_0029",
+        "remove_sentence_0031"
+      ],
+      "fallback_side_count": 0,
+      "expected_duration_ms": 31054,
+      "wav": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/named/ctc_char.wav",
+        "duration_ms": 31054,
+        "codec_name": "pcm_s16le",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "m4a": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/named/ctc_char.m4a",
+        "duration_ms": 31054,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "wav_duration_error_ms": 0,
+      "m4a_duration_error_ms": 0,
+      "joins": [
+        {
+          "label": "remove_sentence_0025",
+          "join_output_ms": 2398,
+          "rms_before_db": -64.866,
+          "rms_after_db": -47.829,
+          "rms_delta_db": 17.037,
+          "sample_jump_ratio": 0.000839
+        },
+        {
+          "label": "remove_sentence_0027",
+          "join_output_ms": 5734,
+          "rms_before_db": -56.527,
+          "rms_after_db": -44.104,
+          "rms_delta_db": 12.423,
+          "sample_jump_ratio": 0.000961
+        },
+        {
+          "label": "remove_sentence_0029",
+          "join_output_ms": 21950,
+          "rms_before_db": -44.716,
+          "rms_after_db": -29.177,
+          "rms_delta_db": 15.538,
+          "sample_jump_ratio": 0.008835
+        },
+        {
+          "label": "remove_sentence_0031",
+          "join_output_ms": 29946,
+          "rms_before_db": -17.132,
+          "rms_after_db": -19.945,
+          "rms_delta_db": 2.813,
+          "sample_jump_ratio": 0.026963
+        }
+      ],
+      "fingerprints": {
+        "wav_sha256": "64b40d1a31ee6b78a36c167a67a9f65d8131abe23d689b88baebaff03f0e8f5d",
+        "m4a_sha256": "a7ad5d17a8003008c05a8938c9b2340c7015b8bc9e18f79f61535de27a5d394e",
+        "plan_sha256": "b9f4a0c5d561270cca8ab08bf73ea8d2ebb8f8411c096fca73485740ad52d4e4"
+      },
+      "maximum_sample_jump_ratio": 0.026963,
+      "semantic_content_coverage": {
+        "remove_sentence_0025": true,
+        "remove_sentence_0027": true,
+        "remove_sentence_0029": true,
+        "remove_sentence_0031": true
+      },
+      "semantic_content_fully_covered": true,
+      "passed": true,
+      "manifest_semantic_guard": {
+        "remove_sentence_0025": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0027": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0029": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0031": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 20
+        }
+      },
+      "removed_sentence_fully_covered": true,
+      "kept_content_intrusion_total_ms": 20
+    },
+    "mfa_word": {
+      "strategy": "mfa_word",
+      "join_count": 4,
+      "labels": [
+        "remove_sentence_0025",
+        "remove_sentence_0027",
+        "remove_sentence_0029",
+        "remove_sentence_0031"
+      ],
+      "fallback_side_count": 1,
+      "expected_duration_ms": 30664,
+      "wav": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/named/mfa_word.wav",
+        "duration_ms": 30664,
+        "codec_name": "pcm_s16le",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "m4a": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/named/mfa_word.m4a",
+        "duration_ms": 30664,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "wav_duration_error_ms": 0,
+      "m4a_duration_error_ms": 0,
+      "joins": [
+        {
+          "label": "remove_sentence_0025",
+          "join_output_ms": 2298,
+          "rms_before_db": -55.295,
+          "rms_after_db": -49.061,
+          "rms_delta_db": 6.234,
+          "sample_jump_ratio": 0.001328
+        },
+        {
+          "label": "remove_sentence_0027",
+          "join_output_ms": 5514,
+          "rms_before_db": -39.96,
+          "rms_after_db": -25.596,
+          "rms_delta_db": 14.363,
+          "sample_jump_ratio": 0.008957
+        },
+        {
+          "label": "remove_sentence_0029",
+          "join_output_ms": 21510,
+          "rms_before_db": -52.484,
+          "rms_after_db": -30.495,
+          "rms_delta_db": 21.99,
+          "sample_jump_ratio": 0.003876
+        },
+        {
+          "label": "remove_sentence_0031",
+          "join_output_ms": 29516,
+          "rms_before_db": -24.067,
+          "rms_after_db": -34.453,
+          "rms_delta_db": 10.386,
+          "sample_jump_ratio": 0.016327
+        }
+      ],
+      "fingerprints": {
+        "wav_sha256": "e87a66327092d754a6ac0cb57eb03462815dfbf9b06fc467e9270cb42bb3b9b9",
+        "m4a_sha256": "723e7756963e7188a604af46ed71df2f9005073c6906221b988ee3bd2412d462",
+        "plan_sha256": "7e6dfcba0db11b6873568eb629d9c9f449aa6a49430732f4bae8124eccbc197e"
+      },
+      "maximum_sample_jump_ratio": 0.016327,
+      "semantic_content_coverage": {
+        "remove_sentence_0025": true,
+        "remove_sentence_0027": true,
+        "remove_sentence_0029": true,
+        "remove_sentence_0031": true
+      },
+      "semantic_content_fully_covered": true,
+      "passed": true,
+      "manifest_semantic_guard": {
+        "remove_sentence_0025": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 100
+        },
+        "remove_sentence_0027": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 20
+        },
+        "remove_sentence_0029": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0031": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        }
+      },
+      "removed_sentence_fully_covered": true,
+      "kept_content_intrusion_total_ms": 120
+    },
+    "hybrid_safe": {
+      "strategy": "hybrid_safe",
+      "join_count": 4,
+      "labels": [
+        "remove_sentence_0025",
+        "remove_sentence_0027",
+        "remove_sentence_0029",
+        "remove_sentence_0031"
+      ],
+      "fallback_side_count": 0,
+      "expected_duration_ms": 30969,
+      "wav": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/named/hybrid_safe.wav",
+        "duration_ms": 30969,
+        "codec_name": "pcm_s16le",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "m4a": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-diagnostics/20260710-sample03-s24-s32/named/hybrid_safe.m4a",
+        "duration_ms": 30969,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "wav_duration_error_ms": 0,
+      "m4a_duration_error_ms": 0,
+      "joins": [
+        {
+          "label": "remove_sentence_0025",
+          "join_output_ms": 2398,
+          "rms_before_db": -64.866,
+          "rms_after_db": -47.829,
+          "rms_delta_db": 17.037,
+          "sample_jump_ratio": 0.000839
+        },
+        {
+          "label": "remove_sentence_0027",
+          "join_output_ms": 5734,
+          "rms_before_db": -62.315,
+          "rms_after_db": -51.224,
+          "rms_delta_db": 11.091,
+          "sample_jump_ratio": 0.000244
+        },
+        {
+          "label": "remove_sentence_0029",
+          "join_output_ms": 21820,
+          "rms_before_db": -45.251,
+          "rms_after_db": -29.171,
+          "rms_delta_db": 16.08,
+          "sample_jump_ratio": 0.008835
+        },
+        {
+          "label": "remove_sentence_0031",
+          "join_output_ms": 29836,
+          "rms_before_db": -24.052,
+          "rms_after_db": -22.736,
+          "rms_delta_db": 1.316,
+          "sample_jump_ratio": 0.016358
+        }
+      ],
+      "fingerprints": {
+        "wav_sha256": "9b517334d7f2dc67bb2780c6c72bd9dabd60580baec396761ff38c9845b697f2",
+        "m4a_sha256": "2442418537af3c9f3c8453d697dd1ae33645430ad20c0c3389a05a9ba26bf0ae",
+        "plan_sha256": "d34660002f8c6b5ba7667cc75e1b7441afde16bcce748ca1f30ddd4306f88a79"
+      },
+      "maximum_sample_jump_ratio": 0.016358,
+      "semantic_content_coverage": {
+        "remove_sentence_0025": true,
+        "remove_sentence_0027": true,
+        "remove_sentence_0029": true,
+        "remove_sentence_0031": true
+      },
+      "semantic_content_fully_covered": true,
+      "passed": true,
+      "manifest_semantic_guard": {
+        "remove_sentence_0025": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0027": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0029": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        },
+        "remove_sentence_0031": {
+          "removed_content_missed_ms": 0,
+          "kept_content_intrusion_ms": 0
+        }
+      },
+      "removed_sentence_fully_covered": true,
+      "kept_content_intrusion_total_ms": 0,
+      "ctc_anchor_duration_ratios": {
+        "remove_sentence_0025": 1.0,
+        "remove_sentence_0027": 1.006731,
+        "remove_sentence_0029": 1.011529,
+        "remove_sentence_0031": 0.897727
+      },
+      "minimum_ctc_anchor_duration_ratio": 0.897727
+    }
+  },
+  "blind_files": {
+    "A": {
+      "probe": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-listening/20260710-sample03-s24-s32/full/A.m4a",
+        "duration_ms": 30969,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "sha256": "2442418537af3c9f3c8453d697dd1ae33645430ad20c0c3389a05a9ba26bf0ae"
+    },
+    "B": {
+      "probe": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-listening/20260710-sample03-s24-s32/full/B.m4a",
+        "duration_ms": 31054,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "sha256": "a7ad5d17a8003008c05a8938c9b2340c7015b8bc9e18f79f61535de27a5d394e"
+    },
+    "C": {
+      "probe": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-listening/20260710-sample03-s24-s32/full/C.m4a",
+        "duration_ms": 30674,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "sha256": "8d7638a2ccafe4b13e0bb91507a45dce8f017e259c5c2da6a2d94e1aa981dc30"
+    },
+    "D": {
+      "probe": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/sentence-cutpoint-listening/20260710-sample03-s24-s32/full/D.m4a",
+        "duration_ms": 30664,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "sha256": "723e7756963e7188a604af46ed71df2f9005073c6906221b988ee3bd2412d462"
+    }
+  },
+  "zoom": {
+    "cut_count": 4,
+    "cuts": [
+      {
+        "cut_index": 1,
+        "label": "remove_sentence_0025",
+        "reference_clip_start_ms": 1200,
+        "reference_clip_end_ms": 8000,
+        "strategy_join_output_ms": {
+          "hybrid_safe": 2398,
+          "ctc_char": 2398,
+          "funasr_direct": 2398,
+          "mfa_word": 2298
+        }
+      },
+      {
+        "cut_index": 2,
+        "label": "remove_sentence_0027",
+        "reference_clip_start_ms": 8200,
+        "reference_clip_end_ms": 16560,
+        "strategy_join_output_ms": {
+          "hybrid_safe": 5734,
+          "ctc_char": 5734,
+          "funasr_direct": 5594,
+          "mfa_word": 5514
+        }
+      },
+      {
+        "cut_index": 3,
+        "label": "remove_sentence_0029",
+        "reference_clip_start_ms": 29560,
+        "reference_clip_end_ms": 40920,
+        "strategy_join_output_ms": {
+          "hybrid_safe": 21820,
+          "ctc_char": 21950,
+          "funasr_direct": 21590,
+          "mfa_word": 21510
+        }
+      },
+      {
+        "cut_index": 4,
+        "label": "remove_sentence_0031",
+        "reference_clip_start_ms": 45920,
+        "reference_clip_end_ms": 48650,
+        "strategy_join_output_ms": {
+          "hybrid_safe": 29836,
+          "ctc_char": 29946,
+          "funasr_direct": 29586,
+          "mfa_word": 29516
+        }
+      }
+    ]
+  }
+}

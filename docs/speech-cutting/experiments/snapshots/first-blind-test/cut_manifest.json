@@ -1,0 +1,553 @@
+{
+  "schema_version": 1,
+  "sample_id": "sample03-30s",
+  "source": {
+    "audio_path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/samples/wav/sample_03.wav",
+    "audio_sha256": "83a1b516b82979d6d379b81370e6928b6e6cea2d1033e5332652143b54c04473",
+    "transcript_path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/real-audio-comparison/20260607-173520/sample_03/transcript.json",
+    "transcript_sha256": "5803628e07142fb93b9a25d1aa80b57c57b1dea40660432d23945958028d5a7a",
+    "window_start_ms": 240,
+    "window_end_ms": 35920,
+    "window_duration_ms": 35680,
+    "reference_text_sha256": "0f225f9452667709ca5d11b93935532aa83e465f0b021453c773d3c99b8789d1"
+  },
+  "render": {
+    "crossfade_ms": 4,
+    "wav": "48kHz mono PCM s16le",
+    "m4a": "48kHz mono AAC 192kbps"
+  },
+  "semantic_removals": [
+    {
+      "label": "remove_question",
+      "removed_text": "嗯，那我们是干什么的老师呢？",
+      "left_kept_text": "老师。",
+      "right_kept_text": "啊，",
+      "funasr_estimate": {
+        "start_ms": 3360,
+        "end_ms": 5160
+      }
+    },
+    {
+      "label": "remove_intro_filler_1",
+      "removed_text": "嗯，那",
+      "left_kept_text": "的。",
+      "right_kept_text": "今天我们",
+      "funasr_estimate": {
+        "start_ms": 6800,
+        "end_ms": 7760
+      }
+    },
+    {
+      "label": "remove_inner_er",
+      "removed_text": "呃",
+      "left_kept_text": "今天我们",
+      "right_kept_text": "非常",
+      "funasr_estimate": {
+        "start_ms": 8920,
+        "end_ms": 9120
+      }
+    },
+    {
+      "label": "remove_intro_filler_2",
+      "removed_text": "啊，那",
+      "left_kept_text": "需求。",
+      "right_kept_text": "接下来",
+      "funasr_estimate": {
+        "start_ms": 14240,
+        "end_ms": 14960
+      }
+    },
+    {
+      "label": "remove_intro_filler_3",
+      "removed_text": "啊，那",
+      "left_kept_text": "来。",
+      "right_kept_text": "第一个",
+      "funasr_estimate": {
+        "start_ms": 18120,
+        "end_ms": 18800
+      }
+    },
+    {
+      "label": "remove_redundant_prompt",
+      "removed_text": "你可以讲一讲",
+      "left_kept_text": "老师",
+      "right_kept_text": "为什么",
+      "funasr_estimate": {
+        "start_ms": 22080,
+        "end_ms": 23200
+      }
+    },
+    {
+      "label": "remove_terminal_filler",
+      "removed_text": "啊。",
+      "left_kept_text": "学员",
+      "right_kept_text": "其实",
+      "funasr_estimate": {
+        "start_ms": 26880,
+        "end_ms": 27440
+      }
+    },
+    {
+      "label": "remove_repeated_lead_in",
+      "removed_text": "啊，嗯，我们其实",
+      "left_kept_text": "个月",
+      "right_kept_text": "培训",
+      "funasr_estimate": {
+        "start_ms": 28200,
+        "end_ms": 28880
+      }
+    }
+  ],
+  "plans": {
+    "funasr_direct": {
+      "strategy": "funasr_direct",
+      "fallback_side_count": 0,
+      "removals": [
+        {
+          "label": "remove_question",
+          "start_ms": 3360,
+          "end_ms": 5160,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 3560,
+          "removed_content_end_ms": 5080
+        },
+        {
+          "label": "remove_intro_filler_1",
+          "start_ms": 6800,
+          "end_ms": 7760,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 7040,
+          "removed_content_end_ms": 7760
+        },
+        {
+          "label": "remove_inner_er",
+          "start_ms": 8920,
+          "end_ms": 9120,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 8920,
+          "removed_content_end_ms": 9120
+        },
+        {
+          "label": "remove_intro_filler_2",
+          "start_ms": 14240,
+          "end_ms": 14960,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 14560,
+          "removed_content_end_ms": 14960
+        },
+        {
+          "label": "remove_intro_filler_3",
+          "start_ms": 18120,
+          "end_ms": 18800,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 18440,
+          "removed_content_end_ms": 18800
+        },
+        {
+          "label": "remove_redundant_prompt",
+          "start_ms": 22080,
+          "end_ms": 23200,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 22080,
+          "removed_content_end_ms": 23200
+        },
+        {
+          "label": "remove_terminal_filler",
+          "start_ms": 26880,
+          "end_ms": 27440,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 26880,
+          "removed_content_end_ms": 27000
+        },
+        {
+          "label": "remove_repeated_lead_in",
+          "start_ms": 28200,
+          "end_ms": 28880,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 28200,
+          "removed_content_end_ms": 28880
+        }
+      ]
+    },
+    "ctc_char": {
+      "strategy": "ctc_char",
+      "fallback_side_count": 0,
+      "removals": [
+        {
+          "label": "remove_question",
+          "start_ms": 3260,
+          "end_ms": 5180,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 3260,
+          "removed_content_end_ms": 5180
+        },
+        {
+          "label": "remove_intro_filler_1",
+          "start_ms": 6680,
+          "end_ms": 7620,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 6680,
+          "removed_content_end_ms": 7620
+        },
+        {
+          "label": "remove_inner_er",
+          "start_ms": 8720,
+          "end_ms": 9040,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 8720,
+          "removed_content_end_ms": 9040
+        },
+        {
+          "label": "remove_intro_filler_2",
+          "start_ms": 14380,
+          "end_ms": 14880,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 14380,
+          "removed_content_end_ms": 14880
+        },
+        {
+          "label": "remove_intro_filler_3",
+          "start_ms": 18240,
+          "end_ms": 18720,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 18240,
+          "removed_content_end_ms": 18720
+        },
+        {
+          "label": "remove_redundant_prompt",
+          "start_ms": 21980,
+          "end_ms": 23040,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 21980,
+          "removed_content_end_ms": 23040
+        },
+        {
+          "label": "remove_terminal_filler",
+          "start_ms": 26820,
+          "end_ms": 27140,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 26820,
+          "removed_content_end_ms": 27140
+        },
+        {
+          "label": "remove_repeated_lead_in",
+          "start_ms": 28080,
+          "end_ms": 28840,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 28080,
+          "removed_content_end_ms": 28840
+        }
+      ]
+    },
+    "mfa_word": {
+      "strategy": "mfa_word",
+      "fallback_side_count": 0,
+      "removals": [
+        {
+          "label": "remove_question",
+          "start_ms": 3300,
+          "end_ms": 5110,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 3540,
+          "removed_content_end_ms": 5070
+        },
+        {
+          "label": "remove_intro_filler_1",
+          "start_ms": 6680,
+          "end_ms": 7690,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 6970,
+          "removed_content_end_ms": 7690
+        },
+        {
+          "label": "remove_inner_er",
+          "start_ms": 8630,
+          "end_ms": 9090,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 8840,
+          "removed_content_end_ms": 9090
+        },
+        {
+          "label": "remove_intro_filler_2",
+          "start_ms": 14210,
+          "end_ms": 14920,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 14480,
+          "removed_content_end_ms": 14920
+        },
+        {
+          "label": "remove_intro_filler_3",
+          "start_ms": 18070,
+          "end_ms": 18700,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 18380,
+          "removed_content_end_ms": 18700
+        },
+        {
+          "label": "remove_redundant_prompt",
+          "start_ms": 21990,
+          "end_ms": 23120,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 21990,
+          "removed_content_end_ms": 22940
+        },
+        {
+          "label": "remove_terminal_filler",
+          "start_ms": 26770,
+          "end_ms": 27380,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 26770,
+          "removed_content_end_ms": 26910
+        },
+        {
+          "label": "remove_repeated_lead_in",
+          "start_ms": 28080,
+          "end_ms": 28810,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 28080,
+          "removed_content_end_ms": 28810
+        }
+      ]
+    },
+    "hybrid_safe": {
+      "strategy": "hybrid_safe",
+      "fallback_side_count": 0,
+      "removals": [
+        {
+          "label": "remove_question",
+          "start_ms": 3155,
+          "end_ms": 5180,
+          "start_source": "hybrid_safe_rms",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": -105,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 3260,
+          "removed_content_end_ms": 5180
+        },
+        {
+          "label": "remove_intro_filler_1",
+          "start_ms": 6680,
+          "end_ms": 7705,
+          "start_source": "ctc_char",
+          "end_source": "hybrid_safe_rms",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 85,
+          "removed_content_start_ms": 6680,
+          "removed_content_end_ms": 7620
+        },
+        {
+          "label": "remove_inner_er",
+          "start_ms": 8720,
+          "end_ms": 9145,
+          "start_source": "ctc_char",
+          "end_source": "hybrid_safe_rms",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 105,
+          "removed_content_start_ms": 8720,
+          "removed_content_end_ms": 9040
+        },
+        {
+          "label": "remove_intro_filler_2",
+          "start_ms": 14245,
+          "end_ms": 14955,
+          "start_source": "hybrid_safe_rms",
+          "end_source": "hybrid_safe_rms",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": -135,
+          "end_adjustment_ms": 75,
+          "removed_content_start_ms": 14380,
+          "removed_content_end_ms": 14880
+        },
+        {
+          "label": "remove_intro_filler_3",
+          "start_ms": 18240,
+          "end_ms": 18775,
+          "start_source": "ctc_char",
+          "end_source": "hybrid_safe_rms",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 55,
+          "removed_content_start_ms": 18240,
+          "removed_content_end_ms": 18720
+        },
+        {
+          "label": "remove_redundant_prompt",
+          "start_ms": 21885,
+          "end_ms": 23135,
+          "start_source": "hybrid_safe_rms",
+          "end_source": "hybrid_safe_rms",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": -95,
+          "end_adjustment_ms": 95,
+          "removed_content_start_ms": 21980,
+          "removed_content_end_ms": 23040
+        },
+        {
+          "label": "remove_terminal_filler",
+          "start_ms": 26820,
+          "end_ms": 27235,
+          "start_source": "ctc_char",
+          "end_source": "hybrid_safe_rms",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 95,
+          "removed_content_start_ms": 26820,
+          "removed_content_end_ms": 27140
+        },
+        {
+          "label": "remove_repeated_lead_in",
+          "start_ms": 28080,
+          "end_ms": 28840,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 28080,
+          "removed_content_end_ms": 28840
+        }
+      ]
+    }
+  },
+  "alignment_evidence": {
+    "funasr_word_count": 132,
+    "ctc_word_count": 214,
+    "mfa_word_count": 147,
+    "mfa_metadata": {
+      "command": "mfa",
+      "model": "MontrealCorpusTools/mandarin_mfa"
+    },
+    "mfa_fallback_side_count": 0
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "source_video": "sample.mp4",
+  "selected_segment_ids": ["seg_001"],
+  "segments": [
+    {
+      "id": "seg_001",
+      "start_ms": 1000,
+      "end_ms": 1800,
+      "text": "测试句子",
+      "tokens": [
+        {"text": "测", "start_ms": 1100, "end_ms": 1200, "confidence": 0.95},
+        {"text": "试", "start_ms": 1240, "end_ms": 1320, "confidence": 0.94},
+        {"text": "句", "start_ms": 1500, "end_ms": 1600, "confidence": 0.93},
+        {"text": "子", "start_ms": 1610, "end_ms": 1680, "confidence": 0.93}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "experiment_type": "sentence_deletion",
+  "sample_id": "sample03-sentence24-32",
+  "source": {
+    "audio_path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/samples/wav/sample_03.wav",
+    "audio_sha256": "83a1b516b82979d6d379b81370e6928b6e6cea2d1033e5332652143b54c04473",
+    "transcript_path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/real-audio-comparison/20260607-173520/sample_03/transcript.json",
+    "transcript_sha256": "5803628e07142fb93b9a25d1aa80b57c57b1dea40660432d23945958028d5a7a",
+    "window_start_ms": 105650,
+    "window_end_ms": 154300,
+    "window_duration_ms": 48650,
+    "reference_text_sha256": "3a75d4af4c868c4256ee27d6c6cb77c3ed9d3dd3e0675c72960c168c1351d6ee"
+  },
+  "render": {
+    "crossfade_ms": 4,
+    "wav": "48kHz mono PCM s16le",
+    "m4a": "48kHz mono AAC 192kbps"
+  },
+  "semantic_removals": [
+    {
+      "label": "remove_sentence_0025",
+      "removed_text": "嗯，但是问题是产品经理是完全用一个健全人的思维在在在思考。",
+      "left_kept_text": "的。",
+      "right_kept_text": "这个",
+      "funasr_estimate": {
+        "start_ms": 2400,
+        "end_ms": 6200
+      }
+    },
+    {
+      "label": "remove_sentence_0027",
+      "removed_text": "而且这个好像上上去反馈，他要修改的话，呃，我不知道排期会排到什么时候啊。",
+      "left_kept_text": "在哪里。",
+      "right_kept_text": "课",
+      "funasr_estimate": {
+        "start_ms": 9400,
+        "end_ms": 14760
+      }
+    },
+    {
+      "label": "remove_sentence_0029",
+      "removed_text": "嗯，啊，但是这些吐槽的信息他们不知道怎么样才能够让这些做工具的人真正看到他们的这些反馈，对。",
+      "left_kept_text": "困难。",
+      "right_kept_text": "啊，",
+      "funasr_estimate": {
+        "start_ms": 30760,
+        "end_ms": 39120
+      }
+    },
+    {
+      "label": "remove_sentence_0031",
+      "removed_text": "对对对。",
+      "left_kept_text": "连接。",
+      "right_kept_text": "啊，",
+      "funasr_estimate": {
+        "start_ms": 47120,
+        "end_ms": 47560
+      }
+    }
+  ],
+  "plans": {
+    "funasr_direct": {
+      "strategy": "funasr_direct",
+      "fallback_side_count": 0,
+      "removals": [
+        {
+          "label": "remove_sentence_0025",
+          "start_ms": 2400,
+          "end_ms": 6200,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 2520,
+          "removed_content_end_ms": 6080
+        },
+        {
+          "label": "remove_sentence_0027",
+          "start_ms": 9400,
+          "end_ms": 14760,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 9560,
+          "removed_content_end_ms": 14600
+        },
+        {
+          "label": "remove_sentence_0029",
+          "start_ms": 30760,
+          "end_ms": 39120,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 30920,
+          "removed_content_end_ms": 39080
+        },
+        {
+          "label": "remove_sentence_0031",
+          "start_ms": 47120,
+          "end_ms": 47560,
+          "start_source": "funasr_direct",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 47200,
+          "removed_content_end_ms": 47480
+        }
+      ]
+    },
+    "ctc_char": {
+      "strategy": "ctc_char",
+      "fallback_side_count": 0,
+      "removals": [
+        {
+          "label": "remove_sentence_0025",
+          "start_ms": 2400,
+          "end_ms": 6100,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 2400,
+          "removed_content_end_ms": 6100
+        },
+        {
+          "label": "remove_sentence_0027",
+          "start_ms": 9440,
+          "end_ms": 14640,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 9440,
+          "removed_content_end_ms": 14640
+        },
+        {
+          "label": "remove_sentence_0029",
+          "start_ms": 30860,
+          "end_ms": 39100,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 30860,
+          "removed_content_end_ms": 39100
+        },
+        {
+          "label": "remove_sentence_0031",
+          "start_ms": 47100,
+          "end_ms": 47540,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 47100,
+          "removed_content_end_ms": 47540
+        }
+      ]
+    },
+    "mfa_word": {
+      "strategy": "mfa_word",
+      "fallback_side_count": 1,
+      "removals": [
+        {
+          "label": "remove_sentence_0025",
+          "start_ms": 2300,
+          "end_ms": 6160,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 2410,
+          "removed_content_end_ms": 6070
+        },
+        {
+          "label": "remove_sentence_0027",
+          "start_ms": 9380,
+          "end_ms": 14760,
+          "start_source": "mfa_word",
+          "end_source": "funasr_direct",
+          "start_fallback_reason": null,
+          "end_fallback_reason": "target text could not be mapped unambiguously to aligned tokens",
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 9520,
+          "removed_content_end_ms": 14590
+        },
+        {
+          "label": "remove_sentence_0029",
+          "start_ms": 30760,
+          "end_ms": 39110,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 30870,
+          "removed_content_end_ms": 39110
+        },
+        {
+          "label": "remove_sentence_0031",
+          "start_ms": 47120,
+          "end_ms": 47500,
+          "start_source": "mfa_word",
+          "end_source": "mfa_word",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 47120,
+          "removed_content_end_ms": 47500
+        }
+      ]
+    },
+    "hybrid_safe": {
+      "strategy": "hybrid_safe",
+      "fallback_side_count": 0,
+      "removals": [
+        {
+          "label": "remove_sentence_0025",
+          "start_ms": 2400,
+          "end_ms": 6100,
+          "start_source": "ctc_char",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 2520,
+          "removed_content_end_ms": 6080
+        },
+        {
+          "label": "remove_sentence_0027",
+          "start_ms": 9440,
+          "end_ms": 14675,
+          "start_source": "ctc_char",
+          "end_source": "hybrid_safe_rms",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 0,
+          "end_adjustment_ms": 35,
+          "removed_content_start_ms": 9560,
+          "removed_content_end_ms": 14600
+        },
+        {
+          "label": "remove_sentence_0029",
+          "start_ms": 30765,
+          "end_ms": 39100,
+          "start_source": "hybrid_safe_rms",
+          "end_source": "ctc_char",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": -95,
+          "end_adjustment_ms": 0,
+          "removed_content_start_ms": 30920,
+          "removed_content_end_ms": 39080
+        },
+        {
+          "label": "remove_sentence_0031",
+          "start_ms": 47120,
+          "end_ms": 47515,
+          "start_source": "hybrid_safe_rms",
+          "end_source": "hybrid_safe_rms",
+          "start_fallback_reason": null,
+          "end_fallback_reason": null,
+          "start_adjustment_ms": 20,
+          "end_adjustment_ms": -25,
+          "removed_content_start_ms": 47200,
+          "removed_content_end_ms": 47480
+        }
+      ]
+    }
+  },
+  "alignment_evidence": {
+    "funasr_word_count": 171,
+    "ctc_word_count": 288,
+    "mfa_word_count": 187,
+    "mfa_metadata": {
+      "command": "mfa",
+      "model": "MontrealCorpusTools/mandarin_mfa"
+    },
+    "mfa_fallback_side_count": 1
+  }
+}

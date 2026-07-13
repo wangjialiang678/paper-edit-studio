@@ -1,0 +1,16 @@
+{
+  "agent": "A",
+  "task": "Token Padding Baseline",
+  "status": "done",
+  "files_changed": [
+    "src/cutpoint_lab/strategies.py",
+    "tests/test_cutpoint_token_padding.py"
+  ],
+  "tests_added": [
+    "tests/test_cutpoint_token_padding.py::TokenPaddingAgentATests covers fixture loading, unknown selected IDs, token sorting across merged ranges, invalid token filtering, token padding, segment fallback padding, merge-gap behavior, media clamp, and metadata preservation."
+  ],
+  "test_command": "PYTHONPATH=src python3 -m unittest discover -s tests",
+  "test_result": "pass",
+  "known_issues": [],
+  "notes": "Implemented deterministic token_padding behavior for selected transcript segments. The strategy uses the earliest valid token start and latest valid token end across each merged selected range, applies default pre/post padding, clamps to duration_ms when present, preserves source_segment_ids/adjustment_reason/confidence, and raises on unknown selected_segment_ids. Fallback is segment boundary padding when a selected range has no valid tokens. This baseline does not inspect audio, RMS, or VAD, so natural silence or breath-point snapping remains for agents B/C."
+}

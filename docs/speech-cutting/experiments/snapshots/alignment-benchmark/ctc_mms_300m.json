@@ -1,0 +1,2497 @@
+{
+  "schema_version": 1,
+  "provider": "ctc_mms_300m",
+  "case_set_fingerprint": "fa11670c83d0785b7a227f756ca895125c97496c6a01a6ba425c0f9deb6811cc",
+  "results": [
+    {
+      "case_id": "sample_01-b000000560-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "哈",
+          "start_ms": 360,
+          "end_ms": 500,
+          "score": -0.23946383595466614
+        },
+        {
+          "text": "喽",
+          "start_ms": 500,
+          "end_ms": 880,
+          "score": -0.6566821932792664
+        },
+        {
+          "text": "各",
+          "start_ms": 880,
+          "end_ms": 1140,
+          "score": -0.39212775230407715
+        },
+        {
+          "text": "位",
+          "start_ms": 1140,
+          "end_ms": 1280,
+          "score": -0.11460929363965988
+        },
+        {
+          "text": "极",
+          "start_ms": 1280,
+          "end_ms": 1380,
+          "score": -0.13395100831985474
+        },
+        {
+          "text": "客",
+          "start_ms": 1380,
+          "end_ms": 1480,
+          "score": -0.6466901302337646
+        },
+        {
+          "text": "同",
+          "start_ms": 1480,
+          "end_ms": 1640,
+          "score": -0.12998972833156586
+        },
+        {
+          "text": "学",
+          "start_ms": 1640,
+          "end_ms": 1760,
+          "score": -3.8087244033813477
+        },
+        {
+          "text": "们",
+          "start_ms": 1760,
+          "end_ms": 1920,
+          "score": -2.056028127670288
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_01-b000001040-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "哈",
+          "start_ms": 360,
+          "end_ms": 500,
+          "score": -0.5090738534927368
+        },
+        {
+          "text": "喽",
+          "start_ms": 500,
+          "end_ms": 880,
+          "score": -1.6921491622924805
+        },
+        {
+          "text": "各",
+          "start_ms": 880,
+          "end_ms": 1140,
+          "score": -0.8676563501358032
+        },
+        {
+          "text": "位",
+          "start_ms": 1140,
+          "end_ms": 1280,
+          "score": -0.19151219725608826
+        },
+        {
+          "text": "极",
+          "start_ms": 1280,
+          "end_ms": 1380,
+          "score": -0.2269609570503235
+        },
+        {
+          "text": "客",
+          "start_ms": 1380,
+          "end_ms": 1480,
+          "score": -0.814372718334198
+        },
+        {
+          "text": "同",
+          "start_ms": 1480,
+          "end_ms": 1640,
+          "score": -0.28724271059036255
+        },
+        {
+          "text": "学",
+          "start_ms": 1640,
+          "end_ms": 1760,
+          "score": -2.87251615524292
+        },
+        {
+          "text": "们",
+          "start_ms": 1760,
+          "end_ms": 2120,
+          "score": -3.0738377571105957
+        },
+        {
+          "text": "欢",
+          "start_ms": 2120,
+          "end_ms": 2480,
+          "score": -8.36587905883789
+        },
+        {
+          "text": "迎",
+          "start_ms": 2480,
+          "end_ms": 2560,
+          "score": -7.5444416999816895
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_01-b000014680-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "是",
+          "start_ms": 20,
+          "end_ms": 100,
+          "score": -7.678887844085693
+        },
+        {
+          "text": "因",
+          "start_ms": 100,
+          "end_ms": 200,
+          "score": -0.14374390244483948
+        },
+        {
+          "text": "为",
+          "start_ms": 200,
+          "end_ms": 300,
+          "score": -0.03487217426300049
+        },
+        {
+          "text": "它",
+          "start_ms": 300,
+          "end_ms": 440,
+          "score": -0.14083844423294067
+        },
+        {
+          "text": "能",
+          "start_ms": 440,
+          "end_ms": 580,
+          "score": -0.39192676544189453
+        },
+        {
+          "text": "改",
+          "start_ms": 580,
+          "end_ms": 740,
+          "score": -0.4548061788082123
+        },
+        {
+          "text": "变",
+          "start_ms": 740,
+          "end_ms": 920,
+          "score": -0.07427649199962616
+        },
+        {
+          "text": "世",
+          "start_ms": 920,
+          "end_ms": 1080,
+          "score": -0.4590792655944824
+        },
+        {
+          "text": "界",
+          "start_ms": 1080,
+          "end_ms": 1480,
+          "score": -0.5559908151626587
+        },
+        {
+          "text": "但",
+          "start_ms": 1480,
+          "end_ms": 1880,
+          "score": -0.1282377392053604
+        },
+        {
+          "text": "今",
+          "start_ms": 1880,
+          "end_ms": 2080,
+          "score": -0.7595446109771729
+        },
+        {
+          "text": "天",
+          "start_ms": 2080,
+          "end_ms": 2440,
+          "score": -0.15326830744743347
+        },
+        {
+          "text": "我",
+          "start_ms": 2440,
+          "end_ms": 2680,
+          "score": -0.1153380274772644
+        },
+        {
+          "text": "想",
+          "start_ms": 2680,
+          "end_ms": 2840,
+          "score": -0.693185567855835
+        },
+        {
+          "text": "邀",
+          "start_ms": 2840,
+          "end_ms": 2980,
+          "score": -0.2647804617881775
+        },
+        {
+          "text": "请",
+          "start_ms": 2980,
+          "end_ms": 3120,
+          "score": -0.3843323290348053
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_01-b000001320-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "哈",
+          "start_ms": 360,
+          "end_ms": 500,
+          "score": -0.4639122784137726
+        },
+        {
+          "text": "喽",
+          "start_ms": 500,
+          "end_ms": 880,
+          "score": -1.2434903383255005
+        },
+        {
+          "text": "各",
+          "start_ms": 880,
+          "end_ms": 1140,
+          "score": -0.6834922432899475
+        },
+        {
+          "text": "位",
+          "start_ms": 1140,
+          "end_ms": 1280,
+          "score": -0.1426919400691986
+        },
+        {
+          "text": "极",
+          "start_ms": 1280,
+          "end_ms": 1380,
+          "score": -0.1491108387708664
+        },
+        {
+          "text": "客",
+          "start_ms": 1380,
+          "end_ms": 1480,
+          "score": -0.6350696086883545
+        },
+        {
+          "text": "同",
+          "start_ms": 1480,
+          "end_ms": 1640,
+          "score": -0.19769741594791412
+        },
+        {
+          "text": "学",
+          "start_ms": 1640,
+          "end_ms": 1760,
+          "score": -2.9862895011901855
+        },
+        {
+          "text": "们",
+          "start_ms": 1760,
+          "end_ms": 2120,
+          "score": -2.414651870727539
+        },
+        {
+          "text": "欢",
+          "start_ms": 2120,
+          "end_ms": 2460,
+          "score": -4.487040042877197
+        },
+        {
+          "text": "迎",
+          "start_ms": 2460,
+          "end_ms": 2620,
+          "score": -1.2730435132980347
+        },
+        {
+          "text": "来",
+          "start_ms": 2620,
+          "end_ms": 2720,
+          "score": -0.4441085457801819
+        },
+        {
+          "text": "到",
+          "start_ms": 2720,
+          "end_ms": 2820,
+          "score": -0.7707741260528564
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_01-b000002000-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "喽",
+          "start_ms": 20,
+          "end_ms": 320,
+          "score": -15.208571434020996
+        },
+        {
+          "text": "各",
+          "start_ms": 320,
+          "end_ms": 580,
+          "score": -0.8791463375091553
+        },
+        {
+          "text": "位",
+          "start_ms": 580,
+          "end_ms": 720,
+          "score": -0.10107848793268204
+        },
+        {
+          "text": "极",
+          "start_ms": 720,
+          "end_ms": 820,
+          "score": -0.10747754573822021
+        },
+        {
+          "text": "客",
+          "start_ms": 820,
+          "end_ms": 920,
+          "score": -0.3326514661312103
+        },
+        {
+          "text": "同",
+          "start_ms": 920,
+          "end_ms": 1080,
+          "score": -0.10400130599737167
+        },
+        {
+          "text": "学",
+          "start_ms": 1080,
+          "end_ms": 1200,
+          "score": -1.2843704223632812
+        },
+        {
+          "text": "们",
+          "start_ms": 1200,
+          "end_ms": 1560,
+          "score": -0.830388605594635
+        },
+        {
+          "text": "欢",
+          "start_ms": 1560,
+          "end_ms": 1900,
+          "score": -1.2098444700241089
+        },
+        {
+          "text": "迎",
+          "start_ms": 1900,
+          "end_ms": 2060,
+          "score": -0.8129082918167114
+        },
+        {
+          "text": "来",
+          "start_ms": 2060,
+          "end_ms": 2160,
+          "score": -0.11157350242137909
+        },
+        {
+          "text": "到",
+          "start_ms": 2160,
+          "end_ms": 2300,
+          "score": -0.17041704058647156
+        },
+        {
+          "text": "本",
+          "start_ms": 2300,
+          "end_ms": 2460,
+          "score": -0.12610073387622833
+        },
+        {
+          "text": "次",
+          "start_ms": 2460,
+          "end_ms": 2680,
+          "score": -3.4190919399261475
+        },
+        {
+          "text": "A",
+          "start_ms": 2680,
+          "end_ms": 2800,
+          "score": -0.7756253480911255
+        },
+        {
+          "text": "I",
+          "start_ms": 2800,
+          "end_ms": 2860,
+          "score": -0.1133815124630928
+        },
+        {
+          "text": "冬",
+          "start_ms": 2860,
+          "end_ms": 3020,
+          "score": -0.5715566873550415
+        },
+        {
+          "text": "令",
+          "start_ms": 3020,
+          "end_ms": 3120,
+          "score": -7.315867900848389
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_01-b000019720-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "身",
+          "start_ms": 20,
+          "end_ms": 120,
+          "score": -27.85633659362793
+        },
+        {
+          "text": "边",
+          "start_ms": 120,
+          "end_ms": 260,
+          "score": -1.4128433465957642
+        },
+        {
+          "text": "的",
+          "start_ms": 260,
+          "end_ms": 400,
+          "score": -1.5328330993652344
+        },
+        {
+          "text": "群",
+          "start_ms": 400,
+          "end_ms": 660,
+          "score": -0.8319405913352966
+        },
+        {
+          "text": "特",
+          "start_ms": 660,
+          "end_ms": 800,
+          "score": -0.011829986236989498
+        },
+        {
+          "text": "殊",
+          "start_ms": 800,
+          "end_ms": 980,
+          "score": -1.4802130460739136
+        },
+        {
+          "text": "朋",
+          "start_ms": 980,
+          "end_ms": 1180,
+          "score": -3.1572561264038086
+        },
+        {
+          "text": "友",
+          "start_ms": 1180,
+          "end_ms": 1600,
+          "score": -0.009453081525862217
+        },
+        {
+          "text": "科",
+          "start_ms": 1600,
+          "end_ms": 2080,
+          "score": -0.020864291116595268
+        },
+        {
+          "text": "技",
+          "start_ms": 2080,
+          "end_ms": 2240,
+          "score": -0.0031396944541484118
+        },
+        {
+          "text": "的",
+          "start_ms": 2240,
+          "end_ms": 2360,
+          "score": -0.00873743835836649
+        },
+        {
+          "text": "最",
+          "start_ms": 2360,
+          "end_ms": 2540,
+          "score": -0.23449566960334778
+        },
+        {
+          "text": "高",
+          "start_ms": 2540,
+          "end_ms": 2740,
+          "score": -0.014776957221329212
+        },
+        {
+          "text": "级",
+          "start_ms": 2740,
+          "end_ms": 2860,
+          "score": -0.0037280358374118805
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_01-b000001440-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "哈",
+          "start_ms": 360,
+          "end_ms": 500,
+          "score": -0.33022838830947876
+        },
+        {
+          "text": "喽",
+          "start_ms": 500,
+          "end_ms": 880,
+          "score": -0.9175724983215332
+        },
+        {
+          "text": "各",
+          "start_ms": 880,
+          "end_ms": 1140,
+          "score": -0.36488619446754456
+        },
+        {
+          "text": "位",
+          "start_ms": 1140,
+          "end_ms": 1280,
+          "score": -0.11635589599609375
+        },
+        {
+          "text": "极",
+          "start_ms": 1280,
+          "end_ms": 1380,
+          "score": -0.046736568212509155
+        },
+        {
+          "text": "客",
+          "start_ms": 1380,
+          "end_ms": 1480,
+          "score": -0.8853414058685303
+        },
+        {
+          "text": "同",
+          "start_ms": 1480,
+          "end_ms": 1640,
+          "score": -0.10723573714494705
+        },
+        {
+          "text": "学",
+          "start_ms": 1640,
+          "end_ms": 1760,
+          "score": -1.7160608768463135
+        },
+        {
+          "text": "们",
+          "start_ms": 1760,
+          "end_ms": 2120,
+          "score": -1.4440348148345947
+        },
+        {
+          "text": "欢",
+          "start_ms": 2120,
+          "end_ms": 2460,
+          "score": -1.6966999769210815
+        },
+        {
+          "text": "迎",
+          "start_ms": 2460,
+          "end_ms": 2620,
+          "score": -1.0764051675796509
+        },
+        {
+          "text": "来",
+          "start_ms": 2620,
+          "end_ms": 2720,
+          "score": -0.19804377853870392
+        },
+        {
+          "text": "到",
+          "start_ms": 2720,
+          "end_ms": 2860,
+          "score": -0.30240052938461304
+        },
+        {
+          "text": "本",
+          "start_ms": 2860,
+          "end_ms": 3020,
+          "score": -0.10285354405641556
+        },
+        {
+          "text": "次",
+          "start_ms": 3020,
+          "end_ms": 3120,
+          "score": -1.930018663406372
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_01-b000005280-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "令",
+          "start_ms": 20,
+          "end_ms": 100,
+          "score": -13.101171493530273
+        },
+        {
+          "text": "营",
+          "start_ms": 100,
+          "end_ms": 200,
+          "score": -10.929108619689941
+        },
+        {
+          "text": "的",
+          "start_ms": 200,
+          "end_ms": 280,
+          "score": -1.3419420719146729
+        },
+        {
+          "text": "公",
+          "start_ms": 280,
+          "end_ms": 440,
+          "score": -0.15362468361854553
+        },
+        {
+          "text": "益",
+          "start_ms": 440,
+          "end_ms": 520,
+          "score": -1.0011510848999023
+        },
+        {
+          "text": "挑",
+          "start_ms": 520,
+          "end_ms": 720,
+          "score": -0.603356122970581
+        },
+        {
+          "text": "战",
+          "start_ms": 720,
+          "end_ms": 880,
+          "score": -0.5841159224510193
+        },
+        {
+          "text": "赛",
+          "start_ms": 880,
+          "end_ms": 1060,
+          "score": -0.07196973264217377
+        },
+        {
+          "text": "道",
+          "start_ms": 1060,
+          "end_ms": 1460,
+          "score": -0.19074977934360504
+        },
+        {
+          "text": "我",
+          "start_ms": 1460,
+          "end_ms": 1800,
+          "score": -0.12522271275520325
+        },
+        {
+          "text": "来",
+          "start_ms": 1800,
+          "end_ms": 1960,
+          "score": -0.02528192847967148
+        },
+        {
+          "text": "自",
+          "start_ms": 1960,
+          "end_ms": 2420,
+          "score": -18.799104690551758
+        },
+        {
+          "text": "残",
+          "start_ms": 2420,
+          "end_ms": 2760,
+          "score": -1.7542718648910522
+        },
+        {
+          "text": "障",
+          "start_ms": 2760,
+          "end_ms": 2940,
+          "score": -0.8979885578155518
+        },
+        {
+          "text": "融",
+          "start_ms": 2940,
+          "end_ms": 3100,
+          "score": -0.3721139430999756
+        },
+        {
+          "text": "合",
+          "start_ms": 3100,
+          "end_ms": 3160,
+          "score": -0.02388639561831951
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_02-b000000400-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大",
+          "start_ms": 60,
+          "end_ms": 140,
+          "score": -3.878704786300659
+        },
+        {
+          "text": "家",
+          "start_ms": 140,
+          "end_ms": 300,
+          "score": -3.8441050052642822
+        },
+        {
+          "text": "好",
+          "start_ms": 300,
+          "end_ms": 560,
+          "score": -9.616671562194824
+        },
+        {
+          "text": "嘉",
+          "start_ms": 560,
+          "end_ms": 800,
+          "score": -1.959067702293396
+        },
+        {
+          "text": "良",
+          "start_ms": 800,
+          "end_ms": 960,
+          "score": -2.968226909637451
+        },
+        {
+          "text": "老",
+          "start_ms": 960,
+          "end_ms": 1080,
+          "score": -3.0772767066955566
+        },
+        {
+          "text": "师",
+          "start_ms": 1080,
+          "end_ms": 1200,
+          "score": -0.7176353931427002
+        },
+        {
+          "text": "好",
+          "start_ms": 1200,
+          "end_ms": 1400,
+          "score": -7.5089802742004395
+        },
+        {
+          "text": "毛",
+          "start_ms": 1400,
+          "end_ms": 1540,
+          "score": -8.615730285644531
+        },
+        {
+          "text": "毛",
+          "start_ms": 1540,
+          "end_ms": 1640,
+          "score": -7.870265007019043
+        },
+        {
+          "text": "老",
+          "start_ms": 1640,
+          "end_ms": 1780,
+          "score": -3.211358070373535
+        },
+        {
+          "text": "师",
+          "start_ms": 1780,
+          "end_ms": 1860,
+          "score": -0.598357617855072
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_02-b000000720-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大",
+          "start_ms": 60,
+          "end_ms": 140,
+          "score": -2.325657844543457
+        },
+        {
+          "text": "家",
+          "start_ms": 140,
+          "end_ms": 300,
+          "score": -2.22274112701416
+        },
+        {
+          "text": "好",
+          "start_ms": 300,
+          "end_ms": 580,
+          "score": -9.849534034729004
+        },
+        {
+          "text": "嘉",
+          "start_ms": 580,
+          "end_ms": 800,
+          "score": -0.5742769837379456
+        },
+        {
+          "text": "良",
+          "start_ms": 800,
+          "end_ms": 960,
+          "score": -1.329032301902771
+        },
+        {
+          "text": "老",
+          "start_ms": 960,
+          "end_ms": 1080,
+          "score": -0.9496012330055237
+        },
+        {
+          "text": "师",
+          "start_ms": 1080,
+          "end_ms": 1200,
+          "score": -0.2114548236131668
+        },
+        {
+          "text": "好",
+          "start_ms": 1200,
+          "end_ms": 1400,
+          "score": -8.43793773651123
+        },
+        {
+          "text": "毛",
+          "start_ms": 1400,
+          "end_ms": 1540,
+          "score": -6.629339218139648
+        },
+        {
+          "text": "毛",
+          "start_ms": 1540,
+          "end_ms": 1640,
+          "score": -6.947474002838135
+        },
+        {
+          "text": "老",
+          "start_ms": 1640,
+          "end_ms": 1780,
+          "score": -0.9067042469978333
+        },
+        {
+          "text": "师",
+          "start_ms": 1780,
+          "end_ms": 1900,
+          "score": -0.3727225661277771
+        },
+        {
+          "text": "好",
+          "start_ms": 1900,
+          "end_ms": 2060,
+          "score": -10.347343444824219
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_02-b000002200-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "良",
+          "start_ms": 20,
+          "end_ms": 120,
+          "score": -21.218250274658203
+        },
+        {
+          "text": "老",
+          "start_ms": 120,
+          "end_ms": 200,
+          "score": -11.640612602233887
+        },
+        {
+          "text": "师",
+          "start_ms": 200,
+          "end_ms": 320,
+          "score": -0.13622954487800598
+        },
+        {
+          "text": "好",
+          "start_ms": 320,
+          "end_ms": 520,
+          "score": -0.03463275730609894
+        },
+        {
+          "text": "毛",
+          "start_ms": 520,
+          "end_ms": 660,
+          "score": -5.660665988922119
+        },
+        {
+          "text": "毛",
+          "start_ms": 660,
+          "end_ms": 760,
+          "score": -7.19257926940918
+        },
+        {
+          "text": "老",
+          "start_ms": 760,
+          "end_ms": 900,
+          "score": -0.07665432244539261
+        },
+        {
+          "text": "师",
+          "start_ms": 900,
+          "end_ms": 1020,
+          "score": -0.11668477207422256
+        },
+        {
+          "text": "好",
+          "start_ms": 1020,
+          "end_ms": 1520,
+          "score": -0.02638094685971737
+        },
+        {
+          "text": "各",
+          "start_ms": 1520,
+          "end_ms": 1900,
+          "score": -0.016526492312550545
+        },
+        {
+          "text": "位",
+          "start_ms": 1900,
+          "end_ms": 2040,
+          "score": -0.04743977636098862
+        },
+        {
+          "text": "同",
+          "start_ms": 2040,
+          "end_ms": 2200,
+          "score": -0.345112144947052
+        },
+        {
+          "text": "学",
+          "start_ms": 2200,
+          "end_ms": 2300,
+          "score": -1.4781509637832642
+        },
+        {
+          "text": "们",
+          "start_ms": 2300,
+          "end_ms": 2400,
+          "score": -3.3059885501861572
+        },
+        {
+          "text": "好",
+          "start_ms": 2400,
+          "end_ms": 2660,
+          "score": -0.07014671713113785
+        },
+        {
+          "text": "各",
+          "start_ms": 2660,
+          "end_ms": 2860,
+          "score": -0.03260551020503044
+        },
+        {
+          "text": "位",
+          "start_ms": 2860,
+          "end_ms": 3040,
+          "score": -0.28272029757499695
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_02-b000000880-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大",
+          "start_ms": 60,
+          "end_ms": 140,
+          "score": -1.2911463975906372
+        },
+        {
+          "text": "家",
+          "start_ms": 140,
+          "end_ms": 300,
+          "score": -0.994282066822052
+        },
+        {
+          "text": "好",
+          "start_ms": 300,
+          "end_ms": 580,
+          "score": -9.46744155883789
+        },
+        {
+          "text": "嘉",
+          "start_ms": 580,
+          "end_ms": 800,
+          "score": -0.23717136681079865
+        },
+        {
+          "text": "良",
+          "start_ms": 800,
+          "end_ms": 960,
+          "score": -0.864093005657196
+        },
+        {
+          "text": "老",
+          "start_ms": 960,
+          "end_ms": 1080,
+          "score": -0.7079892158508301
+        },
+        {
+          "text": "师",
+          "start_ms": 1080,
+          "end_ms": 1200,
+          "score": -0.15691731870174408
+        },
+        {
+          "text": "好",
+          "start_ms": 1200,
+          "end_ms": 1400,
+          "score": -7.135275840759277
+        },
+        {
+          "text": "毛",
+          "start_ms": 1400,
+          "end_ms": 1540,
+          "score": -6.835841655731201
+        },
+        {
+          "text": "毛",
+          "start_ms": 1540,
+          "end_ms": 1640,
+          "score": -7.30816125869751
+        },
+        {
+          "text": "老",
+          "start_ms": 1640,
+          "end_ms": 1780,
+          "score": -0.6767938137054443
+        },
+        {
+          "text": "师",
+          "start_ms": 1780,
+          "end_ms": 1900,
+          "score": -0.6543805003166199
+        },
+        {
+          "text": "好",
+          "start_ms": 1900,
+          "end_ms": 2080,
+          "score": -8.322564125061035
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_02-b000003520-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "好",
+          "start_ms": 20,
+          "end_ms": 720,
+          "score": -23.30963706970215
+        },
+        {
+          "text": "各",
+          "start_ms": 720,
+          "end_ms": 820,
+          "score": -0.01030261442065239
+        },
+        {
+          "text": "位",
+          "start_ms": 820,
+          "end_ms": 960,
+          "score": -0.05121269449591637
+        },
+        {
+          "text": "同",
+          "start_ms": 960,
+          "end_ms": 1120,
+          "score": -0.19450931251049042
+        },
+        {
+          "text": "学",
+          "start_ms": 1120,
+          "end_ms": 1200,
+          "score": -2.638720989227295
+        },
+        {
+          "text": "们",
+          "start_ms": 1200,
+          "end_ms": 1320,
+          "score": -2.434166669845581
+        },
+        {
+          "text": "好",
+          "start_ms": 1320,
+          "end_ms": 1580,
+          "score": -0.22985225915908813
+        },
+        {
+          "text": "各",
+          "start_ms": 1580,
+          "end_ms": 1780,
+          "score": -0.006749256514012814
+        },
+        {
+          "text": "位",
+          "start_ms": 1780,
+          "end_ms": 2140,
+          "score": -0.8451302647590637
+        },
+        {
+          "text": "助",
+          "start_ms": 2140,
+          "end_ms": 2380,
+          "score": -0.17702637612819672
+        },
+        {
+          "text": "教",
+          "start_ms": 2380,
+          "end_ms": 2520,
+          "score": -0.8246583938598633
+        },
+        {
+          "text": "老",
+          "start_ms": 2520,
+          "end_ms": 2680,
+          "score": -1.5154461860656738
+        },
+        {
+          "text": "师",
+          "start_ms": 2680,
+          "end_ms": 2800,
+          "score": -0.11311843991279602
+        },
+        {
+          "text": "好",
+          "start_ms": 2800,
+          "end_ms": 2980,
+          "score": -0.04377736151218414
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_02-b000005480-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "各",
+          "start_ms": 40,
+          "end_ms": 100,
+          "score": -5.722721099853516
+        },
+        {
+          "text": "位",
+          "start_ms": 100,
+          "end_ms": 420,
+          "score": -0.7589069604873657
+        },
+        {
+          "text": "助",
+          "start_ms": 420,
+          "end_ms": 660,
+          "score": -0.16218388080596924
+        },
+        {
+          "text": "教",
+          "start_ms": 660,
+          "end_ms": 820,
+          "score": -0.5808671116828918
+        },
+        {
+          "text": "老",
+          "start_ms": 820,
+          "end_ms": 960,
+          "score": -0.7260910272598267
+        },
+        {
+          "text": "师",
+          "start_ms": 960,
+          "end_ms": 1080,
+          "score": -0.08444645255804062
+        },
+        {
+          "text": "好",
+          "start_ms": 1080,
+          "end_ms": 1540,
+          "score": -0.0573263093829155
+        },
+        {
+          "text": "各",
+          "start_ms": 1540,
+          "end_ms": 1900,
+          "score": -0.29550689458847046
+        },
+        {
+          "text": "位",
+          "start_ms": 1900,
+          "end_ms": 1980,
+          "score": -13.24470329284668
+        },
+        {
+          "text": "家",
+          "start_ms": 1980,
+          "end_ms": 2100,
+          "score": -0.2606216073036194
+        },
+        {
+          "text": "长",
+          "start_ms": 2100,
+          "end_ms": 2260,
+          "score": -7.416035175323486
+        },
+        {
+          "text": "好",
+          "start_ms": 2260,
+          "end_ms": 2580,
+          "score": -0.10739611089229584
+        },
+        {
+          "text": "所",
+          "start_ms": 2580,
+          "end_ms": 2840,
+          "score": -0.49614834785461426
+        },
+        {
+          "text": "有",
+          "start_ms": 2840,
+          "end_ms": 2960,
+          "score": -0.5537940263748169
+        },
+        {
+          "text": "的",
+          "start_ms": 2960,
+          "end_ms": 3020,
+          "score": -0.18791377544403076
+        },
+        {
+          "text": "朋",
+          "start_ms": 3020,
+          "end_ms": 3160,
+          "score": -1.7011082172393799
+        },
+        {
+          "text": "友",
+          "start_ms": 3160,
+          "end_ms": 3240,
+          "score": -4.3079752922058105
+        },
+        {
+          "text": "们",
+          "start_ms": 3240,
+          "end_ms": 3320,
+          "score": -2.2229697704315186
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_02-b000001040-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大",
+          "start_ms": 60,
+          "end_ms": 140,
+          "score": -1.0496853590011597
+        },
+        {
+          "text": "家",
+          "start_ms": 140,
+          "end_ms": 300,
+          "score": -0.9430443048477173
+        },
+        {
+          "text": "好",
+          "start_ms": 300,
+          "end_ms": 580,
+          "score": -10.323602676391602
+        },
+        {
+          "text": "嘉",
+          "start_ms": 580,
+          "end_ms": 800,
+          "score": -0.2309635579586029
+        },
+        {
+          "text": "良",
+          "start_ms": 800,
+          "end_ms": 960,
+          "score": -0.8139805793762207
+        },
+        {
+          "text": "老",
+          "start_ms": 960,
+          "end_ms": 1080,
+          "score": -0.7007156610488892
+        },
+        {
+          "text": "师",
+          "start_ms": 1080,
+          "end_ms": 1200,
+          "score": -0.17713314294815063
+        },
+        {
+          "text": "好",
+          "start_ms": 1200,
+          "end_ms": 1400,
+          "score": -7.669539928436279
+        },
+        {
+          "text": "毛",
+          "start_ms": 1400,
+          "end_ms": 1540,
+          "score": -7.210867881774902
+        },
+        {
+          "text": "毛",
+          "start_ms": 1540,
+          "end_ms": 1640,
+          "score": -7.433369159698486
+        },
+        {
+          "text": "老",
+          "start_ms": 1640,
+          "end_ms": 1780,
+          "score": -0.6562281847000122
+        },
+        {
+          "text": "师",
+          "start_ms": 1780,
+          "end_ms": 1900,
+          "score": -0.5761519074440002
+        },
+        {
+          "text": "好",
+          "start_ms": 1900,
+          "end_ms": 2080,
+          "score": -9.406644821166992
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_02-b000006440-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "老",
+          "start_ms": 20,
+          "end_ms": 100,
+          "score": -19.066295623779297
+        },
+        {
+          "text": "师",
+          "start_ms": 100,
+          "end_ms": 200,
+          "score": -3.6983561515808105
+        },
+        {
+          "text": "好",
+          "start_ms": 200,
+          "end_ms": 660,
+          "score": -4.331162929534912
+        },
+        {
+          "text": "各",
+          "start_ms": 660,
+          "end_ms": 1000,
+          "score": -0.21804186701774597
+        },
+        {
+          "text": "位",
+          "start_ms": 1000,
+          "end_ms": 1100,
+          "score": -12.559880256652832
+        },
+        {
+          "text": "家",
+          "start_ms": 1100,
+          "end_ms": 1220,
+          "score": -0.07417857646942139
+        },
+        {
+          "text": "长",
+          "start_ms": 1220,
+          "end_ms": 1380,
+          "score": -2.5529026985168457
+        },
+        {
+          "text": "好",
+          "start_ms": 1380,
+          "end_ms": 1700,
+          "score": -0.0878966674208641
+        },
+        {
+          "text": "所",
+          "start_ms": 1700,
+          "end_ms": 1960,
+          "score": -0.643268883228302
+        },
+        {
+          "text": "有",
+          "start_ms": 1960,
+          "end_ms": 2080,
+          "score": -0.8364092111587524
+        },
+        {
+          "text": "的",
+          "start_ms": 2080,
+          "end_ms": 2140,
+          "score": -0.0886315107345581
+        },
+        {
+          "text": "朋",
+          "start_ms": 2140,
+          "end_ms": 2280,
+          "score": -1.4642918109893799
+        },
+        {
+          "text": "友",
+          "start_ms": 2280,
+          "end_ms": 2360,
+          "score": -5.755777359008789
+        },
+        {
+          "text": "们",
+          "start_ms": 2360,
+          "end_ms": 2460,
+          "score": -4.630175590515137
+        },
+        {
+          "text": "你",
+          "start_ms": 2460,
+          "end_ms": 2540,
+          "score": -0.3690376579761505
+        },
+        {
+          "text": "们",
+          "start_ms": 2540,
+          "end_ms": 2640,
+          "score": -2.5149872303009033
+        },
+        {
+          "text": "好",
+          "start_ms": 2640,
+          "end_ms": 2800,
+          "score": -0.11925256252288818
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_03-b000000520-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大",
+          "start_ms": 240,
+          "end_ms": 320,
+          "score": -1.304646611213684
+        },
+        {
+          "text": "家",
+          "start_ms": 320,
+          "end_ms": 460,
+          "score": -1.0867836475372314
+        },
+        {
+          "text": "好",
+          "start_ms": 460,
+          "end_ms": 640,
+          "score": -0.35988301038742065
+        },
+        {
+          "text": "这",
+          "start_ms": 640,
+          "end_ms": 760,
+          "score": -1.4654836654663086
+        },
+        {
+          "text": "位",
+          "start_ms": 760,
+          "end_ms": 900,
+          "score": -1.316457748413086
+        },
+        {
+          "text": "是",
+          "start_ms": 900,
+          "end_ms": 1020,
+          "score": -0.5405775904655457
+        },
+        {
+          "text": "娜",
+          "start_ms": 1020,
+          "end_ms": 1120,
+          "score": -0.5734655857086182
+        },
+        {
+          "text": "娜",
+          "start_ms": 1120,
+          "end_ms": 1240,
+          "score": -1.27140212059021
+        },
+        {
+          "text": "老",
+          "start_ms": 1240,
+          "end_ms": 1360,
+          "score": -5.382852077484131
+        },
+        {
+          "text": "师",
+          "start_ms": 1360,
+          "end_ms": 1460,
+          "score": -1.8040679693222046
+        },
+        {
+          "text": "大",
+          "start_ms": 1460,
+          "end_ms": 1520,
+          "score": -9.302520751953125
+        },
+        {
+          "text": "家",
+          "start_ms": 1520,
+          "end_ms": 1700,
+          "score": -14.223847389221191
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_03-b000001760-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大",
+          "start_ms": 100,
+          "end_ms": 180,
+          "score": -0.6092283129692078
+        },
+        {
+          "text": "家",
+          "start_ms": 180,
+          "end_ms": 320,
+          "score": -0.806224524974823
+        },
+        {
+          "text": "好",
+          "start_ms": 320,
+          "end_ms": 500,
+          "score": -0.13310478627681732
+        },
+        {
+          "text": "这",
+          "start_ms": 500,
+          "end_ms": 620,
+          "score": -0.5396478772163391
+        },
+        {
+          "text": "位",
+          "start_ms": 620,
+          "end_ms": 760,
+          "score": -0.14205127954483032
+        },
+        {
+          "text": "是",
+          "start_ms": 760,
+          "end_ms": 880,
+          "score": -0.4159073233604431
+        },
+        {
+          "text": "娜",
+          "start_ms": 880,
+          "end_ms": 980,
+          "score": -0.3051964342594147
+        },
+        {
+          "text": "娜",
+          "start_ms": 980,
+          "end_ms": 1100,
+          "score": -2.771341562271118
+        },
+        {
+          "text": "老",
+          "start_ms": 1100,
+          "end_ms": 1240,
+          "score": -7.20138692855835
+        },
+        {
+          "text": "师",
+          "start_ms": 1240,
+          "end_ms": 1460,
+          "score": -1.9920145273208618
+        },
+        {
+          "text": "大",
+          "start_ms": 1460,
+          "end_ms": 1700,
+          "score": -2.78896164894104
+        },
+        {
+          "text": "家",
+          "start_ms": 1700,
+          "end_ms": 1820,
+          "score": -3.955160140991211
+        },
+        {
+          "text": "好",
+          "start_ms": 1820,
+          "end_ms": 2060,
+          "score": -3.6747889518737793
+        },
+        {
+          "text": "这",
+          "start_ms": 2060,
+          "end_ms": 2200,
+          "score": -2.6705291271209717
+        },
+        {
+          "text": "位",
+          "start_ms": 2200,
+          "end_ms": 2380,
+          "score": -2.5638396739959717
+        },
+        {
+          "text": "是",
+          "start_ms": 2380,
+          "end_ms": 2540,
+          "score": -2.8947949409484863
+        },
+        {
+          "text": "叶",
+          "start_ms": 2540,
+          "end_ms": 2760,
+          "score": -3.6783971786499023
+        },
+        {
+          "text": "飞",
+          "start_ms": 2760,
+          "end_ms": 2960,
+          "score": -4.838382244110107
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_03-b000027240-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "遇",
+          "start_ms": 20,
+          "end_ms": 60,
+          "score": -2.4764060974121094
+        },
+        {
+          "text": "到",
+          "start_ms": 60,
+          "end_ms": 160,
+          "score": -0.4954777956008911
+        },
+        {
+          "text": "了",
+          "start_ms": 160,
+          "end_ms": 280,
+          "score": -2.1987080574035645
+        },
+        {
+          "text": "群",
+          "start_ms": 280,
+          "end_ms": 500,
+          "score": -0.5000718832015991
+        },
+        {
+          "text": "很",
+          "start_ms": 500,
+          "end_ms": 680,
+          "score": -1.0734838247299194
+        },
+        {
+          "text": "独",
+          "start_ms": 680,
+          "end_ms": 820,
+          "score": -0.14927935600280762
+        },
+        {
+          "text": "特",
+          "start_ms": 820,
+          "end_ms": 920,
+          "score": -1.0168170928955078
+        },
+        {
+          "text": "的",
+          "start_ms": 920,
+          "end_ms": 1020,
+          "score": -0.7626761198043823
+        },
+        {
+          "text": "学",
+          "start_ms": 1020,
+          "end_ms": 1140,
+          "score": -0.16547784209251404
+        },
+        {
+          "text": "员",
+          "start_ms": 1140,
+          "end_ms": 1320,
+          "score": -5.477432727813721
+        },
+        {
+          "text": "啊",
+          "start_ms": 1320,
+          "end_ms": 1640,
+          "score": -4.5738630294799805
+        },
+        {
+          "text": "其",
+          "start_ms": 1640,
+          "end_ms": 2020,
+          "score": -2.6388514041900635
+        },
+        {
+          "text": "实",
+          "start_ms": 2020,
+          "end_ms": 2120,
+          "score": -5.423609733581543
+        },
+        {
+          "text": "就",
+          "start_ms": 2120,
+          "end_ms": 2260,
+          "score": -1.8193031549453735
+        },
+        {
+          "text": "上",
+          "start_ms": 2260,
+          "end_ms": 2420,
+          "score": -2.068796157836914
+        },
+        {
+          "text": "个",
+          "start_ms": 2420,
+          "end_ms": 2500,
+          "score": -1.6989854574203491
+        },
+        {
+          "text": "月",
+          "start_ms": 2500,
+          "end_ms": 2600,
+          "score": -10.318863868713379
+        },
+        {
+          "text": "啊",
+          "start_ms": 2600,
+          "end_ms": 2640,
+          "score": -0.17857635021209717
+        },
+        {
+          "text": "嗯",
+          "start_ms": 2640,
+          "end_ms": 2680,
+          "score": -2.503577470779419
+        },
+        {
+          "text": "我",
+          "start_ms": 2680,
+          "end_ms": 2780,
+          "score": -10.183435440063477
+        },
+        {
+          "text": "们",
+          "start_ms": 2780,
+          "end_ms": 2960,
+          "score": -15.759140014648438
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_03-b000000680-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大",
+          "start_ms": 240,
+          "end_ms": 320,
+          "score": -1.271087408065796
+        },
+        {
+          "text": "家",
+          "start_ms": 320,
+          "end_ms": 460,
+          "score": -1.3811898231506348
+        },
+        {
+          "text": "好",
+          "start_ms": 460,
+          "end_ms": 640,
+          "score": -0.41867390275001526
+        },
+        {
+          "text": "这",
+          "start_ms": 640,
+          "end_ms": 760,
+          "score": -1.2658140659332275
+        },
+        {
+          "text": "位",
+          "start_ms": 760,
+          "end_ms": 900,
+          "score": -0.789994478225708
+        },
+        {
+          "text": "是",
+          "start_ms": 900,
+          "end_ms": 1020,
+          "score": -0.505508542060852
+        },
+        {
+          "text": "娜",
+          "start_ms": 1020,
+          "end_ms": 1120,
+          "score": -0.5889495015144348
+        },
+        {
+          "text": "娜",
+          "start_ms": 1120,
+          "end_ms": 1220,
+          "score": -1.291733980178833
+        },
+        {
+          "text": "老",
+          "start_ms": 1220,
+          "end_ms": 1360,
+          "score": -5.358743190765381
+        },
+        {
+          "text": "师",
+          "start_ms": 1360,
+          "end_ms": 1600,
+          "score": -2.499785900115967
+        },
+        {
+          "text": "大",
+          "start_ms": 1600,
+          "end_ms": 1840,
+          "score": -6.838761806488037
+        },
+        {
+          "text": "家",
+          "start_ms": 1840,
+          "end_ms": 1960,
+          "score": -9.703805923461914
+        },
+        {
+          "text": "好",
+          "start_ms": 1960,
+          "end_ms": 2100,
+          "score": -10.951807022094727
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_03-b000003600-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "这",
+          "start_ms": 40,
+          "end_ms": 140,
+          "score": -1.3468478918075562
+        },
+        {
+          "text": "位",
+          "start_ms": 140,
+          "end_ms": 320,
+          "score": -0.8314629793167114
+        },
+        {
+          "text": "是",
+          "start_ms": 320,
+          "end_ms": 480,
+          "score": -1.2911500930786133
+        },
+        {
+          "text": "叶",
+          "start_ms": 480,
+          "end_ms": 700,
+          "score": -2.2413861751556396
+        },
+        {
+          "text": "飞",
+          "start_ms": 700,
+          "end_ms": 920,
+          "score": -4.698039531707764
+        },
+        {
+          "text": "老",
+          "start_ms": 920,
+          "end_ms": 1120,
+          "score": -3.1987264156341553
+        },
+        {
+          "text": "师",
+          "start_ms": 1120,
+          "end_ms": 1400,
+          "score": -3.2892308235168457
+        },
+        {
+          "text": "嗯",
+          "start_ms": 1400,
+          "end_ms": 1740,
+          "score": -5.334455490112305
+        },
+        {
+          "text": "那",
+          "start_ms": 1740,
+          "end_ms": 2000,
+          "score": -1.9174985885620117
+        },
+        {
+          "text": "我",
+          "start_ms": 2000,
+          "end_ms": 2080,
+          "score": -0.7337257862091064
+        },
+        {
+          "text": "们",
+          "start_ms": 2080,
+          "end_ms": 2160,
+          "score": -0.1719101071357727
+        },
+        {
+          "text": "是",
+          "start_ms": 2160,
+          "end_ms": 2240,
+          "score": -0.1108371913433075
+        },
+        {
+          "text": "干",
+          "start_ms": 2240,
+          "end_ms": 2420,
+          "score": -4.008697986602783
+        },
+        {
+          "text": "什",
+          "start_ms": 2420,
+          "end_ms": 2560,
+          "score": -1.5630037784576416
+        },
+        {
+          "text": "么",
+          "start_ms": 2560,
+          "end_ms": 2620,
+          "score": -0.4731271266937256
+        },
+        {
+          "text": "的",
+          "start_ms": 2620,
+          "end_ms": 2700,
+          "score": -0.2799558937549591
+        },
+        {
+          "text": "老",
+          "start_ms": 2700,
+          "end_ms": 2860,
+          "score": -0.5258312821388245
+        },
+        {
+          "text": "师",
+          "start_ms": 2860,
+          "end_ms": 2940,
+          "score": -0.828403890132904
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_03-b000382270-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "文",
+          "start_ms": 20,
+          "end_ms": 140,
+          "score": -10.736538887023926
+        },
+        {
+          "text": "字",
+          "start_ms": 140,
+          "end_ms": 280,
+          "score": -0.29069438576698303
+        },
+        {
+          "text": "他",
+          "start_ms": 280,
+          "end_ms": 400,
+          "score": -0.2074742317199707
+        },
+        {
+          "text": "就",
+          "start_ms": 400,
+          "end_ms": 520,
+          "score": -0.20586439967155457
+        },
+        {
+          "text": "能",
+          "start_ms": 520,
+          "end_ms": 700,
+          "score": -0.9359155297279358
+        },
+        {
+          "text": "理",
+          "start_ms": 700,
+          "end_ms": 820,
+          "score": -0.6138617992401123
+        },
+        {
+          "text": "解",
+          "start_ms": 820,
+          "end_ms": 1020,
+          "score": -0.4491592347621918
+        },
+        {
+          "text": "的",
+          "start_ms": 1020,
+          "end_ms": 1160,
+          "score": -0.3071940243244171
+        },
+        {
+          "text": "是",
+          "start_ms": 1160,
+          "end_ms": 1280,
+          "score": -0.7352147102355957
+        },
+        {
+          "text": "的",
+          "start_ms": 1280,
+          "end_ms": 1680,
+          "score": -2.455263614654541
+        },
+        {
+          "text": "啊",
+          "start_ms": 1680,
+          "end_ms": 2060,
+          "score": -3.703078031539917
+        },
+        {
+          "text": "我",
+          "start_ms": 2060,
+          "end_ms": 2220,
+          "score": -1.080783486366272
+        },
+        {
+          "text": "们",
+          "start_ms": 2220,
+          "end_ms": 2380,
+          "score": -1.2466251850128174
+        },
+        {
+          "text": "的",
+          "start_ms": 2380,
+          "end_ms": 2500,
+          "score": -1.7465466260910034
+        },
+        {
+          "text": "这",
+          "start_ms": 2500,
+          "end_ms": 2660,
+          "score": -2.492810010910034
+        },
+        {
+          "text": "个",
+          "start_ms": 2660,
+          "end_ms": 2840,
+          "score": -1.931534767150879
+        },
+        {
+          "text": "呃",
+          "start_ms": 2840,
+          "end_ms": 2900,
+          "score": -4.242932319641113
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_03-b000000920-end",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "大",
+          "start_ms": 220,
+          "end_ms": 320,
+          "score": -0.6517627239227295
+        },
+        {
+          "text": "家",
+          "start_ms": 320,
+          "end_ms": 460,
+          "score": -0.6340876817703247
+        },
+        {
+          "text": "好",
+          "start_ms": 460,
+          "end_ms": 640,
+          "score": -0.08334451913833618
+        },
+        {
+          "text": "这",
+          "start_ms": 640,
+          "end_ms": 760,
+          "score": -0.4444238245487213
+        },
+        {
+          "text": "位",
+          "start_ms": 760,
+          "end_ms": 900,
+          "score": -0.13074812293052673
+        },
+        {
+          "text": "是",
+          "start_ms": 900,
+          "end_ms": 1020,
+          "score": -0.2989157438278198
+        },
+        {
+          "text": "娜",
+          "start_ms": 1020,
+          "end_ms": 1120,
+          "score": -0.2351817488670349
+        },
+        {
+          "text": "娜",
+          "start_ms": 1120,
+          "end_ms": 1220,
+          "score": -1.4837629795074463
+        },
+        {
+          "text": "老",
+          "start_ms": 1220,
+          "end_ms": 1360,
+          "score": -6.934663772583008
+        },
+        {
+          "text": "师",
+          "start_ms": 1360,
+          "end_ms": 1600,
+          "score": -2.045473098754883
+        },
+        {
+          "text": "大",
+          "start_ms": 1600,
+          "end_ms": 1840,
+          "score": -10.736618995666504
+        },
+        {
+          "text": "家",
+          "start_ms": 1840,
+          "end_ms": 1960,
+          "score": -16.55591583251953
+        },
+        {
+          "text": "好",
+          "start_ms": 1960,
+          "end_ms": 2200,
+          "score": -17.85840606689453
+        },
+        {
+          "text": "这",
+          "start_ms": 2200,
+          "end_ms": 2340,
+          "score": -18.100955963134766
+        },
+        {
+          "text": "位",
+          "start_ms": 2340,
+          "end_ms": 2460,
+          "score": -16.06393814086914
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    },
+    {
+      "case_id": "sample_03-b000004120-start",
+      "provider": "ctc_mms_300m",
+      "status": "ok",
+      "words": [
+        {
+          "text": "这",
+          "start_ms": 20,
+          "end_ms": 140,
+          "score": -17.06089973449707
+        },
+        {
+          "text": "位",
+          "start_ms": 140,
+          "end_ms": 280,
+          "score": -6.644682884216309
+        },
+        {
+          "text": "是",
+          "start_ms": 280,
+          "end_ms": 440,
+          "score": -6.482649326324463
+        },
+        {
+          "text": "叶",
+          "start_ms": 440,
+          "end_ms": 660,
+          "score": -3.8942346572875977
+        },
+        {
+          "text": "飞",
+          "start_ms": 660,
+          "end_ms": 880,
+          "score": -7.9046783447265625
+        },
+        {
+          "text": "老",
+          "start_ms": 880,
+          "end_ms": 1080,
+          "score": -9.299360275268555
+        },
+        {
+          "text": "师",
+          "start_ms": 1080,
+          "end_ms": 1200,
+          "score": -7.547246932983398
+        },
+        {
+          "text": "嗯",
+          "start_ms": 1200,
+          "end_ms": 1540,
+          "score": -6.756419658660889
+        },
+        {
+          "text": "那",
+          "start_ms": 1540,
+          "end_ms": 1960,
+          "score": -0.6601357460021973
+        },
+        {
+          "text": "我",
+          "start_ms": 1960,
+          "end_ms": 2040,
+          "score": -0.5428572297096252
+        },
+        {
+          "text": "们",
+          "start_ms": 2040,
+          "end_ms": 2120,
+          "score": -0.13408923149108887
+        },
+        {
+          "text": "是",
+          "start_ms": 2120,
+          "end_ms": 2200,
+          "score": -0.046704474836587906
+        },
+        {
+          "text": "干",
+          "start_ms": 2200,
+          "end_ms": 2380,
+          "score": -5.647541046142578
+        },
+        {
+          "text": "什",
+          "start_ms": 2380,
+          "end_ms": 2520,
+          "score": -1.2492395639419556
+        },
+        {
+          "text": "么",
+          "start_ms": 2520,
+          "end_ms": 2580,
+          "score": -0.29918888211250305
+        },
+        {
+          "text": "的",
+          "start_ms": 2580,
+          "end_ms": 2660,
+          "score": -0.14899392426013947
+        },
+        {
+          "text": "老",
+          "start_ms": 2660,
+          "end_ms": 2820,
+          "score": -0.14774174988269806
+        },
+        {
+          "text": "师",
+          "start_ms": 2820,
+          "end_ms": 2940,
+          "score": -0.06659561395645142
+        },
+        {
+          "text": "呢",
+          "start_ms": 2940,
+          "end_ms": 3060,
+          "score": -2.2417314052581787
+        },
+        {
+          "text": "啊",
+          "start_ms": 3060,
+          "end_ms": 3080,
+          "score": -6.022294044494629
+        }
+      ],
+      "predicted_boundary_ms": null,
+      "error": null,
+      "metadata": {
+        "model": "MahmoudAshraf/mms-300m-1130-forced-aligner",
+        "granularity": "character"
+      }
+    }
+  ]
+}

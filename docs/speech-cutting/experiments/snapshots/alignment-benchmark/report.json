@@ -1,0 +1,1789 @@
+{
+  "schema_version": 1,
+  "case_set_fingerprint": "fa11670c83d0785b7a227f756ca895125c97496c6a01a6ba425c0f9deb6811cc",
+  "case_count": 24,
+  "annotated_case_count": 0,
+  "accuracy_available": false,
+  "summaries": [
+    {
+      "provider": "ctc_mms_300m",
+      "total_cases": 24,
+      "ok_count": 24,
+      "unavailable_count": 0,
+      "failed_count": 0,
+      "annotated_count": 0,
+      "evaluated_count": 0,
+      "forbidden_evaluated_count": 0,
+      "forbidden_hit_count": 0,
+      "forbidden_hit_rate": null,
+      "coverage_rate": 1.0,
+      "safe_interval_hit_rate": null,
+      "interval_error_p50_ms": null,
+      "interval_error_p95_ms": null,
+      "midpoint_error_mean_ms": null
+    },
+    {
+      "provider": "elevenlabs_forced_alignment",
+      "total_cases": 24,
+      "ok_count": 0,
+      "unavailable_count": 24,
+      "failed_count": 0,
+      "annotated_count": 0,
+      "evaluated_count": 0,
+      "forbidden_evaluated_count": 0,
+      "forbidden_hit_count": 0,
+      "forbidden_hit_rate": null,
+      "coverage_rate": 0.0,
+      "safe_interval_hit_rate": null,
+      "interval_error_p50_ms": null,
+      "interval_error_p95_ms": null,
+      "midpoint_error_mean_ms": null
+    },
+    {
+      "provider": "funasr",
+      "total_cases": 24,
+      "ok_count": 24,
+      "unavailable_count": 0,
+      "failed_count": 0,
+      "annotated_count": 0,
+      "evaluated_count": 0,
+      "forbidden_evaluated_count": 0,
+      "forbidden_hit_count": 0,
+      "forbidden_hit_rate": null,
+      "coverage_rate": 1.0,
+      "safe_interval_hit_rate": null,
+      "interval_error_p50_ms": null,
+      "interval_error_p95_ms": null,
+      "midpoint_error_mean_ms": null
+    },
+    {
+      "provider": "mfa_mandarin",
+      "total_cases": 24,
+      "ok_count": 19,
+      "unavailable_count": 0,
+      "failed_count": 5,
+      "annotated_count": 0,
+      "evaluated_count": 0,
+      "forbidden_evaluated_count": 0,
+      "forbidden_hit_count": 0,
+      "forbidden_hit_rate": null,
+      "coverage_rate": 0.7917,
+      "safe_interval_hit_rate": null,
+      "interval_error_p50_ms": null,
+      "interval_error_p95_ms": null,
+      "midpoint_error_mean_ms": null
+    }
+  ],
+  "pairwise_agreement": [
+    {
+      "left_provider": "ctc_mms_300m",
+      "right_provider": "elevenlabs_forced_alignment",
+      "comparable_cases": 0,
+      "absolute_difference_p50_ms": null,
+      "absolute_difference_p95_ms": null
+    },
+    {
+      "left_provider": "ctc_mms_300m",
+      "right_provider": "funasr",
+      "comparable_cases": 24,
+      "absolute_difference_p50_ms": 120.0,
+      "absolute_difference_p95_ms": 313.9999999999999
+    },
+    {
+      "left_provider": "ctc_mms_300m",
+      "right_provider": "mfa_mandarin",
+      "comparable_cases": 19,
+      "absolute_difference_p50_ms": 130.0,
+      "absolute_difference_p95_ms": 281.0
+    },
+    {
+      "left_provider": "elevenlabs_forced_alignment",
+      "right_provider": "funasr",
+      "comparable_cases": 0,
+      "absolute_difference_p50_ms": null,
+      "absolute_difference_p95_ms": null
+    },
+    {
+      "left_provider": "elevenlabs_forced_alignment",
+      "right_provider": "mfa_mandarin",
+      "comparable_cases": 0,
+      "absolute_difference_p50_ms": null,
+      "absolute_difference_p95_ms": null
+    },
+    {
+      "left_provider": "funasr",
+      "right_provider": "mfa_mandarin",
+      "comparable_cases": 19,
+      "absolute_difference_p50_ms": 50.0,
+      "absolute_difference_p95_ms": 91.99999999999996
+    }
+  ],
+  "observations": {
+    "ctc_mms_300m": [
+      {
+        "case_id": "sample_01-b000000560-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 500,
+        "absolute_predicted_boundary_ms": 500,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001040-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 880,
+        "absolute_predicted_boundary_ms": 880,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000014680-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1480,
+        "absolute_predicted_boundary_ms": 14800,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001320-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1280,
+        "absolute_predicted_boundary_ms": 1280,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000002000-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1560,
+        "absolute_predicted_boundary_ms": 2120,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000019720-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1600,
+        "absolute_predicted_boundary_ms": 19400,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001440-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1380,
+        "absolute_predicted_boundary_ms": 1380,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000005280-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1460,
+        "absolute_predicted_boundary_ms": 5060,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000400-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 300,
+        "absolute_predicted_boundary_ms": 300,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000720-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 580,
+        "absolute_predicted_boundary_ms": 580,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000002200-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1520,
+        "absolute_predicted_boundary_ms": 2400,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000880-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 800,
+        "absolute_predicted_boundary_ms": 800,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000003520-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1580,
+        "absolute_predicted_boundary_ms": 3540,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000005480-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1540,
+        "absolute_predicted_boundary_ms": 5220,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000001040-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 960,
+        "absolute_predicted_boundary_ms": 960,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000006440-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1700,
+        "absolute_predicted_boundary_ms": 6260,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000520-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 460,
+        "absolute_predicted_boundary_ms": 460,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000001760-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1460,
+        "absolute_predicted_boundary_ms": 1600,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000027240-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1640,
+        "absolute_predicted_boundary_ms": 27360,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000680-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 640,
+        "absolute_predicted_boundary_ms": 640,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000003600-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1400,
+        "absolute_predicted_boundary_ms": 3600,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000382270-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1680,
+        "absolute_predicted_boundary_ms": 381990,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000920-end",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 900,
+        "absolute_predicted_boundary_ms": 900,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000004120-start",
+        "provider": "ctc_mms_300m",
+        "status": "ok",
+        "predicted_boundary_ms": 1540,
+        "absolute_predicted_boundary_ms": 3780,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      }
+    ],
+    "elevenlabs_forced_alignment": [
+      {
+        "case_id": "sample_01-b000000560-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001040-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000014680-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001320-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000002000-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000019720-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001440-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000005280-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000400-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000720-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000002200-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000880-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000003520-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000005480-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000001040-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000006440-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000520-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000001760-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000027240-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000680-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000003600-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000382270-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000920-end",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000004120-start",
+        "provider": "elevenlabs_forced_alignment",
+        "status": "unavailable",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "ELEVENLABS_API_KEY is not configured",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      }
+    ],
+    "funasr": [
+      {
+        "case_id": "sample_01-b000000560-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 560,
+        "absolute_predicted_boundary_ms": 560,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001040-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1040,
+        "absolute_predicted_boundary_ms": 1040,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000014680-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1360,
+        "absolute_predicted_boundary_ms": 14680,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001320-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1320,
+        "absolute_predicted_boundary_ms": 1320,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000002000-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1440,
+        "absolute_predicted_boundary_ms": 2000,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000019720-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1920,
+        "absolute_predicted_boundary_ms": 19720,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001440-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1440,
+        "absolute_predicted_boundary_ms": 1440,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000005280-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1680,
+        "absolute_predicted_boundary_ms": 5280,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000400-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 400,
+        "absolute_predicted_boundary_ms": 400,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000720-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 720,
+        "absolute_predicted_boundary_ms": 720,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000002200-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1320,
+        "absolute_predicted_boundary_ms": 2200,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000880-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 880,
+        "absolute_predicted_boundary_ms": 880,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000003520-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1560,
+        "absolute_predicted_boundary_ms": 3520,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000005480-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1800,
+        "absolute_predicted_boundary_ms": 5480,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000001040-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1040,
+        "absolute_predicted_boundary_ms": 1040,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000006440-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1880,
+        "absolute_predicted_boundary_ms": 6440,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000520-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 520,
+        "absolute_predicted_boundary_ms": 520,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000001760-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1620,
+        "absolute_predicted_boundary_ms": 1760,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000027240-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1520,
+        "absolute_predicted_boundary_ms": 27240,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000680-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 680,
+        "absolute_predicted_boundary_ms": 680,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000003600-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1400,
+        "absolute_predicted_boundary_ms": 3600,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000382270-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1960,
+        "absolute_predicted_boundary_ms": 382270,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000920-end",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 920,
+        "absolute_predicted_boundary_ms": 920,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000004120-start",
+        "provider": "funasr",
+        "status": "ok",
+        "predicted_boundary_ms": 1880,
+        "absolute_predicted_boundary_ms": 4120,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      }
+    ],
+    "mfa_mandarin": [
+      {
+        "case_id": "sample_01-b000000560-end",
+        "provider": "mfa_mandarin",
+        "status": "failed",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "target text could not be mapped unambiguously to aligned tokens",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001040-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1010,
+        "absolute_predicted_boundary_ms": 1010,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000014680-end",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1340,
+        "absolute_predicted_boundary_ms": 14660,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001320-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1270,
+        "absolute_predicted_boundary_ms": 1270,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000002000-end",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1420,
+        "absolute_predicted_boundary_ms": 1980,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000019720-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1850,
+        "absolute_predicted_boundary_ms": 19650,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000001440-end",
+        "provider": "mfa_mandarin",
+        "status": "failed",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "target end does not coincide with an aligned token boundary",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_01-b000005280-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1660,
+        "absolute_predicted_boundary_ms": 5260,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000400-end",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 290,
+        "absolute_predicted_boundary_ms": 290,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000720-start",
+        "provider": "mfa_mandarin",
+        "status": "failed",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "target text could not be mapped unambiguously to aligned tokens",
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000002200-end",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1240,
+        "absolute_predicted_boundary_ms": 2120,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000000880-start",
+        "provider": "mfa_mandarin",
+        "status": "failed",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "target text could not be mapped unambiguously to aligned tokens",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000003520-end",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1590,
+        "absolute_predicted_boundary_ms": 3550,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000005480-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1790,
+        "absolute_predicted_boundary_ms": 5470,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000001040-end",
+        "provider": "mfa_mandarin",
+        "status": "failed",
+        "predicted_boundary_ms": null,
+        "absolute_predicted_boundary_ms": null,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": "target text could not be mapped unambiguously to aligned tokens",
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_02-b000006440-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1800,
+        "absolute_predicted_boundary_ms": 6360,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000520-end",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 460,
+        "absolute_predicted_boundary_ms": 460,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000001760-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1590,
+        "absolute_predicted_boundary_ms": 1730,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000027240-end",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1430,
+        "absolute_predicted_boundary_ms": 27150,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000680-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 630,
+        "absolute_predicted_boundary_ms": 630,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000003600-end",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1340,
+        "absolute_predicted_boundary_ms": 3540,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000382270-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1880,
+        "absolute_predicted_boundary_ms": 382190,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_long",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000000920-end",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 870,
+        "absolute_predicted_boundary_ms": 870,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_short",
+          "unclassified"
+        ]
+      },
+      {
+        "case_id": "sample_03-b000004120-start",
+        "provider": "mfa_mandarin",
+        "status": "ok",
+        "predicted_boundary_ms": 1830,
+        "absolute_predicted_boundary_ms": 4070,
+        "safe_interval_hit": null,
+        "interval_error_ms": null,
+        "absolute_error_to_midpoint_ms": null,
+        "has_gold": false,
+        "forbidden_interval_hit": null,
+        "error": null,
+        "condition_tags": [
+          "gap_medium",
+          "unclassified"
+        ]
+      }
+    ]
+  },
+  "case_ids": [
+    "sample_01-b000000560-end",
+    "sample_01-b000001040-start",
+    "sample_01-b000001320-start",
+    "sample_01-b000001440-end",
+    "sample_01-b000002000-end",
+    "sample_01-b000005280-start",
+    "sample_01-b000014680-end",
+    "sample_01-b000019720-start",
+    "sample_02-b000000400-end",
+    "sample_02-b000000720-start",
+    "sample_02-b000000880-start",
+    "sample_02-b000001040-end",
+    "sample_02-b000002200-end",
+    "sample_02-b000003520-end",
+    "sample_02-b000005480-start",
+    "sample_02-b000006440-start",
+    "sample_03-b000000520-end",
+    "sample_03-b000000680-start",
+    "sample_03-b000000920-end",
+    "sample_03-b000001760-start",
+    "sample_03-b000003600-end",
+    "sample_03-b000004120-start",
+    "sample_03-b000027240-end",
+    "sample_03-b000382270-start"
+  ]
+}

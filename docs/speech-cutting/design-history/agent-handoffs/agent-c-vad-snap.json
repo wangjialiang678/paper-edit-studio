@@ -1,0 +1,18 @@
+{
+  "agent": "C",
+  "task": "VAD Interval Snap",
+  "status": "done",
+  "files_changed": [
+    "src/cutpoint_lab/models.py",
+    "src/cutpoint_lab/strategies.py",
+    "tests/test_cutpoint_strategies.py",
+    "docs/agent-handoffs/agent-c-vad-snap.json"
+  ],
+  "tests_added": [
+    "tests/test_cutpoint_strategies.py: VAD JSON loading, overlap/jitter merge, interval duration clipping, short gap fallback, token guard fallback, no-duration fallback, fast-speech fallback, compare CLI vad_snap output"
+  ],
+  "test_command": "PYTHONPATH=src python3 -m unittest discover -s tests; PYTHONPATH=src python3 -m unittest tests.test_cutpoint_strategies.CliSmokeTests.test_compare_cli_outputs_three_strategies",
+  "test_result": "pass",
+  "known_issues": [],
+  "notes": "Implemented VAD interval snap around the existing token-padding fallback. VAD speech intervals are sorted, clipped to media duration, and merged for overlap or short jitter gaps before deriving non-speech gaps. vad_snap only snaps when both start and end candidates pass token guards; it falls back to token padding when VAD is missing, duration is missing, gaps are too short, gaps would cut into token guards, or speech is effectively continuous. Before Silero integration, the project still needs a VAD inference wrapper, audio duration/content validation, and real-sample tuning for merge_speech_gap_ms/min_gap_ms/guards."
+}

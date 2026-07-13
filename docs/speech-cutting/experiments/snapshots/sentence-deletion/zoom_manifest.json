@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "cuts": [
+    {
+      "cut_index": 1,
+      "label": "remove_sentence_0025",
+      "reference_clip_start_ms": 1200,
+      "reference_clip_end_ms": 8000,
+      "strategy_join_output_ms": {
+        "hybrid_safe": 2398,
+        "ctc_char": 2398,
+        "funasr_direct": 2398,
+        "mfa_word": 2298
+      }
+    },
+    {
+      "cut_index": 2,
+      "label": "remove_sentence_0027",
+      "reference_clip_start_ms": 8200,
+      "reference_clip_end_ms": 16560,
+      "strategy_join_output_ms": {
+        "hybrid_safe": 5734,
+        "ctc_char": 5734,
+        "funasr_direct": 5594,
+        "mfa_word": 5514
+      }
+    },
+    {
+      "cut_index": 3,
+      "label": "remove_sentence_0029",
+      "reference_clip_start_ms": 29560,
+      "reference_clip_end_ms": 40920,
+      "strategy_join_output_ms": {
+        "hybrid_safe": 21820,
+        "ctc_char": 21950,
+        "funasr_direct": 21590,
+        "mfa_word": 21510
+      }
+    },
+    {
+      "cut_index": 4,
+      "label": "remove_sentence_0031",
+      "reference_clip_start_ms": 45920,
+      "reference_clip_end_ms": 48650,
+      "strategy_join_output_ms": {
+        "hybrid_safe": 29836,
+        "ctc_char": 29946,
+        "funasr_direct": 29586,
+        "mfa_word": 29516
+      }
+    }
+  ]
+}

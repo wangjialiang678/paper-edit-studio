@@ -1,0 +1,25 @@
+{
+  "agent": "D",
+  "task": "效果评估与提测包 evaluator",
+  "status": "done",
+  "files_changed": [
+    "src/cutpoint_lab/evaluator.py",
+    "src/cutpoint_lab/cli.py",
+    "tests/test_evaluator_package.py",
+    "README.md",
+    "docs/specs/audio-cutpoint-tdd-and-evaluation-plan.md",
+    "docs/agent-handoffs/agent-d-evaluator.json"
+  ],
+  "tests_added": [
+    "tests/test_evaluator_package.py: 三策略汇总 compare.json",
+    "tests/test_evaluator_package.py: summary.csv 必要字段",
+    "tests/test_evaluator_package.py: gold 缺失不崩溃且不生成伪误差",
+    "tests/test_evaluator_package.py: gold source_segment_ids 不匹配时不按索引误匹配",
+    "tests/test_evaluator_package.py: 单策略失败记录为 failed 且不阻塞其他策略",
+    "tests/test_evaluator_package.py: notes.md 人工评分维度、输入路径和策略参数"
+  ],
+  "test_command": "PYTHONPATH=src python3 -m unittest discover -s tests; tmpdir=$(mktemp -d /tmp/cutpoint-handoff-d-XXXXXX) && PYTHONPATH=src python3 -m cutpoint_lab.cli eval --transcript examples/sample_transcript.json --vad examples/sample_vad.json --output-root \"$tmpdir\"",
+  "test_result": "pass",
+  "known_issues": [],
+  "notes": "实现 evaluator 评估层，不修改 A/B/C 核心策略。默认运行 token_padding、rms_snap、vad_snap，输出 compare.json、summary.csv、notes.md。自动指标包含 range_count、total_duration_ms、fallback_count、snap_hit_rate、delta_start_ms、delta_end_ms、token_chop_risk、boundary_risk_count，以及可选 gold_error_start_ms/gold_error_end_ms。fallback 边界：单个策略异常时记录 failed 行并继续其他策略；gold 缺失时 gold 误差为 null；gold 带 source_segment_ids 时必须精确匹配，未声明 source_segment_ids 才按 range index 匹配。CLI 新增 eval 提测包命令，并让 compare 输出增强报告。后续还缺真实 clip 导出、人工评分填写和多样本批量汇总。"
+}

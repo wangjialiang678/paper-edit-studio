@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "seed": 20260710,
+  "mapping": {
+    "A": "ctc_char",
+    "B": "mfa_word",
+    "C": "hybrid_safe",
+    "D": "funasr_direct"
+  }
+}

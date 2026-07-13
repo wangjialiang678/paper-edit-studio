@@ -1,0 +1,505 @@
+{
+  "schema_version": 1,
+  "status": "completed",
+  "passed": true,
+  "source": {
+    "probe": {
+      "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/reference_original.wav",
+      "duration_ms": 35680,
+      "codec_name": "pcm_s16le",
+      "sample_rate": 48000,
+      "channels": 1
+    },
+    "reference_m4a_probe": {
+      "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/reference_original.m4a",
+      "duration_ms": 35680,
+      "codec_name": "aac",
+      "sample_rate": 48000,
+      "channels": 1
+    },
+    "reference_wav_sha256": "6a7433e9b7107b27709a2b32bdd4585e6aad45b66a0c8af241bbc23ee00e04e4",
+    "reference_m4a_sha256": "ed626472f3286293b954745f3e299fcd64d7d24f70d71312cc7d23d8a3f0b3e1"
+  },
+  "alignment": {
+    "ctc_real": true,
+    "mfa_real": true,
+    "mfa_fallback_side_count": 0,
+    "mfa_real_side_count": 16,
+    "all_strategy_outputs_unique": true
+  },
+  "strategies": {
+    "funasr_direct": {
+      "strategy": "funasr_direct",
+      "join_count": 8,
+      "labels": [
+        "remove_question",
+        "remove_intro_filler_1",
+        "remove_inner_er",
+        "remove_intro_filler_2",
+        "remove_intro_filler_3",
+        "remove_redundant_prompt",
+        "remove_terminal_filler",
+        "remove_repeated_lead_in"
+      ],
+      "fallback_side_count": 0,
+      "expected_duration_ms": 28928,
+      "wav": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/named/funasr_direct.wav",
+        "duration_ms": 28928,
+        "codec_name": "pcm_s16le",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "m4a": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/named/funasr_direct.m4a",
+        "duration_ms": 28928,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "wav_duration_error_ms": 0,
+      "m4a_duration_error_ms": 0,
+      "joins": [
+        {
+          "label": "remove_question",
+          "join_output_ms": 3358,
+          "rms_before_db": -44.502,
+          "rms_after_db": -31.966,
+          "rms_delta_db": 12.536,
+          "sample_jump_ratio": 0.003769
+        },
+        {
+          "label": "remove_intro_filler_1",
+          "join_output_ms": 4994,
+          "rms_before_db": -48.603,
+          "rms_after_db": -32.327,
+          "rms_delta_db": 16.276,
+          "sample_jump_ratio": 0.008576
+        },
+        {
+          "label": "remove_inner_er",
+          "join_output_ms": 6150,
+          "rms_before_db": -23.223,
+          "rms_after_db": -36.698,
+          "rms_delta_db": 13.476,
+          "sample_jump_ratio": 0.051942
+        },
+        {
+          "label": "remove_intro_filler_2",
+          "join_output_ms": 11266,
+          "rms_before_db": -52.013,
+          "rms_after_db": -36.739,
+          "rms_delta_db": 15.274,
+          "sample_jump_ratio": 0.020645
+        },
+        {
+          "label": "remove_intro_filler_3",
+          "join_output_ms": 14422,
+          "rms_before_db": -47.578,
+          "rms_after_db": -31.147,
+          "rms_delta_db": 16.431,
+          "sample_jump_ratio": 0.008759
+        },
+        {
+          "label": "remove_redundant_prompt",
+          "join_output_ms": 17698,
+          "rms_before_db": -30.611,
+          "rms_after_db": -24.534,
+          "rms_delta_db": 6.077,
+          "sample_jump_ratio": 0.014755
+        },
+        {
+          "label": "remove_terminal_filler",
+          "join_output_ms": 21374,
+          "rms_before_db": -26.813,
+          "rms_after_db": -34.58,
+          "rms_delta_db": 7.767,
+          "sample_jump_ratio": 0.013153
+        },
+        {
+          "label": "remove_repeated_lead_in",
+          "join_output_ms": 22130,
+          "rms_before_db": -52.299,
+          "rms_after_db": -46.485,
+          "rms_delta_db": 5.814,
+          "sample_jump_ratio": 0.001816
+        }
+      ],
+      "fingerprints": {
+        "wav_sha256": "171cf379c183521a484e92d2d9ee2e0c193ef9de3f3f80f04113a496f2ba95ba",
+        "m4a_sha256": "4a75fdf759c44f0b43039dd57f718746212c7fa0c5321b33fa5339275e78c669",
+        "plan_sha256": "b65d4dcf0e71bedfa0be922a8352b687efac47728aba7920c67a40c0fa5b11c7"
+      },
+      "maximum_sample_jump_ratio": 0.051942,
+      "passed": true
+    },
+    "ctc_char": {
+      "strategy": "ctc_char",
+      "join_count": 8,
+      "labels": [
+        "remove_question",
+        "remove_intro_filler_1",
+        "remove_inner_er",
+        "remove_intro_filler_2",
+        "remove_intro_filler_3",
+        "remove_redundant_prompt",
+        "remove_terminal_filler",
+        "remove_repeated_lead_in"
+      ],
+      "fallback_side_count": 0,
+      "expected_duration_ms": 29348,
+      "wav": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/named/ctc_char.wav",
+        "duration_ms": 29348,
+        "codec_name": "pcm_s16le",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "m4a": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/named/ctc_char.m4a",
+        "duration_ms": 29348,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "wav_duration_error_ms": 0,
+      "m4a_duration_error_ms": 0,
+      "joins": [
+        {
+          "label": "remove_question",
+          "join_output_ms": 3258,
+          "rms_before_db": -18.63,
+          "rms_after_db": -31.042,
+          "rms_delta_db": 12.412,
+          "sample_jump_ratio": 0.037217
+        },
+        {
+          "label": "remove_intro_filler_1",
+          "join_output_ms": 4754,
+          "rms_before_db": -37.155,
+          "rms_after_db": -16.742,
+          "rms_delta_db": 20.412,
+          "sample_jump_ratio": 0.04329
+        },
+        {
+          "label": "remove_inner_er",
+          "join_output_ms": 5850,
+          "rms_before_db": -34.971,
+          "rms_after_db": -19.37,
+          "rms_delta_db": 15.601,
+          "sample_jump_ratio": 0.042618
+        },
+        {
+          "label": "remove_intro_filler_2",
+          "join_output_ms": 11186,
+          "rms_before_db": -36.111,
+          "rms_after_db": -21.244,
+          "rms_delta_db": 14.868,
+          "sample_jump_ratio": 0.035126
+        },
+        {
+          "label": "remove_intro_filler_3",
+          "join_output_ms": 14542,
+          "rms_before_db": -46.801,
+          "rms_after_db": -34.824,
+          "rms_delta_db": 11.977,
+          "sample_jump_ratio": 0.002274
+        },
+        {
+          "label": "remove_redundant_prompt",
+          "join_output_ms": 17798,
+          "rms_before_db": -20.039,
+          "rms_after_db": -35.308,
+          "rms_delta_db": 15.269,
+          "sample_jump_ratio": 0.01709
+        },
+        {
+          "label": "remove_terminal_filler",
+          "join_output_ms": 21574,
+          "rms_before_db": -29.752,
+          "rms_after_db": -45.739,
+          "rms_delta_db": 15.987,
+          "sample_jump_ratio": 0.005692
+        },
+        {
+          "label": "remove_repeated_lead_in",
+          "join_output_ms": 22510,
+          "rms_before_db": -30.694,
+          "rms_after_db": -45.639,
+          "rms_delta_db": 14.945,
+          "sample_jump_ratio": 0.003952
+        }
+      ],
+      "fingerprints": {
+        "wav_sha256": "0d16026d38b5e5b08ef39bf821c22a8388482f30e619c3afa25cbe1cf0ab0daf",
+        "m4a_sha256": "705a524805a3b2e35f03e4a2aca32e2fe32736d772bc61ae07b66a59ac3f56b3",
+        "plan_sha256": "916d3eae607dd2ec4a8b33a695a7e8b6c0dd119ca019e5a3dde4b1b44ebfa691"
+      },
+      "maximum_sample_jump_ratio": 0.04329,
+      "passed": true
+    },
+    "mfa_word": {
+      "strategy": "mfa_word",
+      "join_count": 8,
+      "labels": [
+        "remove_question",
+        "remove_intro_filler_1",
+        "remove_inner_er",
+        "remove_intro_filler_2",
+        "remove_intro_filler_3",
+        "remove_redundant_prompt",
+        "remove_terminal_filler",
+        "remove_repeated_lead_in"
+      ],
+      "fallback_side_count": 0,
+      "expected_duration_ms": 28558,
+      "wav": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/named/mfa_word.wav",
+        "duration_ms": 28558,
+        "codec_name": "pcm_s16le",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "m4a": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/named/mfa_word.m4a",
+        "duration_ms": 28558,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "wav_duration_error_ms": 0,
+      "m4a_duration_error_ms": 0,
+      "joins": [
+        {
+          "label": "remove_question",
+          "join_output_ms": 3298,
+          "rms_before_db": -47.846,
+          "rms_after_db": -57.791,
+          "rms_delta_db": 9.945,
+          "sample_jump_ratio": 0.000793
+        },
+        {
+          "label": "remove_intro_filler_1",
+          "join_output_ms": 4864,
+          "rms_before_db": -48.471,
+          "rms_after_db": -37.08,
+          "rms_delta_db": 11.391,
+          "sample_jump_ratio": 0.003128
+        },
+        {
+          "label": "remove_inner_er",
+          "join_output_ms": 5800,
+          "rms_before_db": -42.003,
+          "rms_after_db": -35.936,
+          "rms_delta_db": 6.066,
+          "sample_jump_ratio": 0.001816
+        },
+        {
+          "label": "remove_intro_filler_2",
+          "join_output_ms": 10916,
+          "rms_before_db": -47.202,
+          "rms_after_db": -34.743,
+          "rms_delta_db": 12.458,
+          "sample_jump_ratio": 0.002182
+        },
+        {
+          "label": "remove_intro_filler_3",
+          "join_output_ms": 14062,
+          "rms_before_db": -38.425,
+          "rms_after_db": -26.262,
+          "rms_delta_db": 12.163,
+          "sample_jump_ratio": 0.009613
+        },
+        {
+          "label": "remove_redundant_prompt",
+          "join_output_ms": 17348,
+          "rms_before_db": -21.882,
+          "rms_after_db": -38.309,
+          "rms_delta_db": 16.427,
+          "sample_jump_ratio": 0.007218
+        },
+        {
+          "label": "remove_terminal_filler",
+          "join_output_ms": 20994,
+          "rms_before_db": -31.346,
+          "rms_after_db": -41.363,
+          "rms_delta_db": 10.017,
+          "sample_jump_ratio": 0.00618
+        },
+        {
+          "label": "remove_repeated_lead_in",
+          "join_output_ms": 21690,
+          "rms_before_db": -30.786,
+          "rms_after_db": -38.806,
+          "rms_delta_db": 8.02,
+          "sample_jump_ratio": 0.003952
+        }
+      ],
+      "fingerprints": {
+        "wav_sha256": "658f379bea7b9b121529e5539a3aa4413e7fcfcb5a65fa80d8737d9886970068",
+        "m4a_sha256": "186f61f5d87bfaa799cea0644154623df235d3c42a2a4d08aa83c9854e8819bc",
+        "plan_sha256": "6d730612552352053ec7a30010e264ee3395967d7bbd4f39dad5df65bf7c7db9"
+      },
+      "maximum_sample_jump_ratio": 0.009613,
+      "passed": true
+    },
+    "hybrid_safe": {
+      "strategy": "hybrid_safe",
+      "join_count": 8,
+      "labels": [
+        "remove_question",
+        "remove_intro_filler_1",
+        "remove_inner_er",
+        "remove_intro_filler_2",
+        "remove_intro_filler_3",
+        "remove_redundant_prompt",
+        "remove_terminal_filler",
+        "remove_repeated_lead_in"
+      ],
+      "fallback_side_count": 0,
+      "expected_duration_ms": 28503,
+      "wav": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/named/hybrid_safe.wav",
+        "duration_ms": 28503,
+        "codec_name": "pcm_s16le",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "m4a": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-diagnostics/20260710-sample03-30s/named/hybrid_safe.m4a",
+        "duration_ms": 28503,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "wav_duration_error_ms": 0,
+      "m4a_duration_error_ms": 0,
+      "joins": [
+        {
+          "label": "remove_question",
+          "join_output_ms": 3153,
+          "rms_before_db": -38.749,
+          "rms_after_db": -33.484,
+          "rms_delta_db": 5.265,
+          "sample_jump_ratio": 0.007279
+        },
+        {
+          "label": "remove_intro_filler_1",
+          "join_output_ms": 4649,
+          "rms_before_db": -56.481,
+          "rms_after_db": -39.42,
+          "rms_delta_db": 17.06,
+          "sample_jump_ratio": 0.004837
+        },
+        {
+          "label": "remove_inner_er",
+          "join_output_ms": 5660,
+          "rms_before_db": -50.274,
+          "rms_after_db": -45.514,
+          "rms_delta_db": 4.76,
+          "sample_jump_ratio": 0.001877
+        },
+        {
+          "label": "remove_intro_filler_2",
+          "join_output_ms": 10756,
+          "rms_before_db": -59.829,
+          "rms_after_db": -36.84,
+          "rms_delta_db": 22.989,
+          "sample_jump_ratio": 0.015305
+        },
+        {
+          "label": "remove_intro_filler_3",
+          "join_output_ms": 14037,
+          "rms_before_db": -71.528,
+          "rms_after_db": -47.135,
+          "rms_delta_db": 24.393,
+          "sample_jump_ratio": 0.000244
+        },
+        {
+          "label": "remove_redundant_prompt",
+          "join_output_ms": 17143,
+          "rms_before_db": -38.145,
+          "rms_after_db": -52.332,
+          "rms_delta_db": 14.187,
+          "sample_jump_ratio": 0.009888
+        },
+        {
+          "label": "remove_terminal_filler",
+          "join_output_ms": 20824,
+          "rms_before_db": -29.751,
+          "rms_after_db": -45.847,
+          "rms_delta_db": 16.096,
+          "sample_jump_ratio": 0.005692
+        },
+        {
+          "label": "remove_repeated_lead_in",
+          "join_output_ms": 21665,
+          "rms_before_db": -30.694,
+          "rms_after_db": -45.639,
+          "rms_delta_db": 14.945,
+          "sample_jump_ratio": 0.003952
+        }
+      ],
+      "fingerprints": {
+        "wav_sha256": "f3ca0705d609e6d4b50ae78032dde33c43fb6f8cc570af5354436fca90dd6251",
+        "m4a_sha256": "20959b7e92c8182fc34ae3fdc273dbf865a10d02bca252f729a0e03f96a6e3d8",
+        "plan_sha256": "9e65a8eb6e0a2453979d286c504b1ac6b5cae3c89f81db5f5a72127f880b22c0"
+      },
+      "maximum_sample_jump_ratio": 0.015305,
+      "passed": true,
+      "ctc_anchor_duration_ratios": {
+        "remove_question": 1.054688,
+        "remove_intro_filler_1": 1.090426,
+        "remove_inner_er": 1.328125,
+        "remove_intro_filler_2": 1.42,
+        "remove_intro_filler_3": 1.114583,
+        "remove_redundant_prompt": 1.179245,
+        "remove_terminal_filler": 1.296875,
+        "remove_repeated_lead_in": 1.0
+      },
+      "minimum_ctc_anchor_duration_ratio": 1.0
+    }
+  },
+  "blind_files": {
+    "A": {
+      "probe": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-listening/20260710-sample03-30s/A.m4a",
+        "duration_ms": 29348,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "sha256": "705a524805a3b2e35f03e4a2aca32e2fe32736d772bc61ae07b66a59ac3f56b3"
+    },
+    "B": {
+      "probe": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-listening/20260710-sample03-30s/B.m4a",
+        "duration_ms": 28558,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "sha256": "186f61f5d87bfaa799cea0644154623df235d3c42a2a4d08aa83c9854e8819bc"
+    },
+    "C": {
+      "probe": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-listening/20260710-sample03-30s/C.m4a",
+        "duration_ms": 28503,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "sha256": "20959b7e92c8182fc34ae3fdc273dbf865a10d02bca252f729a0e03f96a6e3d8"
+    },
+    "D": {
+      "probe": {
+        "path": "/Users/michael/projects/自用小工具/AI视频剪辑工具/outputs/blind-cutpoint-listening/20260710-sample03-30s/D.m4a",
+        "duration_ms": 28928,
+        "codec_name": "aac",
+        "sample_rate": 48000,
+        "channels": 1
+      },
+      "sha256": "4a75fdf759c44f0b43039dd57f718746212c7fa0c5321b33fa5339275e78c669"
+    }
+  }
+}

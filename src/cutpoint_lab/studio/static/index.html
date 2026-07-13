@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paper Edit Studio · 文字剪视频</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">✂️ Paper Edit Studio</div>
+      <div class="import-zone" id="importZone">
+        <input type="file" id="fileInput" accept="video/*,audio/*" hidden>
+        <div class="import-hint">拖入视频，或</div>
+        <button class="btn primary" id="pickFileBtn">选择文件</button>
+        <div class="import-hint sub">也可以粘贴本机路径：</div>
+        <div class="path-row">
+          <input type="text" id="pathInput" placeholder="/Users/…/video.mp4">
+          <button class="btn" id="importPathBtn">导入</button>
+        </div>
+        <div class="upload-progress" id="uploadProgress" hidden>
+          <div class="upload-bar"><span id="uploadBar"></span></div>
+          <span id="uploadPct">0%</span>
+        </div>
+      </div>
+      <div class="project-list" id="projectList"></div>
+    </aside>
+
+    <main class="main">
+      <section class="empty-view" id="emptyView">
+        <h2>从左侧导入一段视频开始</h2>
+        <p>导入后自动完成：提取音频 → 语音识别 → 词级时间戳字幕 → AI 保留建议。</p>
+      </section>
+
+      <section class="pipeline-view" id="pipelineView" hidden>
+        <h2 id="pipelineTitle">处理中…</h2>
+        <ol class="stage-list" id="stageList"></ol>
+        <div class="pipeline-error" id="pipelineError" hidden>
+          <div id="pipelineErrorText"></div>
+          <button class="btn" id="retryBtn">重试</button>
+        </div>
+      </section>
+
+      <section class="editor" id="editorView" hidden>
+        <div class="stage">
+          <div class="player">
+            <video id="video" preload="metadata"></video>
+            <div class="transport">
+              <button class="btn icon" id="playBtn" title="播放/暂停（空格）">▶</button>
+              <div class="progress" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+              <span class="time" id="timeLabel">00:00 / 00:00</span>
+              <div class="mode-toggle" id="modeToggle" title="切换播放内容（M）">
+                <button class="mode-btn active" data-mode="edited">成片</button>
+                <button class="mode-btn" data-mode="source">原片</button>
+              </div>
+            </div>
+          </div>
+          <div class="stage-side">
+            <div class="stat-block">
+              <div class="stat"><b id="statDuration">00:00</b><span>成片时长</span></div>
+              <div class="stat"><b id="statKept">0</b><span>保留句子</span></div>
+            </div>
+            <div class="status" id="statusBox">加载中…</div>
+            <div class="export-result" id="exportResult" hidden></div>
+          </div>
+        </div>
+
+        <div class="ordered-banner" id="orderedBanner" hidden>
+          <span>🎬 金句混剪模式：按 HOOK → BODY → ECHO 顺序成片</span>
+          <button class="btn small" id="exitOrderedBtn">退出混剪模式</button>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn" id="aiPanelBtn">🤖 AI 选段</button>
+          <span class="toolbar-gap"></span>
+          <button class="btn accent" id="exportBtn">导出视频</button>
+        </div>
+
+        <div class="rows" id="rows"></div>
+      </section>
+    </main>
+
+    <aside class="ai-panel" id="aiPanel" hidden>
+      <div class="ai-head">
+        <b>AI 选段</b>
+        <button class="btn small" id="aiCloseBtn">✕</button>
+      </div>
+      <div class="ai-tabs">
+        <button class="ai-tab active" data-mode="koubo_tighten">口播精剪</button>
+        <button class="ai-tab" data-mode="topic_slicing">主题切片</button>
+        <button class="ai-tab" data-mode="highlight_remix">金句混剪</button>
+      </div>
+      <div class="ai-brief">
+        <textarea id="aiBrief" placeholder="可选：补充要求（如“只保留讲 AI 教育的部分”“目标 60 秒”）"></textarea>
+        <button class="btn primary" id="aiRunBtn">运行 AI 分析</button>
+      </div>
+      <div class="ai-body" id="aiBody"><div class="ai-hint">选择模式后点击"运行 AI 分析"。<br>ASR 完成时会自动跑一次口播精剪。</div></div>
+    </aside>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

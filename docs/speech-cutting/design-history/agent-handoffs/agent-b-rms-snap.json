@@ -1,0 +1,24 @@
+{
+  "agent": "B",
+  "task": "RMS / Silence Low-Energy Snap",
+  "status": "done",
+  "files_changed": [
+    "src/cutpoint_lab/strategies.py",
+    "tests/test_cutpoint_strategies.py",
+    "examples/sample_rms_frames.json",
+    "docs/agent-handoffs/agent-b-rms-snap.json"
+  ],
+  "tests_added": [
+    "tests/test_cutpoint_strategies.py: RMS strong low-energy gap snaps boundaries",
+    "tests/test_cutpoint_strategies.py: RMS fallback for no usable boundary gap, missing frames, and low dynamic range",
+    "tests/test_cutpoint_strategies.py: RMS rejects gaps entering token boundaries and respects start/end guard",
+    "tests/test_cutpoint_strategies.py: RMS frames are sorted and sparse missing frames are not bridged into fake gaps",
+    "tests/test_cutpoint_strategies.py: RMS snapped start/end clamp to media bounds",
+    "tests/test_cutpoint_strategies.py: wav content validation rejects silent audio",
+    "tests/test_cutpoint_strategies.py: CLI compare can output snapped rms_snap plan from audio"
+  ],
+  "test_command": "PYTHONPATH=src python3 -m unittest discover -s tests; PYTHONPATH=src python3 -m unittest tests.test_cutpoint_strategies.CliSmokeTests",
+  "test_result": "pass",
+  "known_issues": [],
+  "notes": "实现 rms_snap：基于排序后的 RMS frames 用 10 分位噪声底 + 6dB margin 找低能量 gap，并要求动态范围至少 10dB。RMS 只吸附选中 range 的外边界，输出 snapped_to_rms_gap；当 frames 缺失、动态范围不足、窗口内无可靠 gap、gap 进入 token、或起止候选不满足 guard 时，保守回退到 token padding，并输出 rms_fallback_token_padding。新增 sample_rms_frames.json 作为小型 RMS fixture。后续建议用真实口播样本校准阈值和弱 gap 接受策略。"
+}
