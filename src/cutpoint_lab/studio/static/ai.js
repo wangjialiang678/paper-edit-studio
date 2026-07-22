@@ -225,8 +225,8 @@ function renderPromptEditor() {
     ? `<div class="ai-warning">⚠ ${data.warnings.map(escapeHtml).join("；")}</div>` : "";
   el.aiBody.innerHTML = `
     <div class="ai-card">
-      <h4>${MODE_NAMES[state.aiMode]} · 提示词 ${sourceBadge}</h4>
-      <div class="meta">修改后保存即生效（下次运行 AI 时使用），重启后保留。<br>请保留出厂模板中已有的 {{…}} 占位符（删掉会导致对应功能失效，保存时会提醒）。</div>
+      <h4>${MODE_NAMES[state.aiMode]} · 剪辑理念 ${sourceBadge}</h4>
+      <div class="meta">用自然语言描述这个模式的判断标准和取舍偏好即可，怎么改都不会弄坏功能。<br>输出格式等技术协议由系统自动附加（见下方高级选项）。保存即生效，重启后保留。</div>
     </div>
     ${warnings}
     <textarea class="prompt-editor" id="promptEditorText" spellcheck="false"></textarea>
@@ -236,8 +236,8 @@ function renderPromptEditor() {
       <button class="btn" id="promptCloseBtn">返回结果</button>
     </div>
     <details class="prompt-extra">
-      <summary>系统级硬约束（随提示词自动追加，不可编辑）</summary>
-      <pre>${escapeHtml(data.hard_constraints || "")}</pre>
+      <summary>高级选项：查看发送给 AI 的完整提示词（协议与硬约束由系统维护，只读）</summary>
+      <pre>${escapeHtml((data.assembled_template || data.content || "") + "\n" + (data.hard_constraints || ""))}</pre>
     </details>`;
   const textarea = $("promptEditorText");
   textarea.value = data.content || "";

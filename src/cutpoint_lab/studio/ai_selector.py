@@ -118,7 +118,7 @@ class AiSelector:
         return payload, warnings
 
     def _render_system(self, mode: str, *, brief: str, target_duration: str) -> str:
-        template = str(self.prompt_store.get(mode)["content"])
+        template = self.prompt_store.assemble(mode)
         brief_block = f"\n## 用户补充要求\n\n{brief.strip()}\n" if brief.strip() else ""
         rendered = template.replace("{{USER_BRIEF}}", brief_block)
         rendered = rendered.replace("{{TARGET_DURATION}}", target_duration.strip() or "未指定")

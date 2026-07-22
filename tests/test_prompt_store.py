@@ -3,11 +3,12 @@ import unittest
 from pathlib import Path
 
 from cutpoint_lab.studio.ai_selector import AiSelector, HARD_CONSTRAINTS
-from cutpoint_lab.studio.prompt_store import PromptStore
+from cutpoint_lab.studio.prompt_protocols import MODE_PROTOCOLS
+from cutpoint_lab.studio.prompt_store import LEGACY_WARNING, PromptStore
 
 
 DEFAULT_NAME = "koubo-tighten.md"
-DEFAULT_CONTENT = "DEFAULT {{USER_BRIEF}} {{TARGET_DURATION}}"
+DEFAULT_CONTENT = "DEFAULT 剪辑理念：删掉口水话。"
 
 
 class _FakeClient:
@@ -25,34 +26,46 @@ class PromptStoreTests(unittest.TestCase):
         (defaults / DEFAULT_NAME).write_text(DEFAULT_CONTENT, encoding="utf-8")
         return PromptStore(defaults, root / "workspace" / "_settings" / "prompts")
 
-    def test_placeholder_warning_scoped_to_default_template(self):
-        """出厂模板不含 {{TARGET_DURATION}} 的模式：默认内容零警告，改丢默认已有占位符才警告。"""
+    def test_default_content_is_editable_part_and_assembles_with_protocol(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            defaults = root / "prompts"
-            defaults.mkdir()
-            (defaults / DEFAULT_NAME).write_text("仅含 {{USER_BRIEF}} 的模板", encoding="utf-8")
-            store = PromptStore(defaults, root / "workspace" / "_settings" / "prompts")
+            store = self._store(Path(tmp))
+            result = store.get("koubo_tighten")
 
-            self.assertEqual(store.get("koubo_tighten")["warnings"], [])
-
-            result = store.write("koubo_tighten", "把占位符全删了的自定义内容")
-            self.assertEqual(result["warnings"], ["缺少占位符：{{USER_BRIEF}}"])
+            self.assertEqual(result["content"], DEFAULT_CONTENT)
+            self.assertEqual(result["source"], "default")
+            self.assertEqual(result["warnings"], [])
+            self.assertFalse(result["legacy"])
+            self.assertEqual(result["protocol"], MODE_PROTOCOLS["koubo_tighten"])
+            self.assertEqual(
+                result["assembled_template"],
+                DEFAULT_CONTENT + MODE_PROTOCOLS["koubo_tighten"],
+            )
+            self.assertEqual(store.assemble("koubo_tighten"), result["assembled_template"])
 
     def test_override_takes_priority_over_default(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = self._store(Path(tmp))
-            default = store.get("koubo_tighten")
-            self.assertEqual(default["content"], DEFAULT_CONTENT)
-            self.assertEqual(default["source"], "default")
+            updated = store.write("koubo_tighten", "OVERRIDE 更狠地删气口")
 
-            updated = store.write(
-                "koubo_tighten",
-                "OVERRIDE {{USER_BRIEF}} {{TARGET_DURATION}}",
-            )
             self.assertEqual(updated["source"], "override")
-            self.assertEqual(updated["content"], "OVERRIDE {{USER_BRIEF}} {{TARGET_DURATION}}")
+            self.assertEqual(updated["content"], "OVERRIDE 更狠地删气口")
             self.assertEqual(updated["default_content"], DEFAULT_CONTENT)
+            self.assertEqual(updated["warnings"], [])
+            self.assertEqual(
+                updated["assembled_template"],
+                "OVERRIDE 更狠地删气口" + MODE_PROTOCOLS["koubo_tighten"],
+            )
+
+    def test_legacy_full_override_is_served_verbatim_with_warning(self):
+        """旧版全文覆盖层（自带输出协议）：不追加协议、给出迁移警告。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self._store(Path(tmp))
+            legacy = "旧版全文\n\n## 输出格式\n\n只输出 JSON…\n\n{{USER_BRIEF}}\n"
+            result = store.write("koubo_tighten", legacy)
+
+            self.assertTrue(result["legacy"])
+            self.assertEqual(result["assembled_template"], legacy)
+            self.assertEqual(result["warnings"], [LEGACY_WARNING])
 
     def test_reset_is_idempotent_and_restores_default(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -62,29 +75,17 @@ class PromptStoreTests(unittest.TestCase):
             self.assertEqual(store.reset("koubo_tighten")["source"], "default")
             self.assertEqual(store.reset("koubo_tighten")["content"], DEFAULT_CONTENT)
 
-    def test_missing_placeholders_return_warnings_without_rejecting_write(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            store = self._store(Path(tmp))
-            result = store.write("koubo_tighten", "仍然允许保存")
-
-            self.assertEqual(len(result["warnings"]), 2)
-            self.assertTrue(any("{{USER_BRIEF}}" in warning for warning in result["warnings"]))
-            self.assertTrue(any("{{TARGET_DURATION}}" in warning for warning in result["warnings"]))
-
     def test_blank_content_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = self._store(Path(tmp))
             with self.assertRaises(ValueError):
                 store.write("koubo_tighten", " \n\t")
 
-    def test_ai_selector_renders_workspace_override(self):
+    def test_ai_selector_renders_workspace_override_with_protocol(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             store = self._store(root)
-            store.write(
-                "koubo_tighten",
-                "CUSTOM {{USER_BRIEF}} duration={{TARGET_DURATION}}",
-            )
+            store.write("koubo_tighten", "CUSTOM 只留金句")
             selector = AiSelector(
                 root / "prompts",
                 client=_FakeClient(),
@@ -97,11 +98,23 @@ class PromptStoreTests(unittest.TestCase):
                 target_duration="30 秒",
             )
 
-            self.assertIn("CUSTOM", rendered)
-            self.assertIn("保留重点", rendered)
-            self.assertIn("duration=30 秒", rendered)
+            self.assertIn("CUSTOM 只留金句", rendered)
+            self.assertIn("保留重点", rendered)          # {{USER_BRIEF}} 在协议尾部被注入
+            self.assertIn("## 输出格式", rendered)        # 协议自动追加
+            self.assertNotIn("{{USER_BRIEF}}", rendered)  # 占位符全部渲染完毕
             self.assertTrue(rendered.endswith(HARD_CONSTRAINTS))
             self.assertNotIn("DEFAULT", rendered)
+
+    def test_real_repo_prompts_assemble_cleanly(self):
+        """仓库真实模板：理念区零协议零占位符，拼装后协议齐全。"""
+        repo_prompts = Path(__file__).resolve().parents[1] / "prompts"
+        store = PromptStore(repo_prompts, None)
+        for mode in MODE_PROTOCOLS:
+            result = store.get(mode)
+            self.assertNotIn("## 输出格式", result["content"], mode)
+            self.assertNotIn("{{", result["content"], mode)
+            self.assertIn("## 输出格式", result["assembled_template"], mode)
+            self.assertIn("{{USER_BRIEF}}", result["assembled_template"], mode)
 
 
 if __name__ == "__main__":

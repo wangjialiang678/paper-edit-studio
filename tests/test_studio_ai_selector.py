@@ -158,11 +158,20 @@ class RemixSelectorTests(unittest.TestCase):
 
 
 class PromptFilesTests(unittest.TestCase):
-    def test_prompt_files_exist_with_constraints(self):
+    def test_prompt_files_are_pure_editorial_and_assemble_with_constraints(self):
+        """提示词文件=纯自然语言剪辑理念；协议（输出格式/硬约束/占位符）在拼装层追加。"""
+        from cutpoint_lab.studio.prompt_store import PromptStore
+
+        store = PromptStore(PROMPTS_DIR, None)
         for name in ("koubo-tighten.md", "topic-slicing.md", "highlight-remix.md"):
             content = (PROMPTS_DIR / name).read_text(encoding="utf-8")
-            self.assertIn("segment_id", content)
-            self.assertIn("硬约束", content)
+            self.assertNotIn("## 输出格式", content, name)
+            self.assertNotIn("{{", content, name)
+        for mode in ("koubo_tighten", "topic_slicing", "highlight_remix"):
+            assembled = store.assemble(mode)
+            self.assertIn("segment_id", assembled)
+            self.assertIn("硬约束", assembled)
+            self.assertIn("{{USER_BRIEF}}", assembled)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,14 @@
-# AI 选段提示词库
+# AI 选段提示词库（剪辑理念层）
 
-这里的每个 `.md` 文件是一套可独立编辑的提示词模板，Studio 的 AI 选段功能按模式加载对应文件作为 system prompt，把字幕摘要（`[segment_id] 起-止 文本`）作为 user 消息发给 LLM。
+这里的每个 `.md` 文件只包含对应模式的**剪辑理念**——纯自然语言的判断标准与取舍偏好，小白也能放心改。发送给 LLM 的完整 system prompt 由系统在运行时拼装：
+
+```
+剪辑理念（本目录 .md，或 workspace/_settings/prompts/ 覆盖层）
+  + 输出协议（src/cutpoint_lab/studio/prompt_protocols.py，JSON 格式/模式硬约束/占位符注入点）
+  + 系统级硬约束（ai_selector.HARD_CONSTRAINTS）
+```
+
+输出协议与解析代码（`_normalize_*`）一一对应，**改协议必须同步改解析器**，所以不放在可编辑文件里；界面「高级选项」可查看拼装后的完整提示词。字幕摘要（`[segment_id] 起-止 文本`）作为 user 消息发送。
 
 | 文件 | 模式 | 适用场景 |
 |------|------|----------|

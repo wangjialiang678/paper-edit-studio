@@ -3,17 +3,30 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .prompt_protocols import MODE_PROTOCOLS
+
 MODE_PROMPT_FILES = {
     "koubo_tighten": "koubo-tighten.md",
     "topic_slicing": "topic-slicing.md",
     "highlight_remix": "highlight-remix.md",
 }
 
-REQUIRED_PLACEHOLDERS = ("{{USER_BRIEF}}", "{{TARGET_DURATION}}")
+# 旧版全文格式（协议下沉前保存的覆盖层）以是否自带输出协议段来识别。
+LEGACY_FULL_MARKER = "## 输出格式"
+
+LEGACY_WARNING = (
+    "此自定义仍是旧版全文格式（自带输出协议），系统不再追加协议段；"
+    "建议「恢复默认」后只用自然语言重写剪辑理念。"
+)
 
 
 class PromptStore:
-    """提示词默认模板与 workspace 覆盖层。"""
+    """提示词「剪辑理念」层：默认模板 + workspace 覆盖层。
+
+    用户可编辑的部分只有纯自然语言的剪辑理念；输出协议（JSON 格式、
+    模式硬约束、占位符注入点）由 prompt_protocols.MODE_PROTOCOLS 在
+    拼装时追加，与解析代码同步维护，不暴露给编辑器。
+    """
 
     def __init__(self, prompts_dir: str | Path, override_dir: str | Path | None):
         self.prompts_dir = Path(prompts_dir)
@@ -29,13 +42,23 @@ class PromptStore:
         else:
             content = default_content
             source = "default"
+        protocol = self._protocol(mode)
+        legacy = source == "override" and LEGACY_FULL_MARKER in content
+        assembled = content if legacy else content + protocol
         return {
             "mode": mode,
             "content": content,
             "source": source,
             "default_content": default_content,
-            "warnings": self.warnings(content, default_content),
+            "protocol": protocol,
+            "legacy": legacy,
+            "assembled_template": assembled,
+            "warnings": [LEGACY_WARNING] if legacy else [],
         }
+
+    def assemble(self, mode: str) -> str:
+        """运行时最终模板（理念 + 协议，占位符待渲染）。"""
+        return str(self.get(mode)["assembled_template"])
 
     def write(self, mode: str, content: str) -> dict[str, Any]:
         if not isinstance(content, str) or not content.strip():
@@ -50,19 +73,11 @@ class PromptStore:
         override_path.unlink(missing_ok=True)
         return self.get(mode)
 
-    @staticmethod
-    def warnings(content: str, default_content: str = "") -> list[str]:
-        """只警告"出厂模板里有、当前内容里丢了"的占位符。
-
-        各模式默认模板使用的占位符不同（如口播精剪不含 {{TARGET_DURATION}}），
-        以默认模板为基准，避免对出厂默认自身也报警。
-        """
-        expected = [
-            placeholder
-            for placeholder in REQUIRED_PLACEHOLDERS
-            if not default_content or placeholder in default_content
-        ]
-        return [f"缺少占位符：{placeholder}" for placeholder in expected if placeholder not in content]
+    def _protocol(self, mode: str) -> str:
+        try:
+            return MODE_PROTOCOLS[mode]
+        except KeyError as exc:
+            raise ValueError(f"未知 AI 模式：{mode}") from exc
 
     def _default_path(self, mode: str) -> Path:
         try:
