@@ -13,31 +13,38 @@ audience: ai
 ## 必备工具
 
 - Python 3.11+。
-- `ffmpeg` 在 `PATH` 中；流水线用它提取 `16kHz mono s16 wav` 分析音频。
-- 真实 ASR 链路还需要 `curl`、`jq`、`python3`、`ffmpeg`。
+- `ffmpeg` 在 `PATH` 中；流水线与 ASR 二进制都用它提取音频。
+- 默认 ASR（video2md `bin/mp4-md`）只额外需要 `ffmpeg`。
+- 旧版 ASR 脚本路径（`--asr-script`）才需要 `curl`、`jq`、`python3`。
 
 快速检查：
 
 ```bash
 python3 --version
 ffmpeg -version
-jq --version
-curl --version
 ```
 
 ## ASR 凭据
 
-只跑 `examples/` 和已有 transcript fixture 不需要外部 key。重新转写真实音频时，必须先确认以下环境变量已设置，但不要打印变量值：
+只跑 `examples/` 和已有 transcript fixture 不需要外部 key。
+
+**默认路径（video2md，免 OSS）**：重新转写真实音频时，只需一个变量：
 
 ```bash
-DASHSCOPE_API_KEY
+DASHSCOPE_API_KEY          # 必需
+ASR_BASE_VOCABULARY_ID     # 可选，热词表 ID
+```
+
+**旧版 OSS 脚本路径（仅 `--asr-script` 时）**额外需要：
+
+```bash
 OSS_ACCESS_KEY_ID
 OSS_ACCESS_KEY_SECRET
 OSS_BUCKET
 OSS_ENDPOINT
 ```
 
-这些变量可以来自 shell 环境、`~/.Codex/api-vault.env`，或 ASR 工具目录中未提交的 `.env`。缺失时停止并让用户先配置，不要猜测、不要写占位密钥。
+这些变量可以来自 shell 环境或仓库根目录未提交的 `.env`（模板见 `.env.example`）。默认路径由 `Video2mdAsrRunner` 读取 `.env` 并注入 `mp4-md` 子进程；旧脚本路径由 `transcribe_media_recorded.sh` 自动 source。缺失时停止并让用户先配置，不要猜测、不要写占位密钥。
 
 ## 真实视频验证流程（Studio）
 
@@ -56,7 +63,7 @@ scripts/studio_web.py --port 8765
 
 3. 流水线自动完成 probe → 提取分析音频 → ASR 转写 →（有 LLM key 时）自动口播精剪。阶段进度与错误都写在 `workspace/<项目id>/state.json`。
 
-4. ASR 底层脚本是 `transcribe_media_recorded.sh`（DashScope fun-asr，词级时间戳），由 `studio/asr_runner.py` 封装调用；`dashscope.py` 负责把 `dashscope-transcript.json` 转成内部 Transcript schema（`segments[].start_ms/end_ms/text/tokens`）。
+4. ASR 默认走 video2md 的 `bin/mp4-md`（DashScope fun-asr，词级时间戳，免 OSS），由 `studio/asr_runner.py::Video2mdAsrRunner` 封装调用；`video2md.py::convert_video2md_transcript` 把 `<stem>.transcript.json` 转成内部 Transcript schema（`segments[].start_ms/end_ms/text/tokens`）。旧版 `transcribe_media_recorded.sh` + 自建 OSS 仍可用 `--asr-script` 启用，对应 `ShellAsrRunner` + `dashscope.py::convert_dashscope_transcript`。
 
 > 旧 CLI 实验流程（compare/eval/盲听）已移至 `legacy` 分支，此处不再适用。
 

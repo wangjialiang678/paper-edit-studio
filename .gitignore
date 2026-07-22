@@ -1,3 +1,7 @@
+# Local secrets (DashScope/OSS keys for ASR).
+.env
+.env.bak*
+
 # Local ASR/API run artifacts may contain signed URLs, object paths, or raw transcripts.
 samples/asr/
 **/asr-recorded-*/

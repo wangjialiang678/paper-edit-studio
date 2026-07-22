@@ -19,7 +19,7 @@ from ..features import AudioFrame, load_rms_frames
 from ..io import load_transcript, load_vad, read_json, write_json
 from ..paper_edit.state import build_editor_state, build_plan_from_editor_rows
 from .ai_selector import AiSelector, save_suggestion
-from .asr_runner import ShellAsrRunner
+from .asr_runner import ShellAsrRunner, Video2mdAsrRunner
 from .pipeline import PipelineManager
 from .plans import apply_manual_nudges, build_ordered_plan, silence_gaps
 from .workspace import Project, Workspace
@@ -54,7 +54,7 @@ class StudioApplication:
         self.workspace = workspace
         self.selector = selector or AiSelector(prompts_dir)
         self.pipeline = PipelineManager(
-            asr_runner or ShellAsrRunner(),
+            asr_runner or Video2mdAsrRunner(),
             auto_ai=self._auto_ai if auto_ai else None,
         )
         self._frames_cache: dict[str, list[AudioFrame]] = {}
@@ -593,7 +593,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="studio_web", description="Paper Edit Studio 本地服务")
     parser.add_argument("--workspace", default="workspace", help="项目工作区目录")
     parser.add_argument("--prompts-dir", default=str(DEFAULT_PROMPTS_DIR))
-    parser.add_argument("--asr-script", default=None, help="覆盖默认 ASR 脚本路径")
+    parser.add_argument("--asr-script", default=None, help="改用旧版 OSS bash 脚本 ASR（覆盖默认 video2md 二进制）")
+    parser.add_argument("--asr-binary", default=None, help="覆盖 video2md 的 mp4-md 二进制路径（默认用仓库 bin/ 下的 vendored 版本）")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-auto-ai", action="store_true", help="ASR 后不自动跑口播精剪")
@@ -601,7 +602,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    asr_runner = ShellAsrRunner(Path(args.asr_script)) if args.asr_script else ShellAsrRunner()
+    if args.asr_script:
+        asr_runner = ShellAsrRunner(Path(args.asr_script))
+    else:
+        asr_runner = Video2mdAsrRunner(args.asr_binary)
     app = StudioApplication(
         Workspace(args.workspace),
         prompts_dir=Path(args.prompts_dir),

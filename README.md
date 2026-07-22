@@ -29,9 +29,12 @@ scripts/studio_web.py --open
 
 ## 环境依赖
 
-- Python 3.11+；`ffmpeg` 在 `PATH`（macOS：`brew install ffmpeg`）。
-- ASR：`audio-asr-suite` 的 `transcribe_media_recorded.sh`（路径见 `src/cutpoint_lab/studio/asr_runner.py`，可用 `--asr-script` 覆盖）。该脚本需要 `curl`、`jq`，以及 `DASHSCOPE_API_KEY`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`、`OSS_BUCKET`、`OSS_ENDPOINT`（在其项目 `.env` 中）。
-- LLM：默认 DashScope 兼容模式 qwen-plus（`~/.claude/api-vault.env` 的 `DASHSCOPE_API_KEY`），可用 `STUDIO_LLM_BASE_URL/API_KEY/MODEL` 环境变量切换任意 OpenAI 兼容服务。
+- **Python 3.11+**。
+- **ffmpeg** 在 `PATH`（macOS：`brew install ffmpeg`；Windows：`winget install ffmpeg` 或 [ffmpeg.org](https://ffmpeg.org/download.html)）。
+- **ASR（默认，mac + windows 通用）**：内置 `bin/mp4-md`（vendor 自 [video2md-cli](https://github.com/wangjialiang678/video2md-cli)），随仓库分发，**免安装、免自建 OSS**。音频临时中转走 DashScope 自带文件空间，**只需一个凭据**：复制 `.env.example` 为 `.env`，填入 `DASHSCOPE_API_KEY`（[百炼控制台](https://bailian.console.aliyun.com/)申请）；可选 `ASR_BASE_VOCABULARY_ID` 指定热词表。
+  - 仓库已内置 `mp4-md-darwin-arm64`（Apple Silicon Mac）与 `mp4-md-windows-amd64.exe`（Windows）。其他平台可自行 `go build` 或安装 video2md-cli 后用 `--asr-binary`/环境变量 `VIDEO2MD_BIN` 指向二进制。
+  - **旧版 OSS 方案**仍保留：`--asr-script scripts/transcribe_media_recorded.sh` 走 DashScope fun-asr + 自建 OSS，此路径额外需要 `curl`、`jq` 与 `.env.example` 里注释掉的 `OSS_*` 四件套。
+- **LLM**：默认 DashScope 兼容模式 qwen-plus（`~/.claude/api-vault.env` 的 `DASHSCOPE_API_KEY`），可用 `STUDIO_LLM_BASE_URL/API_KEY/MODEL` 环境变量切换任意 OpenAI 兼容服务。
 - 密钥只放本机环境变量或未提交的 `.env`，不写进代码与文档。
 
 给 agent 的前置检查清单见 `docs/agent-prerequisites.md`。
@@ -46,10 +49,13 @@ scripts/run_tests.py
 
 ```
 scripts/studio_web.py           启动入口
+bin/mp4-md-*                    内置 video2md ASR 二进制（DashScope fun-asr，免 OSS，mac + windows）
+scripts/transcribe_media_recorded.sh  旧版 ASR 脚本（DashScope fun-asr + 自建 OSS，--asr-script 启用）
 src/cutpoint_lab/
   studio/                       应用层：HTTP 服务、流水线、工作区、AI 选段、LLM 客户端
     static/                     前端（原生 HTML/JS/CSS，无构建步骤）
-  dashscope.py                  DashScope 转写 → 内部 Transcript 转换
+  dashscope.py                  DashScope 转写 → 内部 Transcript 转换（旧版 OSS 路径）
+  video2md.py                   video2md JSON → 内部 Transcript 转换（默认路径）
   models.py / io.py / features.py   核心数据结构、读写、音频特征
   strategies.py                 切点策略引擎（8 种策略；Studio 默认 hybrid_valley）
   paper_edit/state.py           字幕 ↔ 可编辑行 ↔ 剪辑计划
