@@ -209,6 +209,90 @@ class PlansTests(unittest.TestCase):
 
 
 class StudioApplicationTests(unittest.TestCase):
+    def test_editor_injects_suggested_cuts_and_restores_saved_cuts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            media = root / "input.wav"
+            _write_wav(media)
+            app = _make_app(root)
+            state = app.import_path(str(media), "样片")
+            project = app.workspace.get(state["id"])
+            _wait_stage(project, {"ready"})
+            write_json(
+                project.transcript_path,
+                {
+                    "source_video": str(media),
+                    "duration_ms": 1000,
+                    "selected_segment_ids": ["sentence_0001"],
+                    "segments": [
+                        {
+                            "id": "sentence_0001",
+                            "start_ms": 0,
+                            "end_ms": 500,
+                            "text": "嗯开始",
+                            "tokens": [
+                                {"text": "嗯", "start_ms": 20, "end_ms": 100},
+                                {"text": "开始", "start_ms": 150, "end_ms": 450},
+                            ],
+                        },
+                        {
+                            "id": "sentence_0002",
+                            "start_ms": 600,
+                            "end_ms": 900,
+                            "text": "无词时间",
+                            "tokens": [],
+                        },
+                    ],
+                },
+            )
+
+            editor = app.editor_state(project)
+            self.assertEqual(editor["rows"][0]["suggested_cuts"][0]["kind"], "filler")
+            self.assertEqual(editor["rows"][1]["suggested_cuts"], [])
+
+            rows = [
+                {
+                    "id": "sentence_0001",
+                    "checked": True,
+                    "text": "开始",
+                    "cuts": [{"start_token": 0, "end_token": 0}],
+                },
+                {"id": "sentence_0002", "checked": False, "text": "无词时间"},
+            ]
+            app.save_plan(project, {"rows": rows, "strategy": "token_padding"})
+            restored = app.editor_state(project)
+            self.assertEqual(
+                restored["rows"][0]["cuts"],
+                [{"start_token": 0, "end_token": 0}],
+            )
+
+    def test_selection_persists_a_full_row_set_for_partial_payloads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            media = root / "input.wav"
+            _write_wav(media)
+            app = _make_app(root)
+            state = app.import_path(str(media), "样片")
+            project = app.workspace.get(state["id"])
+            _wait_stage(project, {"ready"})
+
+            app.save_plan(
+                project,
+                {
+                    "rows": [
+                        {"id": "sentence_0001", "checked": True, "text": "第一句"}
+                    ],
+                    "strategy": "token_padding",
+                },
+            )
+
+            selection = read_json(project.dir / "selection.json")
+            self.assertEqual(
+                [row["id"] for row in selection["rows"]],
+                ["sentence_0001", "sentence_0002"],
+            )
+            self.assertFalse(selection["rows"][1]["checked"])
+
     def test_import_editor_plan_ai_flow(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -333,6 +417,33 @@ class HttpRoutingTests(unittest.TestCase):
             finally:
                 server.shutdown()
                 server.server_close()
+
+
+class DefaultPortTests(unittest.TestCase):
+    def test_default_port_is_zero_not_8765(self):
+        import contextlib
+        from unittest.mock import MagicMock, patch
+
+        from cutpoint_lab.studio import server as server_module
+
+        captured_port = []
+
+        def spy_bind(app, *, host, port):
+            captured_port.append(port)
+            raise SystemExit(0)
+
+        with patch.object(server_module, "bind_server", side_effect=spy_bind), \
+             patch.object(server_module, "StudioApplication", return_value=MagicMock()), \
+             patch.object(server_module, "Video2mdAsrRunner", return_value=MagicMock()), \
+             patch.object(server_module, "Workspace", return_value=MagicMock()):
+            with self.assertRaises(SystemExit):
+                server_module.main([])
+        self.assertEqual(captured_port[0], 0, "default port must be 0 (OS auto-assign), not 8765")
+
+        buf = io.StringIO()
+        with contextlib.suppress(SystemExit), contextlib.redirect_stdout(buf):
+            server_module.main(["--help"])
+        self.assertNotIn("8765", buf.getvalue())
 
 
 if __name__ == "__main__":

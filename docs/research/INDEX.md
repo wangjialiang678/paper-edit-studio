@@ -13,6 +13,7 @@ audience: both
 | 2026-07-09 | 开源视频剪辑 UI 项目调研 | W1 方案发现 | 2026-07-09-open-source-video-editor-ui-projects.md | 🔥 当前 |
 | 2026-07-09 | 开源视频剪辑底座源码评估 | W3 技术评估 / W1 方案发现 | 2026-07-09-video-editor-base-source-evaluation.md | 🔥 当前 |
 | 2026-07-13 | 语音切分算法专题档案 | 调研 / 结论 / 实验 / 历史设计 | [../speech-cutting/README.md](../speech-cutting/README.md) | 🔥 当前 |
+| 2026-07-22 | DashScope（百炼）热词表管理 REST API | W3 技术评估 | 2026-07-22-dashscope-vocabulary-api.md | 🔥 当前 |
 
 ## 专题资料
 

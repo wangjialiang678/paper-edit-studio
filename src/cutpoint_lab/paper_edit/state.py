@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from typing import Any
 
@@ -50,7 +51,11 @@ def apply_editor_rows(
     transcript: Transcript,
     rows_payload: Iterable[dict[str, Any]],
 ) -> Transcript:
-    updates = {str(row.get("id")): row for row in rows_payload if row.get("id") is not None}
+    updates = {
+        str(row.get("id")): row
+        for row in rows_payload
+        if isinstance(row, dict) and row.get("id") is not None
+    }
     selected_ids = []
     segments = []
     for segment in transcript.segments:
@@ -58,17 +63,33 @@ def apply_editor_rows(
         checked = bool(update.get("checked", False))
         text = str(update.get("text", segment.text))
         start_ms, end_ms, tokens = _apply_trim(segment, update.get("trim"))
-        if checked:
-            selected_ids.append(segment.id)
-        segments.append(
-            TranscriptSegment(
-                id=segment.id,
-                start_ms=start_ms,
-                end_ms=end_ms,
-                text=text,
-                tokens=tokens,
+        token_runs = _kept_token_runs(segment, update.get("trim"), update.get("cuts"))
+        if token_runs is None:
+            if checked:
+                selected_ids.append(segment.id)
+            segments.append(
+                TranscriptSegment(
+                    id=segment.id,
+                    start_ms=start_ms,
+                    end_ms=end_ms,
+                    text=text,
+                    tokens=tokens,
+                )
             )
-        )
+            continue
+        for run_index, run in enumerate(token_runs, start=1):
+            child_id = segment.id if run_index == 1 else f"{segment.id}#{run_index}"
+            if checked:
+                selected_ids.append(child_id)
+            segments.append(
+                TranscriptSegment(
+                    id=child_id,
+                    start_ms=run[0].start_ms,
+                    end_ms=run[-1].end_ms,
+                    text=_join_token_text(run),
+                    tokens=list(run),
+                )
+            )
     return Transcript(
         source_video=transcript.source_video,
         duration_ms=transcript.duration_ms,
@@ -99,6 +120,103 @@ def _apply_trim(
         return segment.start_ms, segment.end_ms, tokens
     kept = valid[start_index : end_index + 1]
     return kept[0].start_ms, kept[-1].end_ms, list(kept)
+
+
+def _kept_token_runs(
+    segment: TranscriptSegment,
+    trim: dict[str, Any] | None,
+    cuts: Any,
+) -> list[list[TranscriptToken]] | None:
+    """按 valid_tokens 原始索引应用 trim/cuts；无有效 cuts 时保持旧路径。"""
+    if not isinstance(cuts, list) or not cuts:
+        return None
+    valid = segment.valid_tokens
+    if not valid:
+        return None
+    trim_start, trim_end = _trim_token_bounds(len(valid), trim)
+    intervals: list[tuple[int, int]] = []
+    for item in cuts:
+        if not isinstance(item, dict):
+            continue
+        try:
+            start = int(item.get("start_token"))
+            end = int(item.get("end_token"))
+        except (TypeError, ValueError):
+            continue
+        if start > end:
+            start, end = end, start
+        start = min(trim_end, max(trim_start, start))
+        end = min(trim_end, max(trim_start, end))
+        intervals.append((start, end))
+    if not intervals:
+        return None
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(intervals):
+        if not merged or start > merged[-1][1] + 1:
+            merged.append((start, end))
+            continue
+        merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+    removed = {
+        index
+        for start, end in merged
+        for index in range(start, end + 1)
+    }
+    kept_indexes = [
+        index for index in range(trim_start, trim_end + 1) if index not in removed
+    ]
+    # 前端会拒绝删光整句；绕过前端的非法输入回退到 trim 结果。
+    if not kept_indexes:
+        return None
+    runs: list[list[TranscriptToken]] = []
+    current: list[TranscriptToken] = []
+    previous_index: int | None = None
+    for index in kept_indexes:
+        if previous_index is not None and index != previous_index + 1:
+            runs.append(current)
+            current = []
+        current.append(valid[index])
+        previous_index = index
+    if current:
+        runs.append(current)
+    return runs
+
+
+def _trim_token_bounds(
+    token_count: int,
+    trim: dict[str, Any] | None,
+) -> tuple[int, int]:
+    if not trim:
+        return 0, token_count - 1
+    try:
+        start_index = int(trim.get("start_token", 0))
+        end_index = int(trim.get("end_token", token_count - 1))
+    except (TypeError, ValueError):
+        return 0, token_count - 1
+    start_index = max(0, start_index)
+    end_index = min(token_count - 1, end_index)
+    if start_index > end_index:
+        return 0, token_count - 1
+    return start_index, end_index
+
+
+def _join_token_text(tokens: list[TranscriptToken]) -> str:
+    """与前端 joinTokens 一致：相邻 ASCII 字母数字词块间补空格。"""
+    output = ""
+    for token in tokens:
+        if output and re.search(r"[A-Za-z]$", output) and re.match(r"[A-Za-z]", token.text):
+            output += " "
+        output += token.text
+    return output
+
+
+def segment_subsplits(transcript: Transcript) -> dict[str, list[str]]:
+    """从已编辑 transcript 提取句内子片段映射，仅返回真正被拆分的句子。"""
+    grouped: dict[str, list[str]] = {}
+    for segment in transcript.segments:
+        base_id, marker, suffix = segment.id.partition("#")
+        if marker and suffix.isdigit():
+            grouped.setdefault(base_id, [base_id]).append(segment.id)
+    return {base_id: child_ids for base_id, child_ids in grouped.items() if len(child_ids) > 1}
 
 
 def build_plan_from_editor_rows(
@@ -132,6 +250,7 @@ def build_plan_from_editor_rows(
         {
             "source_video": edited.source_video,
             "selected_segment_ids": list(edited.selected_segment_ids),
+            "segment_subsplits": segment_subsplits(edited),
             "source": "paper_edit_web",
         }
     )

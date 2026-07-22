@@ -8,14 +8,9 @@ from typing import Any
 
 from ..models import Transcript
 from .llm_client import LlmClient, LlmError
+from .prompt_store import MODE_PROMPT_FILES, PromptStore
 
 logger = logging.getLogger("studio.ai")
-
-MODE_PROMPT_FILES = {
-    "koubo_tighten": "koubo-tighten.md",
-    "topic_slicing": "topic-slicing.md",
-    "highlight_remix": "highlight-remix.md",
-}
 
 # koubo 模式逐句决策可安全分块；整体视角的两个模式单次调用并设上限。
 KOUBO_CHUNK_SIZE = 300
@@ -39,9 +34,18 @@ class Suggestion:
 
 
 class AiSelector:
-    def __init__(self, prompts_dir: str | Path, client: LlmClient | None = None):
+    def __init__(
+        self,
+        prompts_dir: str | Path,
+        client: LlmClient | None = None,
+        *,
+        workspace_root: str | Path | None = None,
+        prompt_store: PromptStore | None = None,
+    ):
         self.prompts_dir = Path(prompts_dir)
-        self.client = client or LlmClient()
+        override_dir = Path(workspace_root) / "_settings" / "prompts" if workspace_root is not None else None
+        self.prompt_store = prompt_store or PromptStore(self.prompts_dir, override_dir)
+        self.client = client if client is not None else LlmClient()
 
     def available(self) -> bool:
         return self.client.available()
@@ -114,8 +118,7 @@ class AiSelector:
         return payload, warnings
 
     def _render_system(self, mode: str, *, brief: str, target_duration: str) -> str:
-        prompt_path = self.prompts_dir / MODE_PROMPT_FILES[mode]
-        template = prompt_path.read_text(encoding="utf-8")
+        template = str(self.prompt_store.get(mode)["content"])
         brief_block = f"\n## 用户补充要求\n\n{brief.strip()}\n" if brief.strip() else ""
         rendered = template.replace("{{USER_BRIEF}}", brief_block)
         rendered = rendered.replace("{{TARGET_DURATION}}", target_duration.strip() or "未指定")

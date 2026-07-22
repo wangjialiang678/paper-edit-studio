@@ -46,6 +46,12 @@ OSS_ENDPOINT
 
 这些变量可以来自 shell 环境或仓库根目录未提交的 `.env`（模板见 `.env.example`）。默认路径由 `Video2mdAsrRunner` 读取 `.env` 并注入 `mp4-md` 子进程；旧脚本路径由 `transcribe_media_recorded.sh` 自动 source。缺失时停止并让用户先配置，不要猜测、不要写占位密钥。
 
+2026-07-22 起相关行为变化：
+
+- 设置面板（`GET/PUT /api/settings*`）可在界面修改 `DASHSCOPE_API_KEY` 与热词表；写 `.env` 前会自动生成 `.env.bak-<时间戳>` 备份（已 gitignore，同样**永不提交**）。
+- 密钥取值分层为 进程环境变量 > 仓库 `.env` >（仅 LLM key）`~/.claude/api-vault.env`，统一走 `studio/config.py::EnvStore`；进程环境里 export 过的 key 会覆盖 `.env`，排查"改了没生效"先看设置面板显示的"来源"。
+- AI 提示词出厂默认在 `prompts/`，用户在界面里的修改保存为 `workspace/_settings/prompts/<mode>.md` 覆盖层；恢复默认=删除覆盖层文件。
+
 ## 真实视频验证流程（Studio）
 
 1. 先跑单元测试，确认没有回归：
@@ -57,7 +63,9 @@ scripts/run_tests.py
 2. 启动 Studio 并导入测试视频（`samples/video/`，来源与规格见 `samples/manifests/video_samples.json`）：
 
 ```bash
-scripts/studio_web.py --port 8765
+scripts/studio_web.py
+# 默认端口 0 = 系统自动分配（8765 已被 WorkBuddy Copilot 占用，不要手动指定 8765）；
+# 实际监听地址会打印在启动日志里
 # 导入可用 API：POST /api/projects/import-path {"path": "..."}
 ```
 

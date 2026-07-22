@@ -124,9 +124,11 @@ class RmsSnapStrategy(TokenPaddingStrategy):
                 continue
             start = _snap_start(boundary, gaps, self.config, require_gap_guard=True)
             end = _snap_end(boundary, gaps, self.config, require_gap_guard=True)
-            if start is None or end is None:
+            completed = _complete_locked_snap(boundary, fallback, start, end)
+            if completed is None:
                 cuts.append(fallback)
                 continue
+            start, end = completed
             cuts.append(_with_adjusted_bounds(fallback, start, end, "snapped_to_rms_gap", 0.78, boundary.duration_ms))
         return ClipPlan(strategy=self.name, ranges=cuts)
 
@@ -148,9 +150,11 @@ class VadSnapStrategy(TokenPaddingStrategy):
                 continue
             start = _snap_start(boundary, gaps, self.config)
             end = _snap_end(boundary, gaps, self.config)
-            if start is None or end is None:
+            completed = _complete_locked_snap(boundary, fallback, start, end)
+            if completed is None:
                 cuts.append(fallback)
                 continue
+            start, end = completed
             cuts.append(_with_adjusted_bounds(fallback, start, end, "snapped_to_vad_gap", 0.82, boundary.duration_ms))
         return ClipPlan(strategy=self.name, ranges=_merge_cut_overlaps(cuts, self.config))
 
@@ -254,33 +258,49 @@ def _valley_cut(strategy, boundary: BoundaryRange, candidate_fn) -> CutRange:
     end_anchor = boundary.last_token_end_ms or boundary.original_end_ms
     start_window = _candidate_window(boundary, start_anchor, strategy.config, is_start=True)
     end_window = _candidate_window(boundary, end_anchor, strategy.config, is_start=False)
-    if start_window is None or end_window is None:
-        return fallback
-
-    start_candidate = candidate_fn(
-        strategy.frames,
-        start_anchor,
-        start_window[0],
-        start_window[1],
-        strategy.config,
-        is_start=True,
+    start_candidate = (
+        candidate_fn(
+            strategy.frames,
+            start_anchor,
+            start_window[0],
+            start_window[1],
+            strategy.config,
+            is_start=True,
+        )
+        if start_window is not None
+        else None
     )
-    end_candidate = candidate_fn(
-        strategy.frames,
-        end_anchor,
-        end_window[0],
-        end_window[1],
-        strategy.config,
-        is_start=False,
+    end_candidate = (
+        candidate_fn(
+            strategy.frames,
+            end_anchor,
+            end_window[0],
+            end_window[1],
+            strategy.config,
+            is_start=False,
+        )
+        if end_window is not None
+        else None
     )
-    if start_candidate is None or end_candidate is None:
+    completed = _complete_locked_snap(
+        boundary,
+        fallback,
+        start_candidate.time_ms if start_candidate is not None else None,
+        end_candidate.time_ms if end_candidate is not None else None,
+    )
+    if completed is None:
         return fallback
-
-    confidence = min(strategy.confidence, start_candidate.confidence, end_candidate.confidence)
+    start, end = completed
+    confidences = [
+        candidate.confidence
+        for candidate in (start_candidate, end_candidate)
+        if candidate is not None
+    ]
+    confidence = min(strategy.confidence, *confidences)
     return _with_adjusted_bounds(
         fallback,
-        start_candidate.time_ms,
-        end_candidate.time_ms,
+        start,
+        end,
         strategy.adjustment_reason,
         confidence,
         boundary.duration_ms,
@@ -306,6 +326,34 @@ def _candidate_window(
     if end <= start:
         return None
     return start, end
+
+
+def _complete_locked_snap(
+    boundary: BoundaryRange,
+    fallback: CutRange,
+    start: int | None,
+    end: int | None,
+) -> tuple[int, int] | None:
+    """句内拆分边界固定在词边界，另一侧仍允许策略吸附。"""
+    start_snapped = start is not None
+    end_snapped = end is not None
+    if start is None and _start_boundary_locked(boundary):
+        start = fallback.start_ms
+    if end is None and _end_boundary_locked(boundary):
+        end = fallback.end_ms
+    if start is None or end is None or not (start_snapped or end_snapped):
+        return None
+    return start, end
+
+
+def _start_boundary_locked(boundary: BoundaryRange) -> bool:
+    anchor = boundary.first_token_start_ms or boundary.original_start_ms
+    return boundary.start_floor_ms is not None and boundary.start_floor_ms >= anchor
+
+
+def _end_boundary_locked(boundary: BoundaryRange) -> bool:
+    anchor = boundary.last_token_end_ms or boundary.original_end_ms
+    return boundary.end_ceiling_ms is not None and boundary.end_ceiling_ms <= anchor
 
 
 def _speaker_adjusted_boundary(
@@ -541,7 +589,10 @@ def _selected_ranges(transcript: Transcript, config: StrategyConfig) -> list[Bou
     current = [selected[0]]
     for segment in selected[1:]:
         prev = current[-1]
-        if segment.start_ms - prev.end_ms <= config.merge_gap_ms:
+        if (
+            segment.start_ms - prev.end_ms <= config.merge_gap_ms
+            and not _is_subsplit_boundary(prev.id, segment.id)
+        ):
             current.append(segment)
             continue
         selected_ranges.append(current)
@@ -571,6 +622,8 @@ def _start_floor_for_group(
         if index == 0:
             return None
         previous = ordered_segments[index - 1]
+        if _is_subsplit_boundary(previous.id, segment.id):
+            return segment.start_ms
         if previous.id in selected_set:
             return None
         return previous.end_ms + config.unselected_neighbor_guard_ms
@@ -590,6 +643,8 @@ def _end_ceiling_for_group(
         if index >= len(ordered_segments) - 1:
             return None
         next_segment = ordered_segments[index + 1]
+        if _is_subsplit_boundary(segment.id, next_segment.id):
+            return segment.end_ms
         if next_segment.id in selected_set:
             return None
         return next_segment.start_ms - config.unselected_neighbor_guard_ms
@@ -602,7 +657,10 @@ def _merge_cut_overlaps(cuts: list[CutRange], config: StrategyConfig) -> list[Cu
     merged = [cuts[0]]
     for cut in cuts[1:]:
         prev = merged[-1]
-        if cut.start_ms - prev.end_ms > config.merge_gap_ms:
+        if (
+            cut.start_ms - prev.end_ms > config.merge_gap_ms
+            or _is_subsplit_boundary(prev.source_segment_ids[-1], cut.source_segment_ids[0])
+        ):
             merged.append(cut)
             continue
         merged[-1] = CutRange(
@@ -615,6 +673,12 @@ def _merge_cut_overlaps(cuts: list[CutRange], config: StrategyConfig) -> list[Cu
             confidence=min(prev.confidence, cut.confidence),
         )
     return merged
+
+
+def _is_subsplit_boundary(left_id: str, right_id: str) -> bool:
+    left_base = str(left_id).split("#", 1)[0]
+    right_base = str(right_id).split("#", 1)[0]
+    return left_base == right_base and ("#" in str(left_id) or "#" in str(right_id))
 
 
 def _merged_reason(left: str, right: str) -> str:
@@ -723,6 +787,8 @@ def _snap_start(
     anchor = boundary.first_token_start_ms or boundary.original_start_ms
     window_start = max(0, anchor - config.search_before_start_ms)
     window_end = anchor + config.search_after_start_ms
+    if _start_boundary_locked(boundary):
+        window_start = max(window_start, int(boundary.start_floor_ms))
     candidates = _overlapping_gaps(gaps, window_start, window_end, config)
     if not candidates:
         return None
@@ -745,6 +811,8 @@ def _snap_end(
     anchor = boundary.last_token_end_ms or boundary.original_end_ms
     window_start = max(0, anchor - config.search_before_end_ms)
     window_end = anchor + config.search_after_end_ms
+    if _end_boundary_locked(boundary):
+        window_end = min(window_end, int(boundary.end_ceiling_ms))
     candidates = _overlapping_gaps(gaps, window_start, window_end, config)
     if not candidates:
         return None

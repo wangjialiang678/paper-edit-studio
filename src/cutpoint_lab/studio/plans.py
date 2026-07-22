@@ -4,7 +4,7 @@ from typing import Any
 
 from ..features import AudioFrame
 from ..models import SpeakerData, Transcript, VadData
-from ..paper_edit.state import _strategy as make_strategy
+from ..paper_edit.state import _strategy as make_strategy, segment_subsplits
 
 MIN_SILENCE_GAP_MS = 300
 
@@ -44,12 +44,22 @@ def apply_manual_nudges(plan: dict[str, Any], nudges_by_segment: dict[str, dict[
     """
     if not nudges_by_segment:
         return plan
+    subsplits = plan.get("segment_subsplits") or {}
     for item in plan.get("ranges") or []:
         ids = item.get("source_segment_ids") or []
         if not ids:
             continue
-        start_nudge = int((nudges_by_segment.get(str(ids[0])) or {}).get("start_ms") or 0)
-        end_nudge = int((nudges_by_segment.get(str(ids[-1])) or {}).get("end_ms") or 0)
+        first_id = str(ids[0])
+        last_id = str(ids[-1])
+        first_base = first_id.split("#", 1)[0]
+        last_base = last_id.split("#", 1)[0]
+        start_nudge = 0
+        if first_id == first_base:
+            start_nudge = int((nudges_by_segment.get(first_base) or {}).get("start_ms") or 0)
+        last_children = [str(value) for value in subsplits.get(last_base) or [last_base]]
+        end_nudge = 0
+        if last_id == last_children[-1]:
+            end_nudge = int((nudges_by_segment.get(last_base) or {}).get("end_ms") or 0)
         if not start_nudge and not end_nudge:
             continue
         start_ms = int(item["start_ms"])
@@ -87,6 +97,7 @@ def build_ordered_plan(
     if not ordered_groups:
         raise ValueError("ordered_groups 不能为空")
     known = {segment.id for segment in transcript.segments}
+    subsplits = segment_subsplits(transcript)
     optimizer = make_strategy(
         strategy=strategy,
         frames=frames or [],
@@ -103,18 +114,23 @@ def build_ordered_plan(
             raise ValueError(f"分组 {index} 含未知 segment_id：{', '.join(unknown)}")
         if not segment_ids:
             continue
+        expanded_segment_ids = [
+            child_id
+            for segment_id in segment_ids
+            for child_id in subsplits.get(segment_id, [segment_id])
+        ]
         if require_word_timestamps:
             missing = [
                 segment.id
                 for segment in transcript.segments
-                if segment.id in set(segment_ids) and not segment.valid_tokens
+                if segment.id in set(expanded_segment_ids) and not segment.valid_tokens
             ]
             if missing:
                 raise ValueError("以下句子缺少词级时间戳，无法安全切分：" + ", ".join(missing))
         group_transcript = Transcript(
             source_video=transcript.source_video,
             duration_ms=transcript.duration_ms,
-            selected_segment_ids=segment_ids,
+            selected_segment_ids=expanded_segment_ids,
             segments=transcript.segments,
         )
         group_plan = optimizer.optimize(group_transcript).to_dict()
@@ -139,4 +155,5 @@ def build_ordered_plan(
         "groups": normalized_groups,
         "ranges": ranges,
         "source_video": transcript.source_video,
+        "segment_subsplits": subsplits,
     }

@@ -25,6 +25,7 @@
         </div>
       </div>
       <div class="project-list" id="projectList"></div>
+      <button class="sidebar-link" id="settingsBtn">⚙️ 设置（API Key / 热词表）</button>
     </aside>
 
     <main class="main">
@@ -73,6 +74,7 @@
 
         <div class="toolbar">
           <button class="btn" id="aiPanelBtn">🤖 AI 选段</button>
+          <button class="btn" id="cutFillersBtn" title="对所有保留句应用检测到的气口建议（呃/嗯/重复）">✂ 一键剪气口</button>
           <span class="toolbar-gap"></span>
           <button class="btn accent" id="exportBtn">导出视频</button>
         </div>
@@ -84,7 +86,10 @@
     <aside class="ai-panel" id="aiPanel" hidden>
       <div class="ai-head">
         <b>AI 选段</b>
-        <button class="btn small" id="aiCloseBtn">✕</button>
+        <span class="ai-head-actions">
+          <button class="btn small" id="aiPromptBtn" title="查看/编辑当前模式的提示词">📝 提示词</button>
+          <button class="btn small" id="aiCloseBtn">✕</button>
+        </span>
       </div>
       <div class="ai-tabs">
         <button class="ai-tab active" data-mode="koubo_tighten">口播精剪</button>
@@ -97,7 +102,15 @@
       </div>
       <div class="ai-body" id="aiBody"><div class="ai-hint">选择模式后点击"运行 AI 分析"。<br>ASR 完成时会自动跑一次口播精剪。</div></div>
     </aside>
+
+    <aside class="ai-panel" id="settingsPanel" hidden>
+      <div class="ai-head">
+        <b>⚙️ 设置</b>
+        <button class="btn small" id="settingsCloseBtn">✕</button>
+      </div>
+      <div class="ai-body" id="settingsBody"><div class="ai-hint">加载中…</div></div>
+    </aside>
   </div>
-  <script src="/static/app.js"></script>
+  <script type="module" src="/static/main.js"></script>
 </body>
 </html>

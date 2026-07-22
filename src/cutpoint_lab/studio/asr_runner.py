@@ -11,6 +11,7 @@ from typing import Any, Protocol
 from ..dashscope import convert_dashscope_transcript
 from ..io import read_json
 from ..video2md import convert_video2md_transcript
+from .config import EnvStore
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -180,25 +181,6 @@ class Video2mdAsrRunner:
     def _build_env(self) -> dict[str, str]:
         env = dict(os.environ)
         # .env 仅补齐未在进程环境里设置的键，显式环境变量优先。
-        for key, value in _parse_env_file(self.env_file).items():
+        for key, value in EnvStore(self.env_file).read().items():
             env.setdefault(key, value)
         return env
-
-
-def _parse_env_file(path: Path) -> dict[str, str]:
-    """极简 .env 解析：KEY=VALUE，忽略注释与空行，去掉包裹引号。不做变量展开。"""
-    values: dict[str, str] = {}
-    if not path or not path.exists():
-        return values
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        if line.startswith("export "):
-            line = line[len("export ") :]
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key:
-            values[key] = value
-    return values

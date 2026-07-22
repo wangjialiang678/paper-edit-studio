@@ -9,11 +9,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .config import DEFAULT_API_VAULT_PATH, EnvStore, resolve_llm_api_key
+
 logger = logging.getLogger("studio.llm")
 
 DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DEFAULT_MODEL = "qwen-plus"
-API_VAULT_PATH = Path.home() / ".claude" / "api-vault.env"
+API_VAULT_PATH = DEFAULT_API_VAULT_PATH
 
 
 def load_env_file(path: Path = API_VAULT_PATH) -> None:
@@ -39,18 +41,20 @@ class LlmConfig:
     timeout_seconds: int = 300
 
     @classmethod
-    def from_env(cls) -> "LlmConfig":
-        load_env_file()
-        api_key = (
-            os.environ.get("STUDIO_LLM_API_KEY")
-            or os.environ.get("DASHSCOPE_LLM_API_KEY")
-            or os.environ.get("DASHSCOPE_API_KEY")
-            or ""
-        )
+    def from_env(
+        cls,
+        env_store: EnvStore | None = None,
+        *,
+        api_vault_path: str | Path = API_VAULT_PATH,
+    ) -> "LlmConfig":
+        store = env_store or EnvStore()
+        api_key, _, _ = resolve_llm_api_key(store, api_vault_path=api_vault_path)
+        base_url, _ = store.effective("STUDIO_LLM_BASE_URL")
+        model, _ = store.effective("STUDIO_LLM_MODEL")
         return cls(
-            base_url=os.environ.get("STUDIO_LLM_BASE_URL", DEFAULT_BASE_URL).rstrip("/"),
-            api_key=api_key,
-            model=os.environ.get("STUDIO_LLM_MODEL", DEFAULT_MODEL),
+            base_url=(DEFAULT_BASE_URL if base_url is None else base_url).rstrip("/"),
+            api_key=api_key or "",
+            model=DEFAULT_MODEL if model is None else model,
         )
 
 
@@ -64,17 +68,37 @@ class LlmClient:
     默认走 DashScope 兼容模式 + qwen；通过 STUDIO_LLM_* 环境变量可切换任意兼容服务。
     """
 
-    def __init__(self, config: LlmConfig | None = None):
-        self.config = config or LlmConfig.from_env()
+    def __init__(
+        self,
+        config: LlmConfig | None = None,
+        *,
+        env_store: EnvStore | None = None,
+        api_vault_path: str | Path = API_VAULT_PATH,
+    ):
+        self._config_override = config
+        self.env_store = env_store or EnvStore()
+        self.api_vault_path = Path(api_vault_path).expanduser()
+
+    @property
+    def config(self) -> LlmConfig:
+        """兼容旧调用方；默认客户端每次访问都返回最新配置。"""
+        return self._current_config()
+
+    def _current_config(self) -> LlmConfig:
+        return self._config_override or LlmConfig.from_env(
+            self.env_store,
+            api_vault_path=self.api_vault_path,
+        )
 
     def available(self) -> bool:
-        return bool(self.config.api_key)
+        return bool(self._current_config().api_key)
 
     def chat_json(self, system: str, user: str, *, temperature: float = 0.3) -> dict[str, Any]:
-        if not self.available():
+        config = self._current_config()
+        if not config.api_key:
             raise LlmError("缺少 LLM API Key（设置 STUDIO_LLM_API_KEY 或 DASHSCOPE_API_KEY）")
         payload: dict[str, Any] = {
-            "model": self.config.model,
+            "model": config.model,
             "temperature": temperature,
             "messages": [
                 {"role": "system", "content": system},
@@ -83,45 +107,51 @@ class LlmClient:
             "response_format": {"type": "json_object"},
         }
         try:
-            content = self._post_chat(payload)
+            content = self._post_chat(payload, config)
         except LlmError as exc:
             # 部分兼容服务不支持 response_format，去掉后重试一次。
             if "response_format" not in str(exc):
                 raise
             payload.pop("response_format", None)
-            content = self._post_chat(payload)
+            content = self._post_chat(payload, config)
         return extract_json_object(content)
 
-    def _post_chat(self, payload: dict[str, Any]) -> str:
-        url = f"{self.config.base_url}/chat/completions"
+    def _post_chat(self, payload: dict[str, Any], config: LlmConfig | None = None) -> str:
+        current = config or self._current_config()
+        url = f"{current.base_url}/chat/completions"
         request = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.config.api_key}",
+                "Authorization": f"Bearer {current.api_key}",
             },
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.config.timeout_seconds) as response:
+            with urllib.request.urlopen(request, timeout=current.timeout_seconds) as response:
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:500]
-            raise LlmError(f"LLM HTTP {exc.code}：{detail}") from exc
+            raise LlmError(f"LLM HTTP {exc.code}：{_redact(detail, current.api_key)}") from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            raise LlmError(f"LLM 请求失败：{exc}") from exc
+            raise LlmError(f"LLM 请求失败：{_redact(str(exc), current.api_key)}") from exc
         try:
             content = body["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
-            raise LlmError(f"LLM 响应结构异常：{json.dumps(body, ensure_ascii=False)[:300]}") from exc
+            detail = json.dumps(body, ensure_ascii=False)[:300]
+            raise LlmError(f"LLM 响应结构异常：{_redact(detail, current.api_key)}") from exc
         if not isinstance(content, str) or not content.strip():
             raise LlmError("LLM 返回空内容")
         logger.info("llm ok: model=%s prompt_tokens=%s completion_tokens=%s",
-                    self.config.model,
+                    current.model,
                     (body.get("usage") or {}).get("prompt_tokens"),
                     (body.get("usage") or {}).get("completion_tokens"))
         return content
+
+
+def _redact(text: str, secret: str) -> str:
+    return text.replace(secret, "[REDACTED]") if secret else text
 
 
 def extract_json_object(text: str) -> dict[str, Any]:
