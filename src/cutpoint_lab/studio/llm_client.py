@@ -105,15 +105,25 @@ class LlmClient:
                 {"role": "user", "content": user},
             ],
             "response_format": {"type": "json_object"},
+            # 流式接收：慢模型生成大 JSON 时非流式会撞网关响应流超时（504），
+            # 流式只要 token 持续产出连接就一直活着。
+            "stream": True,
+            "stream_options": {"include_usage": True},
         }
         try:
             content = self._post_chat(payload, config)
         except LlmError as exc:
-            # 部分兼容服务不支持 response_format，去掉后重试一次。
-            if "response_format" not in str(exc):
+            message = str(exc)
+            # 部分兼容服务不支持 response_format / stream，逐项降级重试一次。
+            if "response_format" in message:
+                payload.pop("response_format", None)
+                content = self._post_chat(payload, config)
+            elif "stream" in message:
+                payload.pop("stream", None)
+                payload.pop("stream_options", None)
+                content = self._post_chat(payload, config)
+            else:
                 raise
-            payload.pop("response_format", None)
-            content = self._post_chat(payload, config)
         return extract_json_object(content)
 
     def _post_chat(self, payload: dict[str, Any], config: LlmConfig | None = None) -> str:
@@ -128,26 +138,78 @@ class LlmClient:
             },
             method="POST",
         )
+        streaming = bool(payload.get("stream"))
         try:
             with urllib.request.urlopen(request, timeout=current.timeout_seconds) as response:
-                body = json.loads(response.read().decode("utf-8"))
+                if streaming:
+                    content, usage = _read_sse_stream(response)
+                else:
+                    body = json.loads(response.read().decode("utf-8"))
+                    try:
+                        content = body["choices"][0]["message"]["content"]
+                    except (KeyError, IndexError, TypeError) as exc:
+                        detail = json.dumps(body, ensure_ascii=False)[:300]
+                        raise LlmError(f"LLM 响应结构异常：{_redact(detail, current.api_key)}") from exc
+                    usage = body.get("usage") or {}
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:500]
             raise LlmError(f"LLM HTTP {exc.code}：{_redact(detail, current.api_key)}") from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise LlmError(f"LLM 请求失败：{_redact(str(exc), current.api_key)}") from exc
-        try:
-            content = body["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
-            detail = json.dumps(body, ensure_ascii=False)[:300]
-            raise LlmError(f"LLM 响应结构异常：{_redact(detail, current.api_key)}") from exc
         if not isinstance(content, str) or not content.strip():
             raise LlmError("LLM 返回空内容")
-        logger.info("llm ok: model=%s prompt_tokens=%s completion_tokens=%s",
+        logger.info("llm ok: model=%s stream=%s prompt_tokens=%s completion_tokens=%s",
                     current.model,
-                    (body.get("usage") or {}).get("prompt_tokens"),
-                    (body.get("usage") or {}).get("completion_tokens"))
+                    streaming,
+                    usage.get("prompt_tokens"),
+                    usage.get("completion_tokens"))
         return content
+
+
+def _read_sse_stream(response) -> tuple[str, dict[str, Any]]:
+    """按 OpenAI 兼容 SSE 协议逐行累积 delta.content；usage 取自带 usage 的收尾块。
+
+    timeout 在流式下是"单次读的空闲超时"而非总时长——只要模型持续吐 token 就不会断。
+    个别网关会无视 stream 参数直接返回整块 JSON：没读到任何 SSE 行时按普通响应回退解析。
+    """
+    parts: list[str] = []
+    raw_lines: list[bytes] = []
+    usage: dict[str, Any] = {}
+    saw_sse = False
+    try:
+        iterator = iter(response)
+    except TypeError:
+        # 测试替身/个别响应对象只有 read()：整体读取后按行解析。
+        import io
+
+        iterator = iter(io.BytesIO(response.read()))
+    for raw in iterator:
+        raw_lines.append(raw)
+        line = raw.decode("utf-8", errors="replace").strip()
+        if not line.startswith("data:"):
+            continue
+        saw_sse = True
+        data = line[len("data:"):].strip()
+        if data == "[DONE]":
+            break
+        try:
+            chunk = json.loads(data)
+        except json.JSONDecodeError:
+            continue
+        if chunk.get("usage"):
+            usage = chunk["usage"]
+        choices = chunk.get("choices") or []
+        if choices:
+            delta = (choices[0].get("delta") or {}).get("content")
+            if isinstance(delta, str):
+                parts.append(delta)
+    if not saw_sse:
+        try:
+            body = json.loads(b"".join(raw_lines).decode("utf-8"))
+            return body["choices"][0]["message"]["content"], body.get("usage") or {}
+        except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+            return "", {}
+    return "".join(parts), usage
 
 
 def _redact(text: str, secret: str) -> str:

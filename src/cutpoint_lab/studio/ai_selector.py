@@ -13,7 +13,9 @@ from .prompt_store import MODE_PROMPT_FILES, PromptStore
 logger = logging.getLogger("studio.ai")
 
 # koubo 模式逐句决策可安全分块；整体视角的两个模式单次调用并设上限。
-KOUBO_CHUNK_SIZE = 300
+# 每块句数上限：逐句决策的输出规模与句数成正比，思考型大模型（kimi-k3 等）
+# 约 1s/句，300 句会撞上 DashScope 网关约 298s 的响应流超时（HTTP 504）。
+KOUBO_CHUNK_SIZE = 100
 GLOBAL_MODE_MAX_SEGMENTS = 1200
 
 HARD_CONSTRAINTS = (
