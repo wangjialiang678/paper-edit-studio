@@ -226,7 +226,7 @@ function renderPromptEditor() {
   el.aiBody.innerHTML = `
     <div class="ai-card">
       <h4>${MODE_NAMES[state.aiMode]} · 提示词 ${sourceBadge}</h4>
-      <div class="meta">修改后保存即生效（下次运行 AI 时使用），重启后保留。<br>请保留 {{USER_BRIEF}} 与 {{TARGET_DURATION}} 占位符。</div>
+      <div class="meta">修改后保存即生效（下次运行 AI 时使用），重启后保留。<br>请保留出厂模板中已有的 {{…}} 占位符（删掉会导致对应功能失效，保存时会提醒）。</div>
     </div>
     ${warnings}
     <textarea class="prompt-editor" id="promptEditorText" spellcheck="false"></textarea>

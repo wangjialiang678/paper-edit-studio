@@ -25,6 +25,20 @@ class PromptStoreTests(unittest.TestCase):
         (defaults / DEFAULT_NAME).write_text(DEFAULT_CONTENT, encoding="utf-8")
         return PromptStore(defaults, root / "workspace" / "_settings" / "prompts")
 
+    def test_placeholder_warning_scoped_to_default_template(self):
+        """出厂模板不含 {{TARGET_DURATION}} 的模式：默认内容零警告，改丢默认已有占位符才警告。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            defaults = root / "prompts"
+            defaults.mkdir()
+            (defaults / DEFAULT_NAME).write_text("仅含 {{USER_BRIEF}} 的模板", encoding="utf-8")
+            store = PromptStore(defaults, root / "workspace" / "_settings" / "prompts")
+
+            self.assertEqual(store.get("koubo_tighten")["warnings"], [])
+
+            result = store.write("koubo_tighten", "把占位符全删了的自定义内容")
+            self.assertEqual(result["warnings"], ["缺少占位符：{{USER_BRIEF}}"])
+
     def test_override_takes_priority_over_default(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = self._store(Path(tmp))

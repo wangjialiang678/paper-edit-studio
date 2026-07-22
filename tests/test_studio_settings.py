@@ -640,7 +640,8 @@ class SettingsHttpTests(unittest.TestCase):
                 _, updated = _request_json(base, method="PUT", payload={"content": override})
                 self.assertEqual(updated["source"], "override")
                 self.assertEqual(updated["content"], override)
-                self.assertTrue(any("{{TARGET_DURATION}}" in item for item in updated["warnings"]))
+                # koubo 出厂模板不含 {{TARGET_DURATION}}，保留 {{USER_BRIEF}} 时不应有任何警告。
+                self.assertEqual(updated["warnings"], [])
                 override_path = root / "workspace" / "_settings" / "prompts" / "koubo_tighten.md"
                 self.assertEqual(override_path.read_text(encoding="utf-8"), override)
 

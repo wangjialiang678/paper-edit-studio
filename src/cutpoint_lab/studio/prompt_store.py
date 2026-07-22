@@ -34,7 +34,7 @@ class PromptStore:
             "content": content,
             "source": source,
             "default_content": default_content,
-            "warnings": self.warnings(content),
+            "warnings": self.warnings(content, default_content),
         }
 
     def write(self, mode: str, content: str) -> dict[str, Any]:
@@ -51,8 +51,18 @@ class PromptStore:
         return self.get(mode)
 
     @staticmethod
-    def warnings(content: str) -> list[str]:
-        return [f"缺少占位符：{placeholder}" for placeholder in REQUIRED_PLACEHOLDERS if placeholder not in content]
+    def warnings(content: str, default_content: str = "") -> list[str]:
+        """只警告"出厂模板里有、当前内容里丢了"的占位符。
+
+        各模式默认模板使用的占位符不同（如口播精剪不含 {{TARGET_DURATION}}），
+        以默认模板为基准，避免对出厂默认自身也报警。
+        """
+        expected = [
+            placeholder
+            for placeholder in REQUIRED_PLACEHOLDERS
+            if not default_content or placeholder in default_content
+        ]
+        return [f"缺少占位符：{placeholder}" for placeholder in expected if placeholder not in content]
 
     def _default_path(self, mode: str) -> Path:
         try:
