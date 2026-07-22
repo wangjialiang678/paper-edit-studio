@@ -51,6 +51,32 @@ class Video2mdConversionTests(unittest.TestCase):
             (transcript.segments[0].tokens[0].start_ms, transcript.segments[0].tokens[0].end_ms),
             (120, 300),
         )
+        self.assertEqual(
+            converted["transcript"]["segments"][0]["tokens"][0]["confidence"],
+            0.98,
+        )
+        self.assertEqual(transcript.segments[0].tokens[0].confidence, 0.98)
+
+    def test_omits_missing_confidence_from_transcript_tokens(self):
+        converted = convert_video2md_transcript(
+            {
+                "schema": "video2md/transcript@1",
+                "segments": [
+                    {
+                        "index": 1,
+                        "begin_ms": 0,
+                        "end_ms": 500,
+                        "text": "旧数据",
+                        "words": [
+                            {"begin_ms": 10, "end_ms": 400, "text": "旧数据"},
+                        ],
+                    }
+                ],
+            }
+        )
+
+        token = converted["transcript"]["segments"][0]["tokens"][0]
+        self.assertNotIn("confidence", token)
 
     def test_builds_vad_proxy_with_confidence_and_skips_bad_words(self):
         payload = {

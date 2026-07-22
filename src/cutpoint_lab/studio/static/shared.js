@@ -17,10 +17,11 @@ export const el = {
   timeLabel: $("timeLabel"), modeToggle: $("modeToggle"),
   statDuration: $("statDuration"), statKept: $("statKept"),
   statusBox: $("statusBox"), exportResult: $("exportResult"),
-  orderedBanner: $("orderedBanner"), exitOrderedBtn: $("exitOrderedBtn"),
+  orderedBanner: $("orderedBanner"), exitOrderedBtn: $("exitOrderedBtn"), replaceBar: $("replaceBar"),
   aiPanelBtn: $("aiPanelBtn"), exportBtn: $("exportBtn"),
   aiPanel: $("aiPanel"), aiCloseBtn: $("aiCloseBtn"), aiBrief: $("aiBrief"), aiRunBtn: $("aiRunBtn"),
   aiBody: $("aiBody"), aiPromptBtn: $("aiPromptBtn"), cutFillersBtn: $("cutFillersBtn"),
+  undoCutFillersBtn: $("undoCutFillersBtn"),
   settingsBtn: $("settingsBtn"), settingsPanel: $("settingsPanel"), settingsCloseBtn: $("settingsCloseBtn"),
   settingsBody: $("settingsBody"),
 };

@@ -1,8 +1,15 @@
-/* 字幕行列表：渲染、勾选、文本编辑、静默段标记、统计。 */
-import { el, state, pb, fmtClock, escapeHtml, autoGrow, markActive, setStatus } from "./shared.js";
+/* 字幕行列表：渲染、勾选、文本编辑、静默段标记、统计。
+
+   行文本有两种显示模式（.row-text-slot 内切换）：
+   - 无句内删除：可编辑 textarea（原行为）；
+   - 有 trim/cuts：富渲染视图——整句词块就地显示，被剪词划删除线，
+     点删除线词=恢复、点正常词=剪掉，双击切回 textarea 改文字。
+   trim.js 的 applyStruck 通过 row-struck-changed 事件通知本模块局部刷新，
+   避免 rows↔trim 模块环，也不破坏打开中的微调面板。 */
+import { el, state, pb, fmtClock, escapeHtml, autoGrow, markActive, setStatus, api, putJson } from "./shared.js";
 import { rangeIndexForRow, auditionRange, segmentBaseId } from "./player.js";
 import { scheduleAutosave } from "./plan.js";
-import { toggleTrimPanel, applySuggestedCuts } from "./trim.js";
+import { toggleTrimPanel, applySuggestedCuts, struckSet, applyStruck } from "./trim.js";
 
 export function renderRows() {
   el.rows.innerHTML = "";
@@ -28,10 +35,7 @@ function silenceNode(gap) {
   return div;
 }
 
-function rowNode(row) {
-  const div = document.createElement("div");
-  div.className = `subtitle-row ${row.checked ? "" : "dropped"}`;
-  div.dataset.id = row.id;
+function badgesHtml(row) {
   const badges = [];
   if (row.ai_keep === true) badges.push('<span class="badge keep">AI 保留</span>');
   if (row.ai_keep === false) badges.push('<span class="badge drop">AI 删除</span>');
@@ -40,24 +44,185 @@ function rowNode(row) {
   if ((row.suggested_cuts || []).length) badges.push(`<span class="badge suggest">气口 ×${row.suggested_cuts.length}</span>`);
   if (row.has_word_timestamps) badges.push('<button class="btn tiny trim-toggle" title="句内微调：删词/剪气口/拖切点">✂ 微调</button>');
   const reason = row.ai_reason ? `<div class="row-reason">${escapeHtml(row.ai_reason)}</div>` : "";
+  return badges.join("") + reason;
+}
+
+function hasInlineStruck(row) {
+  return Boolean(row.has_word_timestamps && (row.trim || (row.cuts || []).length) && !row._editText);
+}
+
+/* 行文本槽位渲染：textarea 或 划线视图。 */
+function renderRowText(row, slot) {
+  slot.innerHTML = "";
+  if (hasInlineStruck(row)) {
+    const view = document.createElement("div");
+    view.className = "row-text render";
+    view.title = "点删除线词=恢复；点正常词=剪掉；双击改文字";
+    const struck = struckSet(row);
+    const suggested = new Set();
+    for (const span of row.suggested_cuts || []) {
+      for (let i = span.start_token; i <= span.end_token; i++) suggested.add(i);
+    }
+    row.tokens.forEach((token, index) => {
+      const tok = document.createElement("span");
+      tok.className = `tok${struck.has(index) ? " cut" : suggested.has(index) ? " suggest" : ""}`;
+      tok.textContent = token.text;
+      tok.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const next = struckSet(row);
+        if (next.has(index)) next.delete(index);
+        else next.add(index);
+        applyStruck(row, next); // 成功后经 row-struck-changed 事件刷新本行
+      });
+      view.appendChild(tok);
+    });
+    view.addEventListener("dblclick", (event) => {
+      event.stopPropagation();
+      row._editText = true;
+      renderRowText(row, slot);
+      slot.querySelector("textarea")?.focus();
+    });
+    slot.appendChild(view);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.className = "row-text";
+  textarea.spellcheck = false;
+  textarea.value = row.text;
+  requestAnimationFrame(() => autoGrow(textarea));
+  textarea.addEventListener("focus", () => { row._preEdit = row.text; });
+  textarea.addEventListener("input", () => { row.text = textarea.value; autoGrow(textarea); scheduleAutosave(); });
+  textarea.addEventListener("blur", () => {
+    const before = row._preEdit;
+    delete row._preEdit;
+    if (row._editText) { delete row._editText; renderRowText(row, slot); }
+    if (before !== undefined && before !== row.text) offerReplaceEverywhere(row, before, row.text);
+  });
+  slot.appendChild(textarea);
+}
+
+// ---------- 改一处，提示改全部 ----------
+
+/* 从一次行内编辑提取"单点替换对"候选：
+   前后缀对齐得最小改动段（如 我们→咱们 缩成 我→咱、超导→超脑 缩成 导→脑），
+   直接用最小对批量替换会误伤别处（每个"我"都换掉），
+   所以再用左右各一个公共词字符组装扩展候选（我们→咱们、超导→超脑、王佳梁→王家梁），
+   由调用方选"在其他句真有命中且最长"的候选。 */
+const WORD_CHAR = /[\p{Script=Han}A-Za-z0-9]/u;
+
+function extractReplacementCandidates(before, after) {
+  if (!before || !after || before === after) return [];
+  let prefix = 0;
+  while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix]) prefix++;
+  let suffix = 0;
+  while (
+    suffix < before.length - prefix && suffix < after.length - prefix &&
+    before[before.length - 1 - suffix] === after[after.length - 1 - suffix]
+  ) suffix++;
+  const oldCore = before.slice(prefix, before.length - suffix);
+  const newCore = after.slice(prefix, after.length - suffix);
+  if (!oldCore.trim() || !newCore.trim()) return []; // 纯插入/纯删除不算替换
+  const left = prefix > 0 && WORD_CHAR.test(before[prefix - 1]) ? before[prefix - 1] : "";
+  const right = suffix > 0 && WORD_CHAR.test(before[before.length - suffix]) ? before[before.length - suffix] : "";
+  const candidates = [];
+  const push = (o, n) => {
+    if (!o.trim() || !n.trim() || o === n) return;
+    if (o.length > 20 || n.length > 20) return;
+    if (/\n/.test(o) || /\n/.test(n)) return;
+    candidates.push({ oldWord: o, newWord: n });
+  };
+  push(left + oldCore + right, left + newCore + right);
+  push(left + oldCore, left + newCore);
+  push(oldCore + right, newCore + right);
+  push(oldCore, newCore);
+  return candidates; // 已按从长到短排列
+}
+
+function offerReplaceEverywhere(editedRow, before, after) {
+  let pair = null;
+  let others = [];
+  let count = 0;
+  for (const candidate of extractReplacementCandidates(before, after)) {
+    const hits = state.rows.filter((row) => row.id !== editedRow.id && row.text.includes(candidate.oldWord));
+    if (!hits.length) continue;
+    pair = candidate;
+    others = hits;
+    count = hits.reduce((sum, row) => sum + row.text.split(candidate.oldWord).length - 1, 0);
+    break; // 候选从长到短，取最长且有命中的
+  }
+  if (!pair || !count) return;
+  const bar = el.replaceBar;
+  bar.hidden = false;
+  bar.innerHTML = `
+    <span>「<b>${escapeHtml(pair.oldWord)}</b>」在其他句还出现 ${count} 处，全部改为「<b>${escapeHtml(pair.newWord)}</b>」？</span>
+    <button class="btn small primary" data-act="all">全部替换</button>
+    <button class="btn small" data-act="dict">替换并加入纠错词典</button>
+    <button class="btn small" data-act="dismiss">忽略</button>`;
+  const close = () => { bar.hidden = true; bar.innerHTML = ""; };
+  const replaceAll = () => {
+    for (const row of others) row.text = row.text.split(pair.oldWord).join(pair.newWord);
+    renderRows();
+    scheduleAutosave();
+    setStatus(`已把其余 ${count} 处「${pair.oldWord}」替换为「${pair.newWord}」。`);
+  };
+  bar.querySelector('[data-act="all"]').addEventListener("click", () => { replaceAll(); close(); });
+  bar.querySelector('[data-act="dismiss"]').addEventListener("click", close);
+  bar.querySelector('[data-act="dict"]').addEventListener("click", async () => {
+    replaceAll();
+    try {
+      const dict = await api("/api/settings/corrections");
+      const pairs = dict.pairs || [];
+      const hit = pairs.find((item) => item.right === pair.newWord);
+      if (hit) { if (!hit.wrong.includes(pair.oldWord)) hit.wrong.push(pair.oldWord); }
+      else pairs.push({ wrong: [pair.oldWord], right: pair.newWord, is_term: true });
+      await putJson("/api/settings/corrections", { pairs });
+      bar.innerHTML = `
+        <span>已加入纠错词典（${escapeHtml(pair.oldWord)} → ${escapeHtml(pair.newWord)}），下次可一键批量纠错。把「<b>${escapeHtml(pair.newWord)}</b>」加入热词表，从源头减少识别错误？</span>
+        <button class="btn small primary" data-act="hotword">加入热词表</button>
+        <button class="btn small" data-act="dismiss2">不用了</button>`;
+      bar.querySelector('[data-act="dismiss2"]').addEventListener("click", close);
+      bar.querySelector('[data-act="hotword"]').addEventListener("click", async () => {
+        try {
+          const vocab = await api("/api/settings/vocabulary");
+          const items = vocab.items || [];
+          if (!items.some((item) => item.text === pair.newWord)) items.push({ text: pair.newWord, weight: 4 });
+          await putJson("/api/settings/vocabulary", { items });
+          setStatus(`「${pair.newWord}」已加入热词表，下次转写生效。`);
+        } catch (error) {
+          setStatus(`加入热词表失败：${error.message}`, "warn");
+        }
+        close();
+      });
+    } catch (error) {
+      setStatus(`加入纠错词典失败：${error.message}`, "warn");
+      close();
+    }
+  });
+}
+
+function bindBadgeActions(row, div) {
+  const trimBtn = div.querySelector(".trim-toggle");
+  if (trimBtn) trimBtn.addEventListener("click", (event) => { event.stopPropagation(); toggleTrimPanel(row, div); });
+}
+
+function rowNode(row) {
+  const div = document.createElement("div");
+  div.className = `subtitle-row ${row.checked ? "" : "dropped"}`;
+  div.dataset.id = row.id;
   div.innerHTML = `
     <label class="row-check"><input type="checkbox" ${row.checked ? "checked" : ""}><span>#${row.index}</span></label>
     <div class="row-time">${row.start}<br>${row.end}</div>
-    <textarea class="row-text" spellcheck="false"></textarea>
-    <div class="row-badges">${badges.join("")}${reason}</div>`;
+    <div class="row-text-slot"></div>
+    <div class="row-badges">${badgesHtml(row)}</div>`;
+  renderRowText(row, div.querySelector(".row-text-slot"));
   const checkbox = div.querySelector("input");
-  const textarea = div.querySelector("textarea");
-  textarea.value = row.text;
-  requestAnimationFrame(() => autoGrow(textarea));
   checkbox.addEventListener("change", () => {
     row.checked = checkbox.checked;
     div.classList.toggle("dropped", !row.checked);
     refreshStats();
     scheduleAutosave();
   });
-  textarea.addEventListener("input", () => { row.text = textarea.value; autoGrow(textarea); scheduleAutosave(); });
-  const trimBtn = div.querySelector(".trim-toggle");
-  if (trimBtn) trimBtn.addEventListener("click", (event) => { event.stopPropagation(); toggleTrimPanel(row, div); });
+  bindBadgeActions(row, div);
   div.addEventListener("click", (event) => {
     if (event.target.closest(".trim-panel")) return;
     const tag = event.target.tagName;
@@ -93,6 +258,16 @@ function rowNode(row) {
   return div;
 }
 
+/* trim.js 通知：某行的删除集合变了 → 局部刷新文本槽与徽章（不动微调面板）。 */
+document.addEventListener("row-struck-changed", (event) => {
+  const row = state.rows.find((item) => item.id === event.detail.id);
+  const node = el.rows.querySelector(`.subtitle-row[data-id="${CSS.escape(event.detail.id)}"]`);
+  if (!row || !node) return;
+  renderRowText(row, node.querySelector(".row-text-slot"));
+  const badges = node.querySelector(".row-badges");
+  if (badges) { badges.innerHTML = badgesHtml(row); bindBadgeActions(row, node); }
+});
+
 export function refreshStats() {
   let keptMs = 0;
   let keptCount = 0;
@@ -111,19 +286,52 @@ export function refreshStats() {
   el.statKept.textContent = String(keptCount);
 }
 
-/* 工具栏「一键剪气口」：对所有保留句应用后端检测建议。 */
+// ---------- 一键剪气口 + 整批撤销 ----------
+let lastFillerBatch = null; // { snapshots: Map(id → {trim, cuts, text}) }
+
 export function applyAllSuggestedCuts() {
+  const snapshots = new Map();
   let rowsTouched = 0;
   let spans = 0;
   for (const row of state.rows) {
-    if (!row.checked) continue;
+    if (!row.checked || !(row.suggested_cuts || []).length) continue;
+    const before = {
+      trim: row.trim ? { ...row.trim } : undefined,
+      cuts: (row.cuts || []).map((c) => ({ ...c })),
+      text: row.text,
+    };
     const applied = applySuggestedCuts(row);
-    if (applied) { rowsTouched += 1; spans += applied; }
+    if (applied) { rowsTouched += 1; spans += applied; snapshots.set(row.id, before); }
   }
   if (rowsTouched) {
+    lastFillerBatch = { snapshots };
     renderRows();
-    setStatus(`一键剪气口：${rowsTouched} 句共剪除 ${spans} 处（词块面板可逐处恢复）。`);
+    el.undoCutFillersBtn.hidden = false;
+    setStatus(`一键剪气口：${rowsTouched} 句共剪除 ${spans} 处——被剪词在句中以删除线显示，点它可单独恢复，或点「撤销剪气口」整批还原。`);
   } else {
     setStatus("没有可应用的气口建议。");
   }
+}
+
+export function undoFillerBatch() {
+  if (!lastFillerBatch) return;
+  let restored = 0;
+  for (const [id, before] of lastFillerBatch.snapshots) {
+    const row = state.rows.find((item) => item.id === id);
+    if (!row) continue;
+    if (before.trim) row.trim = before.trim; else delete row.trim;
+    if (before.cuts.length) row.cuts = before.cuts; else delete row.cuts;
+    row.text = before.text;
+    restored += 1;
+  }
+  lastFillerBatch = null;
+  el.undoCutFillersBtn.hidden = true;
+  renderRows();
+  scheduleAutosave();
+  setStatus(`已撤销剪气口（还原 ${restored} 句）。`);
+}
+
+export function clearFillerBatch() {
+  lastFillerBatch = null;
+  el.undoCutFillersBtn.hidden = true;
 }

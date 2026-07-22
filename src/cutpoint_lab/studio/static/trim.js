@@ -16,6 +16,8 @@ const JUNCTION_CONTEXT_MS = 1200;
 
 // ---------- 删除集合：trim + cuts 的统一视图 ----------
 
+/* 行内富渲染（rows.js）与微调面板共用删除集合逻辑；
+   行显示更新通过 row-struck-changed 事件解耦，避免模块环。 */
 export function trimBounds(row) {
   const count = (row.tokens || []).length;
   const trim = row.trim || {};
@@ -24,7 +26,7 @@ export function trimBounds(row) {
   return { start, end };
 }
 
-function struckSet(row) {
+export function struckSet(row) {
   const struck = new Set();
   const { start, end } = trimBounds(row);
   (row.tokens || []).forEach((_, index) => {
@@ -47,7 +49,7 @@ function joinTokens(tokens) {
 }
 
 /* 把删除集合规范化回 row.trim / row.cuts / row.text。整句删空时拒绝并提示。 */
-function applyStruck(row, struck) {
+export function applyStruck(row, struck) {
   const count = row.tokens.length;
   const keptIndexes = [];
   for (let i = 0; i < count; i++) if (!struck.has(i)) keptIndexes.push(i);
@@ -73,9 +75,10 @@ function applyStruck(row, struck) {
   else delete row.cuts;
   row.text = joinTokens(keptIndexes.map((i) => row.tokens[i]));
   const node = el.rows.querySelector(`.subtitle-row[data-id="${CSS.escape(row.id)}"]`);
-  const textarea = node && node.querySelector(".row-text");
+  const textarea = node && node.querySelector("textarea.row-text");
   if (textarea) { textarea.value = row.text; autoGrow(textarea); }
   scheduleAutosave();
+  document.dispatchEvent(new CustomEvent("row-struck-changed", { detail: { id: row.id } }));
   return true;
 }
 
@@ -310,9 +313,10 @@ export function renderTrimPanel(row) {
     delete row.cuts;
     row.text = row.original_text || row.text;
     const node = el.rows.querySelector(`.subtitle-row[data-id="${CSS.escape(row.id)}"]`);
-    const textarea = node && node.querySelector(".row-text");
+    const textarea = node && node.querySelector("textarea.row-text");
     if (textarea) { textarea.value = row.text; autoGrow(textarea); }
     scheduleAutosave();
+    document.dispatchEvent(new CustomEvent("row-struck-changed", { detail: { id: row.id } }));
     renderTrimPanel(row);
     drawWave(row);
   });

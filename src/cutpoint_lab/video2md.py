@@ -33,7 +33,14 @@ def convert_video2md_transcript(data: dict[str, Any], source_video: str | None =
             token = _word_token(word)
             if token is None:
                 continue
-            tokens.append({"text": token["text"], "start_ms": token["start_ms"], "end_ms": token["end_ms"]})
+            token_payload = {
+                "text": token["text"],
+                "start_ms": token["start_ms"],
+                "end_ms": token["end_ms"],
+            }
+            if token["confidence"] is not None:
+                token_payload["confidence"] = token["confidence"]
+            tokens.append(token_payload)
             speech_intervals.append(
                 {
                     "start_ms": token["start_ms"],

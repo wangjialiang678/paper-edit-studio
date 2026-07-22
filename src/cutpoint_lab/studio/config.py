@@ -168,3 +168,16 @@ def mask_api_key(value: str | None) -> str:
     if len(value) < 8:
         return "•" * len(value)
     return f"•••{value[-4:]}"
+
+
+def resolve_transcript_cache_dir(
+    workspace_root: str | Path,
+    env_store: EnvStore | None = None,
+) -> Path:
+    """按进程环境、.env、工作区默认值解析字幕缓存目录。"""
+
+    store = env_store or EnvStore()
+    configured, _ = store.effective("TRANSCRIPT_CACHE_DIR")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return (Path(workspace_root).expanduser().resolve() / "_cache" / "transcripts").resolve()

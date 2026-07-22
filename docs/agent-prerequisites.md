@@ -77,7 +77,7 @@ scripts/studio_web.py
 
 ## 无头 CLI（面向 agent 批处理）
 
-不想起网页服务时，用同一套引擎的无头 CLI 直接跑批。产物写进同一个 `workspace/<项目id>/`，与 Studio 双向互通。入口：`python -m cutpoint_lab <子命令>`（免安装）或 `scripts/pe.py`。完整用法见 [cli-usage.md](cli-usage.md)。
+不想起网页服务时，用同一套引擎的无头 CLI 直接跑批。产物写进同一个 `workspace/<项目id>/`，与 Studio 双向互通。入口：`python -m cutpoint_lab <子命令>`（免安装）或 `scripts/pe.py`。
 
 ```bash
 python -m cutpoint_lab run 视频.mp4 --brief "保留高光，删口癖重复" --redline --json

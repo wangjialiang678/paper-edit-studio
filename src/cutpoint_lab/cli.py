@@ -12,21 +12,30 @@ from cutpoint_lab.engine import (
     DEFAULT_API_VAULT_PATH,
     AiSelector,
     AsrRunner,
+    CachingAsrRunner,
+    CorrectionSet,
     EnvStore,
     LlmClient,
     Project,
     Transcript,
     Video2mdAsrRunner,
     Workspace,
+    apply_corrections,
+    backfill_cache_entry,
     build_plan_from_editor_rows,
     export_video_plan,
     extract_audio,
     ffprobe_duration_ms,
+    load_changeset,
     load_rms_frames,
     load_transcript,
+    preview_corrections,
     read_json,
     render_redline_markdown,
+    resolve_transcript_cache_dir,
+    save_changeset,
     save_suggestion,
+    undo_changeset,
     write_json,
     write_srt,
 )
@@ -73,6 +82,8 @@ def ingest_media(project: Project, *, asr_runner: AsrRunner) -> dict[str, Any]:
 
     project.set_stage("transcribing", "语音识别中")
     converted = asr_runner.transcribe(source, project.asr_dir, source_video=str(source))
+    if converted.get("cache") == "hit":
+        _progress("复用已有字幕（内容指纹命中）")
     write_json(project.transcript_path, converted["transcript"])
     write_json(project.vad_path, converted["vad"])
     transcript = load_transcript(project.transcript_path)
@@ -322,6 +333,33 @@ def _build_parser() -> argparse.ArgumentParser:
     run_redline.add_argument("--redline-dir", default=None, metavar="DIR", help="修订文件目录")
     run_parser.add_argument("--out", default=None, metavar="DIR", help="额外复制导出文件到此目录")
     _add_shared_arguments(run_parser)
+
+    corrections = subparsers.add_parser("corrections", help="管理字幕纠错词典")
+    correction_commands = corrections.add_subparsers(
+        dest="corrections_command", required=True
+    )
+    corrections_list = correction_commands.add_parser("list", help="列出纠错词典")
+    _add_shared_arguments(corrections_list)
+    corrections_add = correction_commands.add_parser("add", help="添加纠错词对")
+    corrections_add.add_argument("pair", metavar="错词=>正词")
+    corrections_add.add_argument("--term", action="store_true", help="标记正词为专有名词")
+    _add_shared_arguments(corrections_add)
+
+    fix = subparsers.add_parser("fix", help="应用确定性字幕纠错")
+    fix.add_argument("project", metavar="PROJECT")
+    fix.add_argument("--dict-only", action="store_true", required=True, help="仅应用纠错词典")
+    fix.add_argument("--yes", action="store_true", help="不询问直接应用")
+    _add_shared_arguments(fix)
+
+    undo = subparsers.add_parser("undo", help="撤销一次字幕修改")
+    undo.add_argument("project", metavar="PROJECT")
+    undo.add_argument("change_id", metavar="CHANGE_ID")
+    _add_shared_arguments(undo)
+
+    cache = subparsers.add_parser("cache", help="管理转写内容指纹缓存")
+    cache_commands = cache.add_subparsers(dest="cache_command", required=True)
+    cache_backfill = cache_commands.add_parser("backfill", help="登记现有项目的转写缓存")
+    _add_shared_arguments(cache_backfill)
     return parser
 
 
@@ -334,6 +372,11 @@ def _selector(workspace: Workspace, prompts_dir: str | Path) -> AiSelector:
         ),
         workspace_root=workspace.root,
     )
+
+
+def _cached_asr_runner(workspace: Workspace) -> AsrRunner:
+    cache_dir = resolve_transcript_cache_dir(workspace.root, EnvStore())
+    return CachingAsrRunner(Video2mdAsrRunner(), cache_dir)
 
 
 def _project_ids(workspace: Workspace, requested: list[str], include_all: bool) -> list[str]:
@@ -360,7 +403,7 @@ def _progress(message: str) -> None:
 def _handle_transcribe(args: argparse.Namespace, workspace: Workspace) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     try:
-        asr_runner = Video2mdAsrRunner()
+        asr_runner = _cached_asr_runner(workspace)
     except Exception as exc:  # noqa: BLE001 - 每个输入都要记录初始化失败。
         return [
             {
@@ -476,7 +519,7 @@ def _redline_for_run(args: argparse.Namespace, project: Project) -> Path | None:
 def _handle_run(args: argparse.Namespace, workspace: Workspace) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     try:
-        asr_runner = Video2mdAsrRunner()
+        asr_runner = _cached_asr_runner(workspace)
     except Exception as exc:  # noqa: BLE001 - 每个输入都要记录初始化失败。
         return [
             {
@@ -520,6 +563,195 @@ def _handle_run(args: argparse.Namespace, workspace: Workspace) -> list[dict[str
     return results
 
 
+def _corrections_path(workspace: Workspace) -> Path:
+    return workspace.root / "_settings" / "corrections.json"
+
+
+def _parse_correction_pair(raw: str) -> tuple[str, str]:
+    wrong, separator, right = raw.partition("=>")
+    wrong = wrong.strip()
+    right = right.strip()
+    if separator != "=>" or not wrong or not right:
+        raise ValueError('纠错词对格式应为 "错词=>正词"')
+    return wrong, right
+
+
+def _handle_corrections(
+    args: argparse.Namespace, workspace: Workspace
+) -> list[dict[str, Any]]:
+    path = _corrections_path(workspace)
+    correction_set = CorrectionSet.load(path)
+    if args.corrections_command == "add":
+        wrong, right = _parse_correction_pair(args.pair)
+        correction_set.add_pair(wrong, right, is_term=args.term)
+        correction_set.save(path)
+    elif not args.json_output:
+        for pair in correction_set.pairs:
+            for wrong in pair["wrong"]:
+                _progress(f"{wrong} => {pair['right']}")
+
+    result = _new_result(project_id=None, source=None)
+    result.update(correction_set.to_dict())
+    result["outputs"] = {"corrections": str(path)}
+    return [result]
+
+
+def _selection_payload(project: Project) -> tuple[Path, dict[str, Any], list[dict[str, Any]]]:
+    selection_path = project.dir / "selection.json"
+    if selection_path.is_file():
+        payload = read_json(selection_path)
+        rows = payload.get("rows")
+        if not isinstance(rows, list):
+            raise ValueError(f"选择文件缺少 rows：{selection_path}")
+        return selection_path, payload, rows
+
+    if not project.transcript_path.is_file():
+        raise ValueError(f"字幕文件不存在：{project.transcript_path}")
+    transcript = load_transcript(project.transcript_path)
+    selected = set(transcript.selected_segment_ids)
+    rows = [
+        {
+            "id": segment.id,
+            "checked": segment.id in selected,
+            "text": segment.text,
+        }
+        for segment in transcript.segments
+    ]
+    return selection_path, {"rows": rows}, rows
+
+
+def _project_result(project: Project) -> dict[str, Any]:
+    return _new_result(
+        project_id=project.id,
+        source=str(project.source_path) if project.source_path else None,
+    )
+
+
+def _print_correction_preview(preview: list[dict[str, Any]]) -> None:
+    for item in preview:
+        _progress(
+            f"[{item['segment_id']}] {item['wrong']} => {item['right']} "
+            f"× {item['count']}：{item['context']}"
+        )
+
+
+def _confirmed(args: argparse.Namespace) -> bool:
+    if args.yes:
+        return True
+    _progress("应用上述纠错？[y/N]")
+    return sys.stdin.readline().strip().lower() in {"y", "yes"}
+
+
+def _handle_fix(args: argparse.Namespace, workspace: Workspace) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+
+    selection_path, selection, rows = _selection_payload(project)
+    correction_set = CorrectionSet.load(_corrections_path(workspace))
+    preview = preview_corrections(rows, correction_set)
+    _print_correction_preview(preview)
+
+    result = _project_result(project)
+    result["applied"] = 0
+    result["rows"] = rows
+    if not preview or not _confirmed(args):
+        return [result]
+
+    new_rows, changeset = apply_corrections(rows, correction_set)
+    changeset_path = save_changeset(project.dir, changeset)
+    updated_selection = dict(selection)
+    updated_selection["rows"] = new_rows
+    write_json(selection_path, updated_selection)
+
+    result["applied"] = sum(int(item["count"]) for item in preview)
+    result["changeset_id"] = changeset["change_id"]
+    result["rows"] = new_rows
+    result["outputs"] = {
+        "selection": str(selection_path),
+        "changeset": str(changeset_path),
+    }
+    return [result]
+
+
+def _handle_undo(args: argparse.Namespace, workspace: Workspace) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+
+    selection_path, selection, rows = _selection_payload(project)
+    changeset = load_changeset(project.dir, args.change_id)
+    restored_rows, report = undo_changeset(rows, changeset)
+    updated_selection = dict(selection)
+    updated_selection["rows"] = restored_rows
+    write_json(selection_path, updated_selection)
+
+    result = _project_result(project)
+    result.update(report)
+    result["change_id"] = args.change_id
+    result["rows"] = restored_rows
+    result["outputs"] = {"selection": str(selection_path)}
+    return [result]
+
+
+def _handle_cache_backfill(
+    args: argparse.Namespace, workspace: Workspace
+) -> list[dict[str, Any]]:
+    cache_dir = resolve_transcript_cache_dir(workspace.root, EnvStore())
+    registered = 0
+    skipped = 0
+    entries: list[dict[str, Any]] = []
+
+    for summary in workspace.list_projects():
+        project_id = str(summary["id"])
+        project = workspace.get(project_id)
+        source = project.source_path if project is not None else None
+        missing = []
+        if source is None or not source.is_file():
+            missing.append("source")
+        if project is None or not project.transcript_path.is_file():
+            missing.append("transcript")
+        if project is None or not project.vad_path.is_file():
+            missing.append("vad")
+        if missing:
+            skipped += 1
+            entries.append(
+                {"project_id": project_id, "status": "skipped", "missing": missing}
+            )
+            continue
+
+        try:
+            cached = backfill_cache_entry(
+                source,
+                project.transcript_path,
+                project.vad_path,
+                cache_dir,
+            )
+            if cached["created"]:
+                registered += 1
+                status = "registered"
+            else:
+                skipped += 1
+                status = "skipped"
+            entries.append({"project_id": project_id, "status": status, **cached})
+        except Exception as exc:  # noqa: BLE001 - 回填时单项失败不影响其他项目。
+            skipped += 1
+            entries.append(
+                {"project_id": project_id, "status": "skipped", "error": str(exc)}
+            )
+
+    result = _new_result(project_id=None, source=None)
+    result.update(
+        {
+            "registered": registered,
+            "skipped": skipped,
+            "entries": entries,
+            "outputs": {"cache_dir": str(cache_dir)},
+        }
+    )
+    return [result]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -531,8 +763,16 @@ def main(argv: list[str] | None = None) -> int:
             results = _handle_select(args, workspace)
         elif args.command == "export":
             results = _handle_export(args, workspace)
-        else:
+        elif args.command == "run":
             results = _handle_run(args, workspace)
+        elif args.command == "corrections":
+            results = _handle_corrections(args, workspace)
+        elif args.command == "fix":
+            results = _handle_fix(args, workspace)
+        elif args.command == "undo":
+            results = _handle_undo(args, workspace)
+        else:
+            results = _handle_cache_backfill(args, workspace)
     except Exception as exc:  # noqa: BLE001 - 参数关联错误也输出统一 manifest。
         results = [
             {

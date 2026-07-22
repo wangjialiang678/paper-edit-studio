@@ -1,7 +1,8 @@
-/* 设置面板：DashScope API Key（脱敏/修改/测试）+ 热词表（查看/编辑/新建）。 */
-import { $, el, api, putJson, postJson, escapeHtml, setStatus } from "./shared.js";
+/* 设置面板：DashScope API Key（脱敏/修改/测试）+ 热词表（查看/编辑/新建）+ 纠错词典。 */
+import { $, el, state, api, putJson, postJson, escapeHtml, setStatus } from "./shared.js";
+import { showEditor } from "./editor.js";
 
-const ui = { settings: null, vocab: null, loadingVocab: false };
+const ui = { settings: null, vocab: null, loadingVocab: false, corrections: null, lastChangesetId: null };
 
 const SOURCE_LABELS = {
   process_env: "进程环境变量（优先于 .env，改 .env 需先取消 export）",
@@ -51,6 +52,11 @@ function renderSettings() {
       Key 来源：${escapeHtml(llm.key_name || "-")} · ${escapeHtml(SOURCE_LABELS[llm.key_source] || llm.key_source || "-")}</div>
     </div>
     <div class="ai-card">
+      <h4>纠错词典（批量修正识别错误）</h4>
+      <div class="meta">常见识别错误的"错词 → 正词"映射，跨项目全局生效。错词可填多个（逗号分隔），如：web coding, web courting → vibe coding。</div>
+      <div id="correctionsArea"><div class="ai-hint">加载词典…</div></div>
+    </div>
+    <div class="ai-card">
       <h4>ASR 热词表</h4>
       <div class="meta">存于阿里云云端，本机只记录 ID。多人协作时各自新建词表（ID 不同）即互不影响。<br>
       当前 ID：<b id="vocabIdLabel">${escapeHtml(data.vocabulary_id || "未配置")}</b></div>
@@ -60,6 +66,120 @@ function renderSettings() {
   $("apiKeyTestBtn").addEventListener("click", testApiKey);
   const createBtn = $("vocabCreateBtn");
   if (createBtn) createBtn.addEventListener("click", () => { ui.vocab = { vocabulary_id: null, items: [] }; renderVocab(true); });
+  loadCorrections();
+}
+
+// ---------- 纠错词典 ----------
+
+async function loadCorrections() {
+  try {
+    ui.corrections = await api("/api/settings/corrections");
+    renderCorrections();
+  } catch (error) {
+    const area = $("correctionsArea");
+    if (area) area.innerHTML = `<div class="ai-warning">加载词典失败：${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function renderCorrections() {
+  const area = $("correctionsArea");
+  if (!area || !ui.corrections) return;
+  const pairs = ui.corrections.pairs || [];
+  const rows = pairs.map((pair, index) => `
+    <div class="vocab-row" data-i="${index}">
+      <input type="text" class="settings-input c-wrong" value="${escapeHtml(pair.wrong.join(", "))}" placeholder="错词（逗号分隔）">
+      <span class="corr-arrow">→</span>
+      <input type="text" class="settings-input c-right" value="${escapeHtml(pair.right)}" placeholder="正词">
+      <label class="corr-term" title="是专有名词（应用后建议加热词）"><input type="checkbox" class="c-term" ${pair.is_term ? "checked" : ""}>术语</label>
+      <button class="btn small c-del" title="删除">✕</button>
+    </div>`).join("");
+  const projectActions = state.projectId ? `
+      <button class="btn small" id="corrPreviewBtn">预览当前项目命中</button>
+      <button class="btn small primary" id="corrApplyBtn">应用到当前项目</button>
+      ${ui.lastChangesetId ? '<button class="btn small" id="corrUndoBtn">撤销上次应用</button>' : ""}` : `
+      <span class="settings-note">打开某个项目后可在此预览/应用。</span>`;
+  area.innerHTML = `
+    <div class="vocab-list">${rows || '<div class="ai-hint">词典为空。</div>'}</div>
+    <div class="prompt-actions">
+      <button class="btn small" id="corrAddBtn">＋ 添加纠错</button>
+      <button class="btn small primary" id="corrSaveBtn">保存词典</button>
+    </div>
+    <div class="prompt-actions">${projectActions}</div>
+    <div class="settings-note" id="corrResult"></div>`;
+  const readBack = () => {
+    ui.corrections.pairs = [...area.querySelectorAll(".vocab-row")].map((node) => ({
+      wrong: node.querySelector(".c-wrong").value.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
+      right: node.querySelector(".c-right").value.trim(),
+      is_term: node.querySelector(".c-term").checked,
+    })).filter((pair) => pair.wrong.length && pair.right);
+  };
+  area.querySelectorAll(".c-del").forEach((button) => {
+    button.addEventListener("click", () => {
+      readBack();
+      ui.corrections.pairs.splice(Number(button.parentElement.dataset.i), 1);
+      renderCorrections();
+    });
+  });
+  $("corrAddBtn").addEventListener("click", () => {
+    readBack();
+    ui.corrections.pairs.push({ wrong: [], right: "", is_term: true });
+    renderCorrections();
+    const inputs = area.querySelectorAll(".c-wrong");
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+  $("corrSaveBtn").addEventListener("click", async () => {
+    readBack();
+    const box = $("corrResult");
+    box.textContent = "保存中…";
+    try {
+      ui.corrections = await putJson("/api/settings/corrections", { pairs: ui.corrections.pairs });
+      box.textContent = `✅ 词典已保存（${(ui.corrections.pairs || []).length} 组）。`;
+    } catch (error) {
+      box.textContent = `❌ ${error.message}`;
+    }
+  });
+  const previewBtn = $("corrPreviewBtn");
+  if (previewBtn) previewBtn.addEventListener("click", async () => {
+    const box = $("corrResult");
+    box.textContent = "统计中…";
+    try {
+      const preview = await api(`/api/projects/${encodeURIComponent(state.projectId)}/quality/corrections-preview`);
+      if (!preview.total) { box.textContent = "当前项目没有词典命中。"; return; }
+      const lines = (preview.items || []).map((item) =>
+        `「${escapeHtml(item.wrong)}」→「${escapeHtml(item.right)}」 ×${item.count}`).join("<br>");
+      box.innerHTML = `命中 ${preview.total} 处：<br>${lines}`;
+    } catch (error) {
+      box.textContent = `❌ ${error.message}`;
+    }
+  });
+  const applyBtn = $("corrApplyBtn");
+  if (applyBtn) applyBtn.addEventListener("click", async () => {
+    const box = $("corrResult");
+    box.textContent = "应用中…";
+    try {
+      const result = await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/quality/apply-corrections`, {});
+      ui.lastChangesetId = result.changeset_id;
+      await showEditor();
+      renderCorrections();
+      $("corrResult").textContent = `✅ 已替换 ${result.applied} 处（changeset ${result.changeset_id}），可点「撤销上次应用」还原。`;
+    } catch (error) {
+      box.textContent = `❌ ${error.message}`;
+    }
+  });
+  const undoBtn = $("corrUndoBtn");
+  if (undoBtn) undoBtn.addEventListener("click", async () => {
+    const box = $("corrResult");
+    box.textContent = "撤销中…";
+    try {
+      const result = await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/quality/undo/${encodeURIComponent(ui.lastChangesetId)}`, {});
+      ui.lastChangesetId = null;
+      await showEditor();
+      renderCorrections();
+      $("corrResult").textContent = `✅ 已撤销（还原 ${result.reverted} 处${(result.skipped || []).length ? `，跳过 ${result.skipped.length} 处已再次改动的行` : ""}）。`;
+    } catch (error) {
+      box.textContent = `❌ ${error.message}`;
+    }
+  });
 }
 
 async function saveApiKey() {

@@ -2,7 +2,7 @@
 import { el, pb, state } from "./shared.js";
 import { togglePlay, setMode } from "./player.js";
 import { refreshProjects, showView } from "./projects.js";
-import { applyAllSuggestedCuts } from "./rows.js";
+import { applyAllSuggestedCuts, undoFillerBatch } from "./rows.js";
 import "./editor.js";
 import "./exporter.js";
 import "./ai.js";
@@ -20,6 +20,7 @@ el.cutFillersBtn.addEventListener("click", () => {
   if (!state.rows.length) return;
   applyAllSuggestedCuts();
 });
+el.undoCutFillersBtn.addEventListener("click", undoFillerBatch);
 refreshProjects();
 setInterval(refreshProjects, 8000);
 showView("empty");

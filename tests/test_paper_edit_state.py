@@ -92,6 +92,20 @@ class PaperEditStateTests(unittest.TestCase):
         self.assertEqual(row["tokens"][0]["start_ms"], 1100)
         self.assertEqual(state["rows"][2]["tokens"], [])
 
+    def test_rows_payload_preserves_optional_token_confidence(self):
+        transcript = _sample_transcript()
+        transcript.segments[0].tokens[0] = TranscriptToken(
+            text="开场",
+            start_ms=1100,
+            end_ms=1400,
+            confidence=0.87,
+        )
+
+        row = build_editor_state(transcript)["rows"][0]
+
+        self.assertEqual(row["tokens"][0]["confidence"], 0.87)
+        self.assertNotIn("confidence", row["tokens"][1])
+
     def test_trim_narrows_segment_to_kept_token_boundaries(self):
         edited = apply_editor_rows(
             _sample_transcript(),
@@ -101,6 +115,44 @@ class PaperEditStateTests(unittest.TestCase):
         self.assertEqual(segment.start_ms, 1500)
         self.assertEqual(segment.end_ms, 2200)
         self.assertEqual([token.text for token in segment.tokens], ["寒暄。"])
+
+    def test_cuts_preserve_text_corrections_without_changing_tokens(self):
+        transcript = Transcript(
+            source_video="source.mp4",
+            duration_ms=2000,
+            selected_segment_ids=["seg_001"],
+            segments=[
+                TranscriptSegment(
+                    id="seg_001",
+                    start_ms=0,
+                    end_ms=1800,
+                    text="嗯WEB CODING继续",
+                    tokens=[
+                        TranscriptToken(text="嗯", start_ms=0, end_ms=200),
+                        TranscriptToken(text="WEB CODING", start_ms=250, end_ms=1000),
+                        TranscriptToken(text="继续", start_ms=1100, end_ms=1700),
+                    ],
+                )
+            ],
+        )
+
+        edited = apply_editor_rows(
+            transcript,
+            [
+                {
+                    "id": "seg_001",
+                    "checked": True,
+                    "text": "嗯vibe coding继续",
+                    "cuts": [{"start_token": 0, "end_token": 0}],
+                }
+            ],
+        )
+
+        self.assertEqual(edited.segments[0].text, "vibe coding继续")
+        self.assertEqual(
+            [token.text for token in edited.segments[0].tokens],
+            ["WEB CODING", "继续"],
+        )
 
     def test_invalid_trim_falls_back_to_full_segment(self):
         for trim in (

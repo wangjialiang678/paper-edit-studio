@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from difflib import SequenceMatcher
 from typing import Any
 
 from ..features import AudioFrame
@@ -86,7 +87,7 @@ def apply_editor_rows(
                     id=child_id,
                     start_ms=run[0].start_ms,
                     end_ms=run[-1].end_ms,
-                    text=_join_token_text(run),
+                    text=_join_edited_token_text(segment.text, text, run),
                     tokens=list(run),
                 )
             )
@@ -209,6 +210,31 @@ def _join_token_text(tokens: list[TranscriptToken]) -> str:
     return output
 
 
+def _join_edited_token_text(
+    original_text: str,
+    edited_text: str,
+    tokens: list[TranscriptToken],
+) -> str:
+    """把行级文字替换投影到保留 token 文本，token 本身仍只负责时间定位。"""
+
+    output = _join_token_text(tokens)
+    if edited_text == original_text:
+        return output
+    for tag, old_start, old_end, new_start, new_end in SequenceMatcher(
+        None,
+        original_text,
+        edited_text,
+        autojunk=False,
+    ).get_opcodes():
+        if tag == "equal":
+            continue
+        old = original_text[old_start:old_end]
+        if not old:
+            continue
+        output = output.replace(old, edited_text[new_start:new_end])
+    return output
+
+
 def segment_subsplits(transcript: Transcript) -> dict[str, list[str]]:
     """从已编辑 transcript 提取句内子片段映射，仅返回真正被拆分的句子。"""
     grouped: dict[str, list[str]] = {}
@@ -290,10 +316,7 @@ def _row_payload(segment: TranscriptSegment, *, checked: bool, index: int) -> di
         "checked": checked,
         "token_count": token_count,
         "has_word_timestamps": token_count > 0,
-        "tokens": [
-            {"text": token.text, "start_ms": token.start_ms, "end_ms": token.end_ms}
-            for token in valid_tokens
-        ],
+        "tokens": [_token_payload(token) for token in valid_tokens],
     }
 
 

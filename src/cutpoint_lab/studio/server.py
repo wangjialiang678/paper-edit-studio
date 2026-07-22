@@ -16,11 +16,20 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, unquote, urlparse
 from urllib.request import Request, urlopen
 
+from ..asr_cache import CachingAsrRunner
 from ..export.subtitles import write_srt
 from ..export.video import export_video_plan
 from ..features import AudioFrame, load_rms_frames
 from ..io import load_transcript, load_vad, read_json, write_json
 from ..paper_edit.state import apply_editor_rows, build_editor_state, build_plan_from_editor_rows
+from ..quality import (
+    CorrectionSet,
+    apply_corrections,
+    load_changeset,
+    preview_corrections,
+    save_changeset,
+    undo_changeset,
+)
 from .ai_selector import HARD_CONSTRAINTS, AiSelector, save_suggestion
 from .asr_runner import ShellAsrRunner, Video2mdAsrRunner
 from .config import (
@@ -29,6 +38,7 @@ from .config import (
     mask_api_key,
     resolve_llm_api_key,
     resolve_secret_key,
+    resolve_transcript_cache_dir,
 )
 from .filler_detect import detect as detect_filler_cuts
 from .llm_client import DEFAULT_BASE_URL as DEFAULT_LLM_BASE_URL, LlmClient, LlmConfig
@@ -70,6 +80,10 @@ class StudioApplication:
     ):
         self.workspace = workspace
         self.env_store = env_store or EnvStore()
+        self.transcript_cache_dir = resolve_transcript_cache_dir(
+            self.workspace.root,
+            self.env_store,
+        )
         self.api_vault_path = Path(api_vault_path).expanduser()
         self.vocabulary_transport = vocabulary_transport
         self.prompt_store = PromptStore(prompts_dir, self.workspace.root / "_settings" / "prompts")
@@ -83,7 +97,10 @@ class StudioApplication:
             )
         )
         self.pipeline = PipelineManager(
-            asr_runner or Video2mdAsrRunner(),
+            CachingAsrRunner(
+                asr_runner or Video2mdAsrRunner(),
+                self.transcript_cache_dir,
+            ),
             auto_ai=self._auto_ai if auto_ai else None,
         )
         self._frames_cache: dict[str, list[AudioFrame]] = {}
@@ -117,7 +134,16 @@ class StudioApplication:
             },
             "vocabulary_id": vocabulary_id or None,
             "env_path": str(self.env_store.path),
+            "transcript_cache_dir": str(self.transcript_cache_dir),
         }
+
+    def corrections(self) -> dict[str, Any]:
+        return CorrectionSet.load(self._corrections_path()).to_dict()
+
+    def save_corrections(self, payload: dict[str, Any]) -> dict[str, Any]:
+        correction_set = CorrectionSet.from_dict(payload)
+        correction_set.save(self._corrections_path())
+        return correction_set.to_dict()
 
     def save_api_key(self, payload: dict[str, Any]) -> dict[str, Any]:
         key = _validated_api_key(payload.get("key"))
@@ -281,6 +307,14 @@ class StudioApplication:
         self.pipeline.start(project)
         return project.read_state()
 
+    def retranscribe(self, project: Project) -> dict[str, Any]:
+        if self.pipeline.is_running(project):
+            raise ValueError("流水线正在运行")
+        logger.info("retranscribe requested: project=%s force=true", project.id)
+        project.set_stage("imported", "重新转写", error=None)
+        self.pipeline.start(project, force=True)
+        return {"ok": True, **project.read_state()}
+
     # ---------- 编辑器 ----------
     def project_detail(self, project: Project) -> dict[str, Any]:
         state = project.read_state()
@@ -349,6 +383,57 @@ class StudioApplication:
         srt_path = project.dir / "edited_preview.srt"
         write_srt(edited, plan, srt_path)
         return {"ok": True, "plan": plan, "paths": {"clip_plan": str(project.dir / "clip_plan.json"), "subtitle": str(srt_path)}}
+
+    # ---------- 字幕质量 ----------
+    def corrections_preview(self, project: Project) -> dict[str, Any]:
+        rows, _ = self._correction_rows(project)
+        items = preview_corrections(rows, CorrectionSet.load(self._corrections_path()))
+        return {"items": items, "total": sum(item["count"] for item in items)}
+
+    def apply_dictionary_corrections(self, project: Project) -> dict[str, Any]:
+        rows, selection = self._correction_rows(project)
+        correction_set = CorrectionSet.load(self._corrections_path())
+        items = preview_corrections(rows, correction_set)
+        new_rows, changeset = apply_corrections(rows, correction_set)
+        selection["rows"] = new_rows
+        write_json(project.dir / "selection.json", selection)
+        save_changeset(project.dir, changeset)
+        applied = sum(item["count"] for item in items)
+        logger.info(
+            "corrections applied: project=%s changeset=%s replacements=%s",
+            project.id,
+            changeset["change_id"],
+            applied,
+        )
+        return {
+            "ok": True,
+            "changeset_id": changeset["change_id"],
+            "applied": applied,
+            "rows": new_rows,
+        }
+
+    def undo_dictionary_changeset(self, project: Project, change_id: str) -> dict[str, Any]:
+        selection_path = project.dir / "selection.json"
+        if not selection_path.is_file():
+            raise ValueError("尚未保存编辑状态，无法撤销")
+        selection = read_json(selection_path)
+        rows = selection.get("rows")
+        if not isinstance(rows, list):
+            raise ValueError("selection.json 的 rows 必须是数组")
+        restored_rows, report = undo_changeset(
+            rows,
+            load_changeset(project.dir, change_id),
+        )
+        selection["rows"] = restored_rows
+        write_json(selection_path, selection)
+        logger.info(
+            "corrections undone: project=%s changeset=%s reverted=%s skipped=%s",
+            project.id,
+            change_id,
+            report["reverted"],
+            len(report["skipped"]),
+        )
+        return {"ok": True, **report, "rows": restored_rows}
 
     # ---------- 导出 ----------
     def start_export(self, project: Project, payload: dict[str, Any]) -> dict[str, Any]:
@@ -469,6 +554,26 @@ class StudioApplication:
             write_json(selection_path, {"rows": rows, "source": "auto_ai", "reasons_available": bool(reasons)})
 
     # ---------- 内部 ----------
+    def _corrections_path(self) -> Path:
+        return self.workspace.root / "_settings" / "corrections.json"
+
+    def _correction_rows(
+        self,
+        project: Project,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        selection_path = project.dir / "selection.json"
+        if selection_path.is_file():
+            selection = read_json(selection_path)
+            if not isinstance(selection, dict):
+                raise ValueError("selection.json 必须是 JSON 对象")
+            rows = selection.get("rows")
+            if not isinstance(rows, list):
+                raise ValueError("selection.json 的 rows 必须是数组")
+            return rows, selection
+
+        rows = self.editor_state(project)["rows"]
+        return rows, {"rows": rows}
+
     def _ai_overview(self, project: Project) -> dict[str, Any]:
         state = project.read_state().get("ai") or {}
         overview: dict[str, Any] = {"available": self.selector.available(), "modes": {}}
@@ -659,6 +764,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/static/{asset}"): "_route_static",
     ("GET", "/favicon.ico"): "_route_favicon",
     ("GET", "/api/settings"): "_route_settings",
+    ("GET", "/api/settings/corrections"): "_route_corrections",
+    ("PUT", "/api/settings/corrections"): "_route_save_corrections",
     ("PUT", "/api/settings/apikey"): "_route_save_api_key",
     ("POST", "/api/settings/apikey/test"): "_route_test_api_key",
     ("GET", "/api/settings/vocabulary"): "_route_vocabulary",
@@ -675,8 +782,12 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/projects/{id}/rms"): "_route_rms",
     ("GET", "/api/projects/{id}/rms/{rest...}"): "_route_rms",
     ("GET", "/api/projects/{id}/ai/{mode}"): "_route_ai_suggestion",
+    ("GET", "/api/projects/{id}/quality/corrections-preview"): "_route_corrections_preview",
     ("GET", "/api/projects/{id}/{rest...}"): "_route_unknown_project_get",
     ("POST", "/api/projects/{id}/ai/suggest"): "_route_ai_suggest",
+    ("POST", "/api/projects/{id}/quality/apply-corrections"): "_route_apply_corrections",
+    ("POST", "/api/projects/{id}/quality/undo/{change_id}"): "_route_undo_changeset",
+    ("POST", "/api/projects/{id}/retranscribe"): "_route_retranscribe",
     ("POST", "/api/projects/{id}/{action}/suggest"): "_route_ai_suggest",
     ("POST", "/api/projects/{id}/{action}"): "_route_project_action",
     ("GET", "/media/{id}/source"): "_route_media_source",
@@ -766,6 +877,12 @@ def _handler_factory(app: StudioApplication):
         def _route_settings(self, _parsed, _params: dict[str, str]) -> None:
             self._send_json(app.settings())
 
+        def _route_corrections(self, _parsed, _params: dict[str, str]) -> None:
+            self._send_json(app.corrections())
+
+        def _route_save_corrections(self, _parsed, _params: dict[str, str]) -> None:
+            self._send_json(app.save_corrections(self._read_json_body()))
+
         def _route_save_api_key(self, _parsed, _params: dict[str, str]) -> None:
             self._send_json(app.save_api_key(self._read_json_body()))
 
@@ -816,6 +933,9 @@ def _handler_factory(app: StudioApplication):
         def _route_ai_suggestion(self, _parsed, params: dict[str, str]) -> None:
             self._send_json(app.ai_suggestion(self._project(params["id"]), params["mode"]))
 
+        def _route_corrections_preview(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(app.corrections_preview(self._project(params["id"])))
+
         def _route_unknown_project_get(self, _parsed, params: dict[str, str]) -> None:
             self._project(params["id"])
             self._send_error_json(404, "not found")
@@ -823,6 +943,20 @@ def _handler_factory(app: StudioApplication):
         def _route_ai_suggest(self, _parsed, params: dict[str, str]) -> None:
             project = self._project(params["id"])
             self._send_json(app.start_ai(project, self._read_json_body()))
+
+        def _route_apply_corrections(self, _parsed, params: dict[str, str]) -> None:
+            self._read_json_body()
+            project = self._project(params["id"])
+            self._send_json(app.apply_dictionary_corrections(project))
+
+        def _route_undo_changeset(self, _parsed, params: dict[str, str]) -> None:
+            self._read_json_body()
+            project = self._project(params["id"])
+            self._send_json(app.undo_dictionary_changeset(project, params["change_id"]))
+
+        def _route_retranscribe(self, _parsed, params: dict[str, str]) -> None:
+            self._read_json_body()
+            self._send_json(app.retranscribe(self._project(params["id"])))
 
         def _route_project_action(self, _parsed, params: dict[str, str]) -> None:
             project = self._project(params["id"])

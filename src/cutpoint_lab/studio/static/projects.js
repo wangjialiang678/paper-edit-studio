@@ -2,6 +2,7 @@
 import { el, state, api, postJson, escapeHtml, STAGE_LABELS } from "./shared.js";
 import { resetPlayback } from "./player.js";
 import { showEditor } from "./editor.js";
+import { clearFillerBatch } from "./rows.js";
 
 export async function refreshProjects() {
   try {
@@ -76,6 +77,7 @@ export async function selectProject(projectId) {
   state.projectId = projectId;
   state.orderedGroups = null;
   resetPlayback();
+  clearFillerBatch();
   clearTimers();
   el.exportResult.hidden = true;
   await refreshProjects();

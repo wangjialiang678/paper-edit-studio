@@ -124,6 +124,13 @@ video { width: 100%; flex: 1; min-height: 0; background: #000; border-radius: 10
 }
 .ordered-banner .btn { margin-left: auto; }
 
+.replace-bar {
+  margin: 6px 16px 0; padding: 8px 12px; border-radius: 8px; font-size: 13px;
+  background: #16324a; border: 1px solid #2d6da3; display: flex; align-items: center;
+  gap: 8px; flex-wrap: wrap;
+}
+.replace-bar b { color: #7db8e8; }
+
 .toolbar {
   display: flex; align-items: center; gap: 8px; padding: 10px 16px;
   border-bottom: 1px solid var(--line); flex: none; flex-wrap: wrap;
@@ -160,6 +167,15 @@ video { width: 100%; flex: 1; min-height: 0; background: #000; border-radius: 10
   border-radius: 6px; min-height: 30px; overflow: hidden;
 }
 .row-text:focus { outline: none; border-color: var(--line); background: var(--bg-2); }
+.row-text.render {
+  min-height: 30px; padding: 3px 6px; border-radius: 6px; line-height: 1.65;
+  font-size: 14px; cursor: default; overflow-wrap: anywhere;
+}
+.row-text.render .tok { cursor: pointer; border-radius: 3px; padding: 0 1px; }
+.row-text.render .tok:hover { background: var(--bg-3); outline: 1px solid var(--line); }
+.row-text.render .tok.cut { text-decoration: line-through; color: var(--muted); opacity: .55; }
+.row-text.render .tok.cut:hover { opacity: .85; outline-color: var(--green); }
+.row-text.render .tok.suggest { text-decoration: underline dotted var(--danger); text-underline-offset: 3px; }
 .row-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; padding-top: 4px; max-width: 200px; }
 .badge {
   font-size: 10px; padding: 2px 7px; border-radius: 999px; white-space: nowrap;
@@ -252,6 +268,10 @@ video { width: 100%; flex: 1; min-height: 0; background: #000; border-radius: 10
 .vocab-row { display: flex; gap: 4px; align-items: center; }
 .vocab-row .v-text { flex: 1; margin-top: 0; }
 .vocab-row .v-weight { width: 52px; flex: none; margin-top: 0; }
+.vocab-row .c-wrong { flex: 1.4; margin-top: 0; }
+.vocab-row .c-right { flex: 1; margin-top: 0; }
+.corr-arrow { color: var(--muted); flex: none; }
+.corr-term { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); flex: none; cursor: pointer; }
 .prompt-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .prompt-editor {
   width: 100%; min-height: 320px; background: var(--bg); color: var(--ink);
