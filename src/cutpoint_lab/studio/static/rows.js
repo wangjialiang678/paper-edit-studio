@@ -1,6 +1,6 @@
 /* 字幕行列表：渲染、勾选、文本编辑、静默段标记、统计。 */
 import { el, state, pb, fmtClock, escapeHtml, autoGrow, markActive, setStatus } from "./shared.js";
-import { rangeIndexForRow, auditionRange } from "./player.js";
+import { rangeIndexForRow, auditionRange, segmentBaseId } from "./player.js";
 import { scheduleAutosave } from "./plan.js";
 import { toggleTrimPanel, applySuggestedCuts } from "./trim.js";
 
@@ -70,7 +70,13 @@ function rowNode(row) {
         if (index >= 0) {
           pb.rangeIndex = index;
           const target = pb.ranges[index];
-          el.video.currentTime = Math.max(target.start_ms, Math.min(row.start_ms, target.end_ms)) / 1000;
+          // 本句就是该 range 的开头时，从真实切点（含策略吸附与手动微移）起播，
+          // 让句首微调在点击试听时立即可感知；否则从句子首词起播。
+          const firstId = (target.source_segment_ids || [])[0];
+          const fromMs = segmentBaseId(firstId) === row.id
+            ? target.start_ms
+            : Math.max(target.start_ms, Math.min(row.start_ms, target.end_ms));
+          el.video.currentTime = fromMs / 1000;
         } else {
           el.video.currentTime = row.start_ms / 1000;
           scheduleAutosave();
