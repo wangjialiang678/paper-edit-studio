@@ -5,6 +5,7 @@ from .features import extract_audio, load_rms_frames
 from .io import load_transcript, load_vad, read_json, write_json
 from .models import Transcript, TranscriptSegment, TranscriptToken
 from .paper_edit.redline import render_redline_markdown
+from .paper_edit.review_html import render_review_html
 from .paper_edit.state import apply_editor_rows, build_plan_from_editor_rows
 from .quality import (
     CorrectionSet,
@@ -55,6 +56,7 @@ __all__ = [
     "load_vad",
     "read_json",
     "preview_corrections",
+    "render_review_html",
     "render_redline_markdown",
     "resolve_mp4md_binary",
     "resolve_transcript_cache_dir",

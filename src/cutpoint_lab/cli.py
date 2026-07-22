@@ -5,6 +5,7 @@ import json
 import shutil
 import sys
 import time
+import webbrowser
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,7 @@ from cutpoint_lab.engine import (
     load_transcript,
     preview_corrections,
     read_json,
+    render_review_html,
     render_redline_markdown,
     resolve_transcript_cache_dir,
     save_changeset,
@@ -167,6 +169,51 @@ def run_select(
         outputs["redline"] = str(target)
 
     return {"outputs": outputs, "warnings": list(suggestion.warnings)}
+
+
+def run_review(
+    project: Project,
+    *,
+    out_path: str | Path | None = None,
+) -> dict[str, Any]:
+    if not project.transcript_path.is_file():
+        raise RuntimeError(f"字幕文件不存在：{project.transcript_path}")
+
+    transcript = load_transcript(project.transcript_path)
+    selection_path = project.dir / "selection.json"
+    if selection_path.is_file():
+        selection = read_json(selection_path)
+        rows = selection.get("rows")
+        if not isinstance(rows, list):
+            raise ValueError(f"选择文件缺少 rows：{selection_path}")
+    else:
+        rows = [
+            {"id": segment.id, "checked": True, "text": segment.text}
+            for segment in transcript.segments
+        ]
+
+    decisions: dict[str, dict[str, Any]] | None = None
+    try:
+        tighten = (project.read_state().get("ai") or {}).get("koubo_tighten") or {}
+        if tighten.get("status") == "done" and tighten.get("file"):
+            suggestion = read_json(tighten["file"])
+            decision_rows = suggestion.get("decisions")
+            if isinstance(decision_rows, list):
+                decisions = {
+                    str(item["segment_id"]): item
+                    for item in decision_rows
+                    if isinstance(item, dict) and item.get("segment_id") is not None
+                }
+    except Exception:  # noqa: BLE001 - AI 理由缺失不影响人工确认页生成。
+        decisions = None
+
+    target = Path(out_path).expanduser() if out_path is not None else project.dir / "review.html"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        render_review_html(transcript, rows, decisions),
+        encoding="utf-8",
+    )
+    return {"outputs": {"review_html": str(target)}, "warnings": []}
 
 
 def run_export(
@@ -314,6 +361,13 @@ def _build_parser() -> argparse.ArgumentParser:
     select_redline.add_argument("--redline", default=None, metavar="PATH", help="单项目修订文件")
     select_redline.add_argument("--redline-dir", default=None, metavar="DIR", help="批量修订文件目录")
     _add_shared_arguments(select)
+
+    review = subparsers.add_parser("review", help="生成交互式剪辑确认 HTML")
+    review.add_argument("projects", nargs="*", metavar="PROJECT")
+    review.add_argument("--all", action="store_true", help="处理工作区内全部项目")
+    review.add_argument("--out", default=None, metavar="PATH", help="单项目 HTML 输出路径")
+    review.add_argument("--open", action="store_true", help="生成后在浏览器中打开")
+    _add_shared_arguments(review)
 
     export = subparsers.add_parser("export", help="批量导出已有项目")
     export.add_argument("projects", nargs="*", metavar="PROJECT")
@@ -473,6 +527,40 @@ def _handle_select(args: argparse.Namespace, workspace: Workspace) -> list[dict[
             result["outputs"] = payload["outputs"]
             result["warnings"] = payload["warnings"]
             _progress(f"[{project.id}] 选段完成")
+        except Exception as exc:  # noqa: BLE001 - 批量任务逐项隔离失败。
+            result["error"] = str(exc)
+            _progress(f"[{project_id}] 失败：{exc}")
+        results.append(result)
+    return results
+
+
+def _handle_review(args: argparse.Namespace, workspace: Workspace) -> list[dict[str, Any]]:
+    if args.out and args.all:
+        raise ValueError("--out 仅适用于显式指定的单个项目，不能与 --all 同时使用")
+    project_ids = _project_ids(workspace, args.projects, args.all)
+    if not project_ids:
+        raise ValueError("请指定 PROJECT，或使用 --all")
+    if args.out and len(project_ids) != 1:
+        raise ValueError("--out 仅适用于单个项目")
+
+    results: list[dict[str, Any]] = []
+    for project_id in project_ids:
+        project = workspace.get(project_id)
+        result = _new_result(
+            project_id=project_id,
+            source=str(project.source_path) if project and project.source_path else None,
+        )
+        try:
+            if project is None:
+                raise ValueError(f"项目不存在：{project_id}")
+            _progress(f"[{project.id}] 开始生成剪辑确认页")
+            payload = run_review(project, out_path=args.out)
+            result["outputs"] = payload["outputs"]
+            result["warnings"] = payload["warnings"]
+            if args.open:
+                review_path = Path(payload["outputs"]["review_html"]).resolve()
+                webbrowser.open(review_path.as_uri())
+            _progress(f"[{project.id}] 剪辑确认页生成完成")
         except Exception as exc:  # noqa: BLE001 - 批量任务逐项隔离失败。
             result["error"] = str(exc)
             _progress(f"[{project_id}] 失败：{exc}")
@@ -761,6 +849,8 @@ def main(argv: list[str] | None = None) -> int:
             results = _handle_transcribe(args, workspace)
         elif args.command == "select":
             results = _handle_select(args, workspace)
+        elif args.command == "review":
+            results = _handle_review(args, workspace)
         elif args.command == "export":
             results = _handle_export(args, workspace)
         elif args.command == "run":

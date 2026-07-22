@@ -37,7 +37,7 @@ scripts/studio_web.py --open
 
 入口（免安装）：`python -m cutpoint_lab <子命令>`；或 `scripts/pe.py <子命令>`；`pip install -e .` 后可用 `pe`。
 
-三步能力对应四个子命令：
+四步能力对应五个子命令：
 
 ```bash
 # 1) 批量转写：视频 → 词级时间戳字幕（transcript.json）+ 全文 SRT
@@ -46,7 +46,10 @@ python -m cutpoint_lab transcribe a.mp4 b.mp4
 # 2) AI 选段：口播精剪（保留高光、删赘语口癖重复），--redline 可选导出「修订模式」Markdown
 python -m cutpoint_lab select <项目id> --brief "保留成长与创作过程的高光，删掉口癖和重复" --redline redline.md
 
-# 3) 批量导出：按选择的切点导出成片 mp4 + 重排 SRT
+# 3) 交互确认：浏览器逐句/逐词调整，导出新的 selection.json
+python -m cutpoint_lab review <项目id> --open
+
+# 4) 批量导出：按选择的切点导出成片 mp4 + 重排 SRT
 python -m cutpoint_lab export <项目id>
 
 # 一条命令跑完整流程（AI 主用入口）：转写→选段→导出，--redline 生成修订文件，--json 输出机器可读结果
@@ -54,7 +57,7 @@ python -m cutpoint_lab run a.mp4 b.mp4 --brief "..." --redline --json
 ```
 
 - `--json`：stdout 只输出结构化 manifest（项目 id / 产物路径 / 计数 / warnings），人类进度打到 stderr，便于 AI 解析。
-- `select`/`export` 支持 `--all` 处理工作区全部项目；批量逐项隔离失败，任一失败退出码非 0。
+- `select`/`review`/`export` 支持 `--all` 处理工作区全部项目；批量逐项隔离失败，任一失败退出码非 0。
 - **「修订模式」文件**是 Markdown 划线：保留句正常显示、删除句 `~~划线~~` 并在行尾标注 AI 删除理由，可读、可 diff、可转 Word。
 - 默认切点策略 `hybrid_valley`（与网页版一致），缺分析音频时自动回退 `token_padding`。
 - 依赖与网页版相同：`ffmpeg` 在 `PATH` + `DASHSCOPE_API_KEY`（详见下方「环境依赖」）。
@@ -88,7 +91,7 @@ bin/mp4-md-*                    内置 video2md ASR 二进制（DashScope fun-as
 scripts/transcribe_media_recorded.sh  旧版 ASR 脚本（DashScope fun-asr + 自建 OSS，--asr-script 启用）
 src/cutpoint_lab/
   engine.py                     引擎门面：CLI 唯一依赖的稳定 API（re-export 存储/ASR/选段/导出）
-  cli.py / __main__.py          无头 CLI：transcribe / select / export / run 四个子命令（只依赖 engine）
+  cli.py / __main__.py          无头 CLI：transcribe / select / review / export / run 五个子命令（只依赖 engine）
   studio/                       网页应用层：HTTP 服务（路由表）、流水线、工作区、AI 选段、LLM 客户端
     config.py                   .env 读写与密钥分层解析（进程环境 > .env > api-vault）
     prompt_store.py             提示词默认模板 + workspace 覆盖层
