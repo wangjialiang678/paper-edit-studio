@@ -1,7 +1,7 @@
 ---
 title: Agent 前置要求
 date: 2026-06-07
-updated: 2026-07-13
+updated: 2026-07-22
 status: active
 audience: ai
 ---
@@ -74,6 +74,20 @@ scripts/studio_web.py
 4. ASR 默认走 video2md 的 `bin/mp4-md`（DashScope fun-asr，词级时间戳，免 OSS），由 `studio/asr_runner.py::Video2mdAsrRunner` 封装调用；`video2md.py::convert_video2md_transcript` 把 `<stem>.transcript.json` 转成内部 Transcript schema（`segments[].start_ms/end_ms/text/tokens`）。旧版 `transcribe_media_recorded.sh` + 自建 OSS 仍可用 `--asr-script` 启用，对应 `ShellAsrRunner` + `dashscope.py::convert_dashscope_transcript`。
 
 > 旧 CLI 实验流程（compare/eval/盲听）已移至 `legacy` 分支，此处不再适用。
+
+## 无头 CLI（面向 agent 批处理）
+
+不想起网页服务时，用同一套引擎的无头 CLI 直接跑批。产物写进同一个 `workspace/<项目id>/`，与 Studio 双向互通。入口：`python -m cutpoint_lab <子命令>`（免安装）或 `scripts/pe.py`。完整用法见 [cli-usage.md](cli-usage.md)。
+
+```bash
+python -m cutpoint_lab run 视频.mp4 --brief "保留高光，删口癖重复" --redline --json
+# 或分步：transcribe（→ transcript.json + 全文 SRT）→ select（口播精剪 + 可选 --redline 修订文件）→ export（mp4 + 重排 SRT）
+```
+
+- 依赖与 Studio 完全一致：`ffmpeg` + `DASHSCOPE_API_KEY`（+ LLM key，默认同 DashScope）；缺失时子命令会返回可读错误。
+- `--json`：stdout 输出结构化 manifest（供 agent 解析），人类进度走 stderr；批量逐项隔离失败，任一失败退出码非 0。
+- 架构边界：CLI 只依赖 `cutpoint_lab.engine` 门面，从不引用 `studio.*`；改引擎位置只需改门面，CLI 不动。
+- 无网络快验：`tests/test_cli_flow.py` 用假 ASR + 假 LLM + 真 ffmpeg 跑完整 transcribe→select→export，不触网。
 
 ## 安全边界
 

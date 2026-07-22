@@ -9,5 +9,8 @@ description = "Audio-aware cutpoint calibration experiments for transcript-based
 requires-python = ">=3.11"
 dependencies = []
 
+[project.scripts]
+pe = "cutpoint_lab.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
