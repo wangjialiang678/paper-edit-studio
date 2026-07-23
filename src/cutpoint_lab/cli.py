@@ -30,7 +30,7 @@ from cutpoint_lab.engine import (
     align_reference,
     apply_corrections,
     backfill_cache_entry,
-    build_plan_from_editor_rows,
+    build_plan_from_selection,
     export_video_plan,
     extract_audio,
     ffprobe_duration_ms,
@@ -305,11 +305,15 @@ def run_review(
 
     transcript = load_transcript(project.transcript_path)
     selection_path = project.dir / "selection.json"
+    order: list[str] | None = None
     if selection_path.is_file():
         selection = read_json(selection_path)
         rows = selection.get("rows")
         if not isinstance(rows, list):
             raise ValueError(f"选择文件缺少 rows：{selection_path}")
+        raw_order = selection.get("order")
+        if isinstance(raw_order, list):
+            order = [str(segment_id) for segment_id in raw_order]
     else:
         rows = [
             {"id": segment.id, "checked": True, "text": segment.text}
@@ -334,7 +338,7 @@ def run_review(
     target = Path(out_path).expanduser() if out_path is not None else project.dir / "review.html"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
-        render_review_html(transcript, rows, decisions),
+        render_review_html(transcript, rows, decisions, order=order),
         encoding="utf-8",
     )
     outputs: dict[str, Any] = {"review_html": str(target)}
@@ -350,6 +354,7 @@ def run_review(
         rows,
         decisions,
         confirm_url="/confirm",
+        order=order,
     )
     server = _ReviewConfirmationServer(confirmation_page, selection_path)
     server.start()
@@ -407,9 +412,9 @@ def run_export(
             f"切点策略 {strategy} 缺少可用 RMS 数据，已回退到 token_padding"
         )
 
-    edited, plan = build_plan_from_editor_rows(
+    edited, plan = build_plan_from_selection(
         transcript,
-        rows,
+        selection,
         strategy=effective_strategy,
         frames=frames,
         vad=None,
@@ -443,6 +448,7 @@ def run_export(
         "clip_plan": str(clip_plan_path),
         "video": str(output_video),
         "srt": str(output_srt),
+        "reordered": bool(plan.get("reordered")),
     }
     if out_dir is not None:
         target_dir = Path(out_dir).expanduser().resolve()

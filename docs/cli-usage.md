@@ -38,7 +38,7 @@ python -m cutpoint_lab select <项目id> \
     --target-duration "3分钟" \
     --redline redline.md
 
-# 3) 引导式确认：网页点确认后 CLI 自动继续，无需手动回传 selection.json
+# 3) 引导式确认：可拖拽调序；网页点确认后 CLI 自动继续，无需手动回传 selection.json
 python -m cutpoint_lab review <项目id> --serve --open
 
 # 4) 批量导出：按选择的切点导出成片 mp4 + 重排 SRT
@@ -117,8 +117,55 @@ python -m cutpoint_lab cache backfill
   ```
   批量逐项隔离失败：某项失败其 `error` 非 null、不影响其他项；**任一失败进程退出码为 1**（全成功为 0，argparse 参数错误为 2）。
 - **修订对照文件**（Markdown 划线）：保留句正常显示、删除句 `~~划线~~` 并在行尾标注 AI 删除理由，文件头有保留/删除句数与时长统计。可读、可 diff、可转 Word——**先审再导出**的信任抓手。
-- **交互确认页**：`review` 总会输出完全自包含的 `review.html`，无需服务即可打开；词块按句内文字连排，英文相邻词自动补空格。使用 `--serve` 时，页面还会把确认结果直接写回项目的 `selection.json`。
+- **交互确认页**：`review` 总会输出完全自包含的 `review.html`，无需服务即可打开；拖动句首的 `⠿` 可重排，词块按句内文字连排，英文相邻词自动补空格。使用 `--serve` 时，页面还会把确认结果直接写回项目的 `selection.json`。
 - **项目目录** `workspace/<项目id>/`：`transcript.json`（词级字幕）、`selection.json`（保留/删除）、`review.html`（交互确认）、`clip_plan.json`（切点）、`exports/edited-*.mp4` + `.srt`。
+
+### selection.json：挑段、调序和删词
+
+`rows` 保存每句的保留状态与词级删除区间；可选的 `order` 保存成片里的句子顺序：
+
+```json
+{
+  "rows": [
+    {"id": "sentence_0001", "checked": true, "text": "第一句", "cuts": []},
+    {"id": "sentence_0002", "checked": false, "text": "第二句", "cuts": []},
+    {
+      "id": "sentence_0003",
+      "checked": true,
+      "text": "第三句",
+      "cuts": [{"start_token": 1, "end_token": 2}]
+    }
+  ],
+  "order": ["sentence_0003", "sentence_0001"]
+}
+```
+
+- `order` 非空时，它同时决定保留哪些句子以及输出顺序；上例先放第三句，再放第一句。允许重复同一 `segment_id`，可做重复强调。未知 id 会被忽略。
+- 没有 `order` 或 `order` 为空时，兼容旧格式：按 `rows[].checked` 选择，并保持原时间顺序。
+- `cuts` 使用 `transcript.json` 中该句有效 token 的零基索引，区间两端都包含。句内删除形成的多个子片段仍保持原句内顺序。
+- `rows[].text` 只用于 review/redline/SRT 文本透传，不参与视频切点计算；视频始终依据原始 token 时间戳、`cuts`、`trim` 和 `order`。
+- `export --json` 的结果会在 `outputs.reordered` 标明本次是否使用了非空 `order`。
+
+### 让 coding agent 直接选段
+
+coding agent 可以跳过云端 `select`，直接读词级转写、写选择文件，再交给稳定的导出引擎：
+
+```bash
+# 1. 转写并从 --json 结果取得 project_id
+python -m cutpoint_lab transcribe /绝对路径/video.mp4 --json
+
+# 2. agent 读取 workspace/<项目id>/transcript.json：
+#    只引用 segments[].id，并按 tokens 的索引生成 cuts；
+#    写出 workspace/<项目id>/selection.json（rows + order + cuts）
+
+# 3. 可选：人工拖拽调序、逐词复核
+python -m cutpoint_lab review <项目id> --serve --open
+
+# 4. 导出成片、重排后的 SRT 与 clip_plan.json
+python -m cutpoint_lab export <项目id> --json
+```
+
+忠实性边界：agent 只能删句、删词和调序，不应改写原字幕。`select` 仍保留，可在无人值守脚本里生成云端初选，也可作为 agent 二次判断的起点。
 
 ## 引导式确认
 
@@ -126,7 +173,7 @@ python -m cutpoint_lab cache backfill
 
 1. `select <项目id> --brief "..."` 生成 AI 初选和 `selection.json`。
 2. `review <项目id> --serve --open` 启动仅本机可访问的确认页；终端会等待网页操作。
-3. 在页面里勾选句子、点击词块删除或恢复，然后点「✓ 确认完成，继续剪辑」。
+3. 在页面里拖拽句子调序、勾选保留项、点击词块删除或恢复，然后点「✓ 确认完成，继续剪辑」。
 4. 页面确认后，CLI 自动把同一结构的选择结果写入 `workspace/<项目id>/selection.json`，终端返回包含 `selection` 与 `confirmed: true` 的结果。
 5. `export <项目id>` 按确认后的逐句/逐词选择导出成片。
 

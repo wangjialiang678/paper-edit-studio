@@ -6,7 +6,11 @@ from .io import load_transcript, load_vad, read_json, write_json
 from .models import Transcript, TranscriptSegment, TranscriptToken
 from .paper_edit.redline import render_redline_markdown
 from .paper_edit.review_html import render_review_html
-from .paper_edit.state import apply_editor_rows, build_plan_from_editor_rows
+from .paper_edit.state import (
+    apply_editor_rows,
+    build_plan_from_editor_rows,
+    build_plan_from_selection,
+)
 from .quality import (
     CorrectionSet,
     align_reference,
@@ -64,6 +68,7 @@ __all__ = [
     "apply_corrections",
     "backfill_cache_entry",
     "build_plan_from_editor_rows",
+    "build_plan_from_selection",
     "export_video_plan",
     "extract_audio",
     "empty_report",

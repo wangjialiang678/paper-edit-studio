@@ -283,6 +283,74 @@ def build_plan_from_editor_rows(
     return edited, clip_plan
 
 
+def build_plan_from_selection(
+    transcript: Transcript,
+    selection: dict[str, Any],
+    *,
+    strategy: str = "hybrid_valley",
+    frames: list[AudioFrame] | None = None,
+    vad: VadData | None = None,
+    require_word_timestamps: bool = True,
+) -> tuple[Transcript, dict[str, Any]]:
+    """从 selection.json 构建计划；非空 order 同时决定保留集合和输出顺序。"""
+
+    rows_payload = selection.get("rows") if isinstance(selection, dict) else None
+    if not isinstance(rows_payload, list):
+        raise ValueError("selection 缺少 rows 列表")
+    updates = {
+        str(row.get("id")): row
+        for row in rows_payload
+        if isinstance(row, dict) and row.get("id") is not None
+    }
+    rows: list[dict[str, Any]] = []
+    for segment in transcript.segments:
+        update = updates.get(segment.id, {})
+        row: dict[str, Any] = {"id": segment.id, "checked": False}
+        for key in ("checked", "text", "cuts", "trim", "nudge"):
+            if key in update:
+                row[key] = update[key]
+        rows.append(row)
+
+    order_payload = selection.get("order")
+    if order_payload is not None and not isinstance(order_payload, list):
+        raise ValueError("selection 的 order 必须是列表")
+    if order_payload:
+        from ..studio.plans import build_ordered_plan
+
+        order = [str(segment_id) for segment_id in order_payload]
+        ordered_ids = set(order)
+        for row in rows:
+            row["checked"] = row["id"] in ordered_ids
+        edited = apply_editor_rows(transcript, rows)
+        known_ids = {segment.id for segment in transcript.segments}
+        groups = [
+            {"segment_ids": [segment_id]}
+            for segment_id in order
+            if segment_id in known_ids
+        ]
+        plan = build_ordered_plan(
+            edited,
+            groups,
+            strategy=strategy,
+            frames=frames or [],
+            vad=vad,
+            require_word_timestamps=require_word_timestamps,
+        )
+        plan["reordered"] = True
+        return edited, plan
+
+    edited, plan = build_plan_from_editor_rows(
+        transcript,
+        rows,
+        strategy=strategy,
+        frames=frames,
+        vad=vad,
+        require_word_timestamps=require_word_timestamps,
+    )
+    plan["reordered"] = False
+    return edited, plan
+
+
 def transcript_to_payload(transcript: Transcript) -> dict[str, Any]:
     return {
         "source_video": transcript.source_video,

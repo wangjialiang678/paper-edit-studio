@@ -14,6 +14,7 @@ def render_review_html(
     *,
     title: str = "剪辑确认",
     confirm_url: str | None = None,
+    order: list[str] | None = None,
 ) -> str:
     """把字幕和选择状态渲染为可离线使用的交互式确认页面。"""
 
@@ -27,6 +28,22 @@ def render_review_html(
         _review_row(segment, updates.get(segment.id, {}), decision_map.get(segment.id))
         for segment in transcript.segments
     ]
+    if order:
+        rows_by_id = {row["id"]: row for row in rows}
+        ordered_rows = []
+        seen_ids = set()
+        for raw_segment_id in order:
+            segment_id = str(raw_segment_id)
+            if segment_id in seen_ids or segment_id not in rows_by_id:
+                continue
+            ordered_rows.append(rows_by_id[segment_id])
+            seen_ids.add(segment_id)
+        remaining_rows = [row for row in rows if row["id"] not in seen_ids]
+        rows = (
+            ordered_rows
+            + [row for row in remaining_rows if row["checked"]]
+            + [row for row in remaining_rows if not row["checked"]]
+        )
     embedded = json.dumps(
         {
             "rows": rows,
@@ -158,7 +175,7 @@ def render_review_html(
 
     .sentence-row {
       display: grid;
-      grid-template-columns: 28px 86px minmax(0, 1fr) minmax(120px, 220px);
+      grid-template-columns: 24px 28px 86px minmax(0, 1fr) minmax(120px, 220px);
       gap: 12px;
       align-items: start;
       padding: 15px 18px;
@@ -168,6 +185,21 @@ def render_review_html(
     .sentence-row:last-child { border-bottom: 0; }
     .sentence-row.checked { background: var(--surface); }
     .sentence-row:not(.checked) { background: #f8fafc; }
+    .sentence-row.dragging { opacity: 0.45; }
+
+    .drag-handle {
+      width: 24px;
+      padding: 0;
+      border: 0;
+      color: #94a3b8;
+      background: transparent;
+      cursor: grab;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .drag-handle:hover { color: var(--text); }
+    .drag-handle:active { cursor: grabbing; }
 
     .sentence-row input[type="checkbox"] {
       width: 17px;
@@ -240,11 +272,11 @@ def render_review_html(
       .toolbar { align-items: flex-start; padding: 12px 16px; }
       main { width: min(100% - 20px, 1060px); margin-top: 14px; }
       .sentence-row {
-        grid-template-columns: 26px 76px minmax(0, 1fr);
+        grid-template-columns: 22px 26px 76px minmax(0, 1fr);
         gap: 8px;
         padding: 13px 12px;
       }
-      .reason { grid-column: 3; }
+      .reason { grid-column: 4; }
       .export-button { padding: 8px 11px; }
       .actions { gap: 5px; }
       .download-button { padding: 7px 8px; }
@@ -265,7 +297,7 @@ def render_review_html(
     </div>
   </header>
   <main>
-    <p class="hint">勾选句子决定保留或删除；点击词块可删除或恢复该词。</p>
+    <p class="hint">拖动 ⠿ 调整句子顺序；勾选决定保留或删除；点击词块可删除或恢复该词。</p>
     <section class="rows" id="rows" aria-label="字幕剪辑确认"></section>
   </main>
   <template id="token-template"><button type="button" class="token"></button></template>
@@ -296,6 +328,14 @@ def render_review_html(
       const actionsElement = document.getElementById("actions");
       const confirmationStatus = document.getElementById("confirmation-status");
       const confirmUrl = payload.confirm_url;
+      const rowById = new Map(rows.map((row) => [row.id, row]));
+      let draggedElement = null;
+
+      function visibleRows() {
+        return [...rowsElement.querySelectorAll(".sentence-row")]
+          .map((element) => rowById.get(element.dataset.rowId))
+          .filter(Boolean);
+      }
 
       function formatTimestamp(valueMs) {
         const totalSeconds = Math.max(0, Math.floor(Number(valueMs) / 1000));
@@ -353,6 +393,25 @@ def render_review_html(
       function renderRow(row) {
         const element = document.createElement("article");
         element.className = `sentence-row${row.checked ? " checked" : ""}`;
+        element.dataset.rowId = row.id;
+
+        const dragHandle = document.createElement("button");
+        dragHandle.className = "drag-handle";
+        dragHandle.type = "button";
+        dragHandle.draggable = true;
+        dragHandle.textContent = "⠿";
+        dragHandle.title = "拖动调整顺序";
+        dragHandle.setAttribute("aria-label", `拖动句子 ${row.id} 调整顺序`);
+        dragHandle.addEventListener("dragstart", (event) => {
+          draggedElement = element;
+          element.classList.add("dragging");
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", row.id);
+        });
+        dragHandle.addEventListener("dragend", () => {
+          element.classList.remove("dragging");
+          draggedElement = null;
+        });
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -420,15 +479,28 @@ def render_review_html(
           reason.appendChild(labels);
         }
 
-        element.append(checkbox, timestamp, content, reason);
+        element.append(dragHandle, checkbox, timestamp, content, reason);
         return element;
       }
 
       rows.forEach((row) => rowsElement.appendChild(renderRow(row)));
+      rowsElement.addEventListener("dragover", (event) => {
+        if (!draggedElement) return;
+        event.preventDefault();
+        const target = event.target.closest(".sentence-row");
+        if (!target || target === draggedElement) return;
+        const bounds = target.getBoundingClientRect();
+        const insertBefore = event.clientY < bounds.top + bounds.height / 2;
+        rowsElement.insertBefore(
+          draggedElement,
+          insertBefore ? target : target.nextSibling,
+        );
+      });
+      rowsElement.addEventListener("drop", (event) => event.preventDefault());
       updateStats();
 
       function selectionPayload() {
-        const exportRows = rows.map((row) => {
+        const exportRows = visibleRows().map((row) => {
           const output = {
             id: row.id,
             checked: Boolean(row.checked),
@@ -440,7 +512,11 @@ def render_review_html(
           }
           return output;
         });
-        return { rows: exportRows, source: "review_html" };
+        return {
+          rows: exportRows,
+          order: visibleRows().filter((row) => row.checked).map((row) => row.id),
+          source: "review_html",
+        };
       }
 
       function downloadSelection() {

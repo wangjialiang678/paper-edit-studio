@@ -198,7 +198,8 @@ class ReviewCliTests(unittest.TestCase):
                             "checked": True,
                             "text": "缺少词级时间戳。",
                         },
-                    ]
+                    ],
+                    "order": ["sentence_0003", "sentence_0001"],
                 },
             )
             suggestion_path = project.ai_dir / "koubo.json"
@@ -231,7 +232,12 @@ class ReviewCliTests(unittest.TestCase):
             self.assertTrue(review_path.is_file())
             self.assertGreater(review_path.stat().st_size, 0)
             self.assertEqual(manifest["warnings"], [])
-            self.assertIn("值得保留", review_path.read_text(encoding="utf-8"))
+            page = review_path.read_text(encoding="utf-8")
+            self.assertIn("值得保留", page)
+            self.assertEqual(
+                [row["id"] for row in _embedded_data(page)["rows"]],
+                ["sentence_0003", "sentence_0001", "sentence_0002"],
+            )
 
     def test_run_review_defaults_to_all_selected_when_selection_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -305,6 +311,7 @@ class ReviewCliTests(unittest.TestCase):
                             "cuts": [],
                         }
                     ],
+                    "order": ["sentence_0001"],
                     "source": "review_html",
                 }
                 request = urllib.request.Request(
