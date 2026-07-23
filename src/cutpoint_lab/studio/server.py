@@ -620,7 +620,12 @@ class StudioApplication:
         state = project.read_state()
         ai_state = state.get("ai") or {}
         ai_state[mode] = entry
-        project.update_state(ai=ai_state)
+        if entry.get("status") == "done" and state.get("ai_warning"):
+            # 之前自动 AI 失败留下的警告在任一 AI 运行成功后即失效，随手清掉，
+            # 否则编辑器每次加载都会复播旧错误。
+            project.update_state(ai=ai_state, ai_warning=None)
+        else:
+            project.update_state(ai=ai_state)
 
     def _source_str(self, project: Project) -> str | None:
         source = project.source_path
