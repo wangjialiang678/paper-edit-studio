@@ -1,19 +1,22 @@
 /* 编辑器视图装载：拉取字幕行 + 恢复 AI 概览 + 初始化播放。 */
-import { el, state, pb, api, setStatus } from "./shared.js";
+import { el, state, pb, api, setStatus, withCut } from "./shared.js";
 import { showView } from "./projects.js";
 import { renderRows } from "./rows.js";
 import { renderAiPanel, resumeAiPolling } from "./ai.js";
 import { syncPlan } from "./plan.js";
 import { updateTransport } from "./player.js";
 import { loadQualityReport } from "./quality.js";
+import { loadCuts } from "./cuts.js";
 
 export async function showEditor() {
   try {
-    const payload = await api(`/api/projects/${state.projectId}/editor`);
+    const payload = await api(withCut(`/api/projects/${state.projectId}/editor`));
     state.rows = payload.rows || [];
     state.silences = payload.silence_gaps || [];
+    state.order = payload.order || [];
     state.aiOverview = payload.ai || { modes: {} };
     state.sourceDurationMs = payload.duration_ms || payload.project.duration_ms || 0;
+    await loadCuts();
     showView("editor");
     const mediaUrl = `/media/${state.projectId}/source`;
     if (!el.video.src.endsWith(encodeURI(mediaUrl))) el.video.src = mediaUrl;

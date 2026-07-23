@@ -77,6 +77,30 @@ python -m cutpoint_lab cache backfill
 
 - 转写默认走**内容指纹缓存**（`TRANSCRIPT_CACHE_DIR` 可指向共享同步盘，团队复用）。
 
+## 成片方案（cuts / compose 系列）
+
+同一个项目可以并存多套剪法（Cut），每套有独立的编辑决策（勾选/微调/顺序）与导出产物，存放在 `workspace/<项目id>/cuts/<方案名>/`，默认方案名 `default`。
+
+```bash
+# 列出项目全部成片方案
+python -m cutpoint_lab cuts <项目id> --json
+
+# 新建方案：空白 / 复制既有方案（--from blank | copy:<方案名>）
+python -m cutpoint_lab cuts <项目id> --create highlight --label "金句混剪" --from copy:default
+
+# select / review / export / run / check / fix / reference / undo 均支持 --cut 指定方案（默认 default）
+python -m cutpoint_lab export <项目id> --cut highlight
+
+# 文稿反算（compose）：把外部 AI（或人工）挑好、排好的成片文稿对回原视频，生成新方案
+#   文稿格式：纯文本，空行分段，段落顺序 = 成片顺序
+#   匹配三层：高相似自动认（错字/标点/格式差异容错，相邻句自动并段）→ 灰区段落 --ai 交大模型裁决
+#   → 原视频不存在的改写段落只进报告警告，绝不硬凑
+python -m cutpoint_lab compose <项目id> 成片文稿.txt --cut waigao-v1 --ai --json
+```
+
+- `compose` 会同时写出对齐报告 `cuts/<方案名>/compose_report.json`（每段 status：`auto`/`ai`/`unmatched` + 相似度 + 命中句 id），`--json` 时在 manifest 里带 stats。
+- 未匹配段落**不会**进入成片顺序——先改文稿或手工在网页里补选，再继续。
+
 ## 导出速度
 
 导出对每个保留区间用 ffmpeg 帧精确重编码再拼接（切点是词级毫秒精度，无法用 `-c copy` 无损快切）。已做的提速：
@@ -101,6 +125,8 @@ python -m cutpoint_lab cache backfill
 | `--strategy NAME` | export / run | 切点策略，默认 `hybrid_valley`；缺分析音频自动回退 `token_padding` |
 | `--out DIR` | export / run | 额外把成片/SRT 复制到此目录 |
 | `--all` | select / review / export | 处理工作区内全部项目；review 批量时不能使用 `--out` |
+| `--cut NAME` | select / review / export / run / check / fix / reference / undo | 目标成片方案，默认 `default`；compose 用它命名**新建**方案（必填） |
+| `--ai` | compose | 灰区段落交大模型裁决（高相似段落不花钱，仍走确定性匹配） |
 | `--json` | 所有 | stdout 输出结构化 manifest（供 agent 解析），进度走 stderr |
 | `--workspace DIR` | 所有 | 项目工作区目录，默认 `workspace` |
 
@@ -118,11 +144,11 @@ python -m cutpoint_lab cache backfill
   批量逐项隔离失败：某项失败其 `error` 非 null、不影响其他项；**任一失败进程退出码为 1**（全成功为 0，argparse 参数错误为 2）。
 - **修订对照文件**（Markdown 划线）：保留句正常显示、删除句 `~~划线~~` 并在行尾标注 AI 删除理由，文件头有保留/删除句数与时长统计。可读、可 diff、可转 Word——**先审再导出**的信任抓手。
 - **交互确认页**：`review` 总会输出完全自包含的 `review.html`，无需服务即可打开；拖动句首的 `⠿` 可重排，词块按句内文字连排，英文相邻词自动补空格。使用 `--serve` 时，页面还会把确认结果直接写回项目的 `selection.json`。
-- **项目目录** `workspace/<项目id>/`：`transcript.json`（词级字幕）、`selection.json`（保留/删除）、`review.html`（交互确认）、`clip_plan.json`（切点）、`exports/edited-*.mp4` + `.srt`。
+- **项目目录** `workspace/<项目id>/`：`transcript.json`（词级字幕）、`review.html`（交互确认），以及每套成片方案一个目录 `cuts/<方案名>/`（`edl.json` 编辑决策、`clip_plan.json` 切点、`compose_report.json` 文稿对齐报告、`exports/edited-*.mp4` + `.srt`）。
 
-### selection.json：挑段、调序和删词
+### 编辑决策文件（edl.json）：挑段、调序和删词
 
-`rows` 保存每句的保留状态与词级删除区间；可选的 `order` 保存成片里的句子顺序：
+每套成片方案一份编辑决策，正典路径 `workspace/<项目id>/cuts/<方案名>/edl.json`（默认方案 `cuts/default/edl.json`）。旧版根目录 `selection.json` 仍被 default 方案兼容读取，首次保存时自动迁移并留 `.bak` 备份——结构完全相同：`rows` 保存每句的保留状态与词级删除区间；可选的 `order` 保存成片里的句子顺序：
 
 ```json
 {
@@ -156,7 +182,8 @@ python -m cutpoint_lab transcribe /绝对路径/video.mp4 --json
 
 # 2. agent 读取 workspace/<项目id>/transcript.json：
 #    只引用 segments[].id，并按 tokens 的索引生成 cuts；
-#    写出 workspace/<项目id>/selection.json（rows + order + cuts）
+#    写出 workspace/<项目id>/cuts/default/edl.json（rows + order + cuts）
+#    ——或者更省事：把排好的成片文稿交给 `compose` 子命令自动对回原句（见上）
 
 # 3. 可选：人工拖拽调序、逐词复核
 python -m cutpoint_lab review <项目id> --serve --open

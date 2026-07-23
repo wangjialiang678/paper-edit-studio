@@ -8,7 +8,6 @@ export const el = {
   sidebar: $("sidebar"), importZone: $("importZone"), fileInput: $("fileInput"),
   pickFileBtn: $("pickFileBtn"), pathInput: $("pathInput"), importPathBtn: $("importPathBtn"),
   uploadProgress: $("uploadProgress"), uploadBar: $("uploadBar"), uploadPct: $("uploadPct"),
-  projectList: $("projectList"),
   emptyView: $("emptyView"), pipelineView: $("pipelineView"), pipelineTitle: $("pipelineTitle"),
   stageList: $("stageList"), pipelineError: $("pipelineError"), pipelineErrorText: $("pipelineErrorText"),
   retryBtn: $("retryBtn"),
@@ -26,6 +25,7 @@ export const el = {
   settingsBody: $("settingsBody"),
   qualityBtn: $("qualityBtn"), qualityPanel: $("qualityPanel"), qualityCloseBtn: $("qualityCloseBtn"),
   qualityBody: $("qualityBody"),
+  cutBar: $("cutBar"), origOrderBtn: $("origOrderBtn"),
 };
 
 export const STAGE_LABELS = [
@@ -43,9 +43,19 @@ export const state = {
   rows: [], silences: [], sourceDurationMs: 0,
   aiOverview: { modes: {} }, aiMode: "koubo_tighten", aiData: {},
   orderedGroups: null,
+  order: [],            // EDL 成片顺序（空=按原序+勾选）；预览/导出/SRT 唯一权威
+  viewOriginal: false,  // true=列表按原始顺序显示（仅查看，不影响成片）
+  cutName: "default",  // 当前成片方案
+  cuts: [],             // 方案列表 [{name,label,...}]
   pollTimer: null, aiPollTimers: {}, exportTimer: null,
   quality: { report: null, aiRunning: false },
 };
+
+/* 给项目级 API 路径附加当前方案参数。 */
+export function withCut(path) {
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}cut=${encodeURIComponent(state.cutName)}`;
+}
 
 /* 播放引擎：mode 是持久状态——成片=按 plan.ranges 顺序跳播（默认），原片=线性播放。
    audition 是叠加在成片模式上的一次性试听（接缝/已删除句），播完自动暂停。

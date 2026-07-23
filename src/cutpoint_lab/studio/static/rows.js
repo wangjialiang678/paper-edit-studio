@@ -14,20 +14,62 @@ import { openIssuesBySegment, acceptIssue, ignoreIssue } from "./quality.js";
 
 let issuesCache = {}; // segment_id → open issues（renderRows 时刷新）
 
+/* 成片顺序辅助：order 非空时它同时决定"保留哪些句"与"输出顺序"（EDL 语义）。 */
+export function orderActive() {
+  return state.order.length > 0;
+}
+
+function outputPositions() {
+  // id → 首次输出位（1 起）；重复引用只记首位，徽章另示 ×N
+  const pos = {};
+  state.order.forEach((id, index) => { if (!(id in pos)) pos[id] = index + 1; });
+  return pos;
+}
+
 export function renderRows() {
   issuesCache = openIssuesBySegment();
   el.rows.innerHTML = "";
-  const silenceAfter = new Map();
-  let headSilence = null;
-  for (const gap of state.silences) {
-    if (gap.after_segment_id) silenceAfter.set(gap.after_segment_id, gap);
-    else headSilence = gap;
-  }
-  if (headSilence) el.rows.appendChild(silenceNode(headSilence));
-  for (const row of state.rows) {
-    el.rows.appendChild(rowNode(row));
-    const gap = silenceAfter.get(row.id);
-    if (gap) el.rows.appendChild(silenceNode(gap));
+  const orderedView = orderActive() && !state.viewOriginal;
+  el.origOrderBtn.hidden = !orderActive();
+  el.origOrderBtn.textContent = state.viewOriginal ? "▶ 回到输出顺序" : "↩ 回看原始顺序";
+  el.orderedBanner.hidden = !orderActive();
+
+  if (orderedView) {
+    // 输出顺序视图：按 order 排列（重复引用合并显示），未进成片的句子后置
+    const seen = new Set();
+    const naturalIndex = new Map(state.rows.map((row, i) => [row.id, i + 1]));
+    let outPos = 0;
+    for (const id of state.order) {
+      outPos += 1;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const row = state.rows.find((item) => item.id === id);
+      if (!row) continue;
+      const dupCount = state.order.filter((x) => x === id).length;
+      el.rows.appendChild(rowNode(row, { outPos, naturalPos: naturalIndex.get(id), dupCount }));
+    }
+    const rest = state.rows.filter((row) => !seen.has(row.id));
+    if (rest.length) {
+      const divider = document.createElement("div");
+      divider.className = "silence-row order-divider";
+      divider.innerHTML = `<span class="pill">未进成片 ${rest.length} 句</span><span>勾选即追加到成片末尾</span>`;
+      el.rows.appendChild(divider);
+      for (const row of rest) el.rows.appendChild(rowNode(row, { unordered: true }));
+    }
+  } else {
+    const silenceAfter = new Map();
+    let headSilence = null;
+    for (const gap of state.silences) {
+      if (gap.after_segment_id) silenceAfter.set(gap.after_segment_id, gap);
+      else headSilence = gap;
+    }
+    if (headSilence) el.rows.appendChild(silenceNode(headSilence));
+    const positions = orderActive() ? outputPositions() : {};
+    for (const row of state.rows) {
+      el.rows.appendChild(rowNode(row, orderActive() ? { outPosHint: positions[row.id] } : {}));
+      const gap = silenceAfter.get(row.id);
+      if (gap) el.rows.appendChild(silenceNode(gap));
+    }
   }
   refreshStats();
 }
@@ -127,7 +169,7 @@ function renderRowText(row, slot) {
 /* 从一次行内编辑提取"单点替换对"候选：
    前后缀对齐得最小改动段（如 我们→咱们 缩成 我→咱、超导→超脑 缩成 导→脑），
    直接用最小对批量替换会误伤别处（每个"我"都换掉），
-   所以再用左右各一个公共词字符组装扩展候选（我们→咱们、超导→超脑、王佳梁→王家梁），
+   所以再用左右各一个公共词字符组装扩展候选（我们→咱们、超导→超脑、张三丰→张三峰），
    由调用方选"在其他句真有命中且最长"的候选。 */
 const WORD_CHAR = /[\p{Script=Han}A-Za-z0-9]/u;
 
@@ -226,20 +268,40 @@ function bindBadgeActions(row, div) {
   if (trimBtn) trimBtn.addEventListener("click", (event) => { event.stopPropagation(); toggleTrimPanel(row, div); });
 }
 
-function rowNode(row) {
+function rowNode(row, meta = {}) {
   const div = document.createElement("div");
   div.className = `subtitle-row ${row.checked ? "" : "dropped"}`;
   div.dataset.id = row.id;
+  const posBits = [];
+  if (meta.outPos) {
+    posBits.push(`<span class="pos-out">▶${meta.outPos}</span>`);
+    if (meta.naturalPos && meta.naturalPos !== meta.outPos) posBits.push(`<span class="pos-orig" title="原始位置">原#${meta.naturalPos}</span>`);
+    if (meta.dupCount > 1) posBits.push(`<span class="pos-orig" title="在成片中重复引用">×${meta.dupCount}</span>`);
+  } else if (meta.outPosHint) {
+    posBits.push(`<span class="pos-out" title="成片输出位置">→${meta.outPosHint}</span>`);
+  }
+  const draggable = row.checked && !meta.unordered;
   div.innerHTML = `
-    <label class="row-check"><input type="checkbox" ${row.checked ? "checked" : ""}><span>#${row.index}</span></label>
+    <label class="row-check">${draggable ? '<span class="drag-handle" title="拖动调整成片顺序">⠿</span>' : '<span class="drag-handle drag-off">·</span>'}<input type="checkbox" ${row.checked ? "checked" : ""}><span>#${row.index}</span>${posBits.join("")}</label>
     <div class="row-time">${row.start}<br>${row.end}</div>
     <div class="row-text-slot"></div>
     <div class="row-badges">${badgesHtml(row)}</div>`;
   renderRowText(row, div.querySelector(".row-text-slot"));
+  const handle = div.querySelector(".drag-handle:not(.drag-off)");
+  if (handle) bindRowDrag(handle, div, row);
   const checkbox = div.querySelector("input");
   checkbox.addEventListener("change", () => {
     row.checked = checkbox.checked;
     div.classList.toggle("dropped", !row.checked);
+    if (orderActive()) {
+      if (row.checked && !state.order.includes(row.id)) {
+        state.order = [...state.order, row.id]; // 追加到成片末尾
+        setStatus(`「#${row.index}」已追加到成片末尾（可拖 ⠿ 调整位置）。`);
+      } else if (!row.checked) {
+        state.order = state.order.filter((id) => id !== row.id);
+      }
+      renderRows();
+    }
     refreshStats();
     scheduleAutosave();
   });
@@ -277,6 +339,48 @@ function rowNode(row) {
     }
   });
   return div;
+}
+
+// ---------- 拖拽调序（⠿ 手柄）：写 EDL.order，预览/导出/SRT 全部跟随 ----------
+
+function bindRowDrag(handle, div, row) {
+  handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    // 首次拖动且尚无自定义顺序：以"当前勾选句的原始顺序"为初值
+    if (!orderActive()) {
+      state.order = state.rows.filter((item) => item.checked).map((item) => item.id);
+    }
+    const hadDuplicates = new Set(state.order).size !== state.order.length;
+    div.classList.add("dragging");
+    const move = (e) => {
+      const siblings = [...el.rows.querySelectorAll(".subtitle-row")].filter((n) => n !== div);
+      let target = null;
+      for (const node of siblings) {
+        const rect = node.getBoundingClientRect();
+        if (e.clientY < rect.top + rect.height / 2) { target = node; break; }
+      }
+      if (target) el.rows.insertBefore(div, target);
+      else el.rows.appendChild(div);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      div.classList.remove("dragging");
+      // 从 DOM 顺序重建 order（仅勾选句）
+      const checkedSet = new Set(state.rows.filter((item) => item.checked).map((item) => item.id));
+      state.order = [...el.rows.querySelectorAll(".subtitle-row")]
+        .map((node) => node.dataset.id)
+        .filter((id) => checkedSet.has(id));
+      if (hadDuplicates) setStatus("提示：拖动调序后，重复引用（×N）已合并为单次出现。", "warn");
+      state.viewOriginal = false;
+      renderRows();
+      scheduleAutosave();
+      setStatus(`成片顺序已更新：「#${row.index}」移到第 ${state.order.indexOf(row.id) + 1} 位。预览与导出将按新顺序。`);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
 }
 
 /* 质检高亮词的处置浮层：采纳/忽略/跳过。 */
@@ -323,12 +427,9 @@ document.addEventListener("row-struck-changed", (event) => {
 export function refreshStats() {
   let keptMs = 0;
   let keptCount = 0;
-  if (state.orderedGroups) {
+  if (orderActive()) {
     const durations = new Map(state.rows.map((row) => [row.id, Math.max(0, row.end_ms - row.start_ms)]));
-    for (const group of state.orderedGroups) {
-      for (const segmentId of group.segment_ids) keptMs += durations.get(segmentId) || 0;
-    }
-    keptCount = state.orderedGroups.reduce((sum, group) => sum + group.segment_ids.length, 0);
+    for (const id of state.order) { keptCount += 1; keptMs += durations.get(id) || 0; }
   } else {
     for (const row of state.rows) {
       if (row.checked) { keptCount += 1; keptMs += Math.max(0, row.end_ms - row.start_ms); }

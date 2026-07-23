@@ -10,7 +10,7 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from cutpoint_lab.engine import (
     DEFAULT_API_VAULT_PATH,
@@ -31,6 +31,7 @@ from cutpoint_lab.engine import (
     apply_corrections,
     backfill_cache_entry,
     build_plan_from_selection,
+    compose,
     export_video_plan,
     extract_audio,
     ffprobe_duration_ms,
@@ -64,9 +65,9 @@ MAX_REVIEW_CONFIRM_BODY_BYTES = 10 * 1024 * 1024
 class _ReviewConfirmationServer:
     """仅供一次本地确认使用的 HTTP 服务。"""
 
-    def __init__(self, page_html: str, selection_path: Path) -> None:
+    def __init__(self, page_html: str, selection_writer: Callable[[dict[str, Any]], None]) -> None:
         self._page = page_html.encode("utf-8")
-        self._selection_path = selection_path
+        self._selection_writer = selection_writer
         self.confirmed = threading.Event()
         self._confirmation_lock = threading.Lock()
 
@@ -140,7 +141,7 @@ class _ReviewConfirmationServer:
                 self._send_json(request, 200, {"ok": True})
                 return
             try:
-                write_json(self._selection_path, payload)
+                self._selection_writer(payload)
             except OSError as exc:
                 self._send_json(request, 500, {"ok": False, "error": str(exc)})
                 return
@@ -233,6 +234,7 @@ def run_select(
     brief: str = "",
     target_duration: str = "",
     redline_path: str | Path | None = None,
+    cut: str = "default",
 ) -> dict[str, Any]:
     if not selector.available():
         raise RuntimeError("缺少 LLM API Key，无法运行 AI 选段")
@@ -257,9 +259,8 @@ def run_select(
         {"id": segment.id, "checked": segment.id in keeps, "text": segment.text}
         for segment in transcript.segments
     ]
-    selection_path = project.dir / "selection.json"
-    write_json(
-        selection_path,
+    edl_path = project.write_edl(
+        cut,
         {
             "rows": rows,
             "source": "cli_select",
@@ -278,7 +279,7 @@ def run_select(
 
     outputs = {
         "suggestion": str(suggestion_path),
-        "selection": str(selection_path),
+        "selection": str(edl_path),
     }
     if redline_path is not None:
         target = Path(redline_path).expanduser()
@@ -299,21 +300,25 @@ def run_review(
     serve: bool = False,
     timeout_seconds: int = 1800,
     open_browser: bool = False,
+    cut: str = "default",
 ) -> dict[str, Any]:
     if not project.transcript_path.is_file():
         raise RuntimeError(f"字幕文件不存在：{project.transcript_path}")
 
     transcript = load_transcript(project.transcript_path)
-    selection_path = project.dir / "selection.json"
+    selection = project.read_edl(cut)
     order: list[str] | None = None
-    if selection_path.is_file():
-        selection = read_json(selection_path)
+    if selection:
         rows = selection.get("rows")
         if not isinstance(rows, list):
-            raise ValueError(f"选择文件缺少 rows：{selection_path}")
+            raise ValueError(f"EDL 缺少 rows：{project.cut_dir(cut) / 'edl.json'}")
         raw_order = selection.get("order")
         if isinstance(raw_order, list):
             order = [str(segment_id) for segment_id in raw_order]
+            ordered_ids = set(order)
+            for row in rows:
+                if isinstance(row, dict):
+                    row["checked"] = str(row.get("id")) in ordered_ids
     else:
         rows = [
             {"id": segment.id, "checked": True, "text": segment.text}
@@ -335,7 +340,7 @@ def run_review(
     except Exception:  # noqa: BLE001 - AI 理由缺失不影响人工确认页生成。
         decisions = None
 
-    target = Path(out_path).expanduser() if out_path is not None else project.dir / "review.html"
+    target = Path(out_path).expanduser() if out_path is not None else project.cut_dir(cut) / "review.html"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
         render_review_html(transcript, rows, decisions, order=order),
@@ -356,7 +361,10 @@ def run_review(
         confirm_url="/confirm",
         order=order,
     )
-    server = _ReviewConfirmationServer(confirmation_page, selection_path)
+    server = _ReviewConfirmationServer(
+        confirmation_page,
+        lambda confirmed: project.write_edl(cut, confirmed),
+    )
     server.start()
     _progress(f"[{project.id}] 确认页面：{server.url}")
     _progress("在网页里确认后我会自动继续")
@@ -367,12 +375,12 @@ def run_review(
             timeout_label = f"{timeout_seconds:g}"
             raise RuntimeError(
                 f"确认超时（{timeout_label}s）：可在页面点“下载 selection.json”后手动覆盖 "
-                f"workspace/{project.id}/selection.json"
+                f"workspace/{project.id}/cuts/{cut}/edl.json"
             )
     finally:
         server.close()
 
-    outputs.update({"selection": str(selection_path), "confirmed": True})
+    outputs.update({"selection": str(project.cut_dir(cut) / "edl.json"), "confirmed": True})
     return {"outputs": outputs, "warnings": []}
 
 
@@ -381,6 +389,7 @@ def run_export(
     *,
     strategy: str = "hybrid_valley",
     out_dir: str | Path | None = None,
+    cut: str = "default",
 ) -> dict[str, Any]:
     source = project.source_path
     if source is None or not source.is_file():
@@ -395,11 +404,10 @@ def run_export(
         selected_segment_ids=base.selected_segment_ids,
         segments=base.segments,
     )
-    selection_path = project.dir / "selection.json"
-    selection = read_json(selection_path)
+    selection = project.read_edl(cut)
     rows = selection.get("rows")
     if not isinstance(rows, list):
-        raise ValueError(f"选择文件缺少 rows：{selection_path}")
+        raise ValueError(f"EDL 缺少 rows：{project.cut_dir(cut) / 'edl.json'}")
 
     warnings: list[str] = []
     effective_strategy = strategy
@@ -419,13 +427,15 @@ def run_export(
         frames=frames,
         vad=None,
     )
-    clip_plan_path = project.dir / "clip_plan.json"
+    plan.pop("groups", None)
+    clip_plan_path = project.cut_clip_plan_path(cut)
     write_json(clip_plan_path, plan)
 
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    output_video = project.exports_dir / f"edited-{stamp}.mp4"
-    output_srt = project.exports_dir / f"edited-{stamp}.srt"
-    work_dir = project.exports_dir / f"segments-{stamp}"
+    exports_dir = project.cut_exports_dir(cut)
+    output_video = exports_dir / f"edited-{stamp}.mp4"
+    output_srt = exports_dir / f"edited-{stamp}.srt"
+    work_dir = exports_dir / f"segments-{stamp}"
     try:
         manifest = export_video_plan(source, plan, output_video, work_dir=work_dir)
         write_srt(edited, plan, output_srt)
@@ -475,6 +485,7 @@ def run(
     strategy: str = "hybrid_valley",
     redline_path: str | Path | None = None,
     out_dir: str | Path | None = None,
+    cut: str = "default",
 ) -> dict[str, Any]:
     ingest_result = ingest_media(project, asr_runner=asr_runner)
     select_result = run_select(
@@ -483,8 +494,9 @@ def run(
         brief=brief,
         target_duration=target_duration,
         redline_path=redline_path,
+        cut=cut,
     )
-    export_result = run_export(project, strategy=strategy, out_dir=out_dir)
+    export_result = run_export(project, strategy=strategy, out_dir=out_dir, cut=cut)
     outputs = {
         **ingest_result["outputs"],
         **select_result["outputs"],
@@ -517,6 +529,7 @@ def _build_parser() -> argparse.ArgumentParser:
     select.add_argument("--all", action="store_true", help="处理工作区内全部项目")
     select.add_argument("--brief", default="", help="选段补充要求")
     select.add_argument("--target-duration", default="", help="目标时长")
+    select.add_argument("--cut", default="default", help="目标 Cut（默认：default）")
     select.add_argument("--prompts-dir", default=str(DEFAULT_PROMPTS_DIR), help="提示词目录")
     select_redline = select.add_mutually_exclusive_group()
     select_redline.add_argument("--redline", default=None, metavar="PATH", help="单项目修订文件")
@@ -536,6 +549,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="--serve 的确认等待秒数（默认：1800）",
     )
     review.add_argument("--open", action="store_true", help="生成后在浏览器中打开")
+    review.add_argument("--cut", default="default", help="目标 Cut（默认：default）")
     _add_shared_arguments(review)
 
     export = subparsers.add_parser("export", help="批量导出已有项目")
@@ -543,6 +557,7 @@ def _build_parser() -> argparse.ArgumentParser:
     export.add_argument("--all", action="store_true", help="处理工作区内全部项目")
     export.add_argument("--strategy", default="hybrid_valley", help="切点策略")
     export.add_argument("--out", default=None, metavar="DIR", help="额外复制导出文件到此目录")
+    export.add_argument("--cut", default="default", help="目标 Cut（默认：default）")
     _add_shared_arguments(export)
 
     run_parser = subparsers.add_parser("run", help="批量执行转写、选段和导出")
@@ -555,6 +570,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run_redline.add_argument("--redline", action="store_true", help="生成 Markdown 修订文件")
     run_redline.add_argument("--redline-dir", default=None, metavar="DIR", help="修订文件目录")
     run_parser.add_argument("--out", default=None, metavar="DIR", help="额外复制导出文件到此目录")
+    run_parser.add_argument("--cut", default="default", help="目标 Cut（默认：default）")
     _add_shared_arguments(run_parser)
 
     corrections = subparsers.add_parser("corrections", help="管理字幕纠错词典")
@@ -570,10 +586,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     check = subparsers.add_parser("check", help="分析已有项目的字幕质量")
     check.add_argument("project", metavar="PROJECT")
+    check.add_argument("--cut", default="default", help="目标 Cut（默认：default）")
     _add_shared_arguments(check)
 
     fix = subparsers.add_parser("fix", help="应用字幕纠错")
     fix.add_argument("project", metavar="PROJECT")
+    fix.add_argument("--cut", default="default", help="目标 Cut（默认：default）")
     fix_mode = fix.add_mutually_exclusive_group(required=True)
     fix_mode.add_argument("--dict-only", action="store_true", help="仅应用纠错词典")
     fix_mode.add_argument("--auto", action="store_true", help="运行 AI 复核并应用高置信纠错")
@@ -583,12 +601,28 @@ def _build_parser() -> argparse.ArgumentParser:
     reference = subparsers.add_parser("reference", help="登记外部参考字幕")
     reference.add_argument("project", metavar="PROJECT")
     reference.add_argument("subtitle", metavar="SUBTITLE")
+    reference.add_argument("--cut", default="default", help="目标 Cut（默认：default）")
     _add_shared_arguments(reference)
 
     undo = subparsers.add_parser("undo", help="撤销一次字幕修改")
     undo.add_argument("project", metavar="PROJECT")
     undo.add_argument("change_id", metavar="CHANGE_ID")
+    undo.add_argument("--cut", default="default", help="目标 Cut（默认：default）")
     _add_shared_arguments(undo)
+
+    cuts = subparsers.add_parser("cuts", help="列出或创建项目 Cut")
+    cuts.add_argument("project", metavar="PROJECT")
+    cuts.add_argument("--create", default=None, metavar="NAME", help="创建 Cut")
+    cuts.add_argument("--label", default=None, help="Cut 显示名称")
+    cuts.add_argument("--from", dest="cut_source", default="blank", help="blank、copy:<cut> 或 topic:<topic_id>")
+    _add_shared_arguments(cuts)
+
+    compose_parser = subparsers.add_parser("compose", help="从外部成片文稿生成 Cut")
+    compose_parser.add_argument("project", metavar="PROJECT")
+    compose_parser.add_argument("script", metavar="SCRIPT")
+    compose_parser.add_argument("--cut", required=True, help="新建 Cut 名称")
+    compose_parser.add_argument("--ai", action="store_true", help="灰区段落使用 AI 裁决")
+    _add_shared_arguments(compose_parser)
 
     cache = subparsers.add_parser("cache", help="管理转写内容指纹缓存")
     cache_commands = cache.add_subparsers(dest="cache_command", required=True)
@@ -703,6 +737,7 @@ def _handle_select(args: argparse.Namespace, workspace: Workspace) -> list[dict[
                 brief=args.brief,
                 target_duration=args.target_duration,
                 redline_path=_redline_for_select(args, project, len(project_ids)),
+                cut=args.cut,
             )
             result["outputs"] = payload["outputs"]
             result["warnings"] = payload["warnings"]
@@ -746,6 +781,7 @@ def _handle_review(args: argparse.Namespace, workspace: Workspace) -> list[dict[
                 serve=args.serve,
                 timeout_seconds=args.timeout,
                 open_browser=args.open,
+                cut=args.cut,
             )
             result["outputs"] = payload["outputs"]
             result["warnings"] = payload["warnings"]
@@ -772,7 +808,7 @@ def _handle_export(args: argparse.Namespace, workspace: Workspace) -> list[dict[
             if project is None:
                 raise ValueError(f"项目不存在：{project_id}")
             _progress(f"[{project.id}] 开始导出")
-            payload = run_export(project, strategy=args.strategy, out_dir=args.out)
+            payload = run_export(project, strategy=args.strategy, out_dir=args.out, cut=args.cut)
             result["outputs"] = payload["outputs"]
             result["warnings"] = payload["warnings"]
             _progress(f"[{project.id}] 导出完成")
@@ -781,6 +817,124 @@ def _handle_export(args: argparse.Namespace, workspace: Workspace) -> list[dict[
             _progress(f"[{project_id}] 失败：{exc}")
         results.append(result)
     return results
+
+
+def _new_cut_edl(project: Project, source: str) -> dict[str, Any]:
+    if source.startswith("copy:"):
+        return copy.deepcopy(project.read_edl(source.removeprefix("copy:")))
+
+    if source not in {"blank"} and not source.startswith("topic:"):
+        raise ValueError("--from 必须是 blank、copy:<cut> 或 topic:<topic_id>")
+    if not project.transcript_path.is_file():
+        if source == "blank":
+            return {"rows": [], "order": []}
+        raise ValueError(f"字幕文件不存在：{project.transcript_path}")
+    transcript = load_transcript(project.transcript_path)
+    selected: set[str] = set()
+    if source.startswith("topic:"):
+        topic_id = source.removeprefix("topic:")
+        suggestions = sorted(
+            (path for path in project.ai_dir.glob("topic_slicing-*.json") if path.is_file()),
+            key=lambda path: path.stat().st_mtime_ns,
+            reverse=True,
+        )
+        if not suggestions:
+            raise ValueError("没有可用的 topic_slicing 建议")
+        payload = read_json(suggestions[0])
+        topic = next(
+            (
+                item
+                for item in payload.get("topics") or []
+                if isinstance(item, dict) and str(item.get("topic_id") or "") == topic_id
+            ),
+            None,
+        )
+        best_clip = topic.get("best_clip") if isinstance(topic, dict) else None
+        segment_ids = best_clip.get("segment_ids") if isinstance(best_clip, dict) else None
+        if not isinstance(segment_ids, list):
+            raise ValueError(f"主题 {topic_id} 缺少可用 best_clip")
+        selected = {str(segment_id) for segment_id in segment_ids}
+    return {
+        "rows": [
+            {"id": segment.id, "checked": segment.id in selected, "text": segment.text}
+            for segment in transcript.segments
+        ],
+        "order": [],
+    }
+
+
+def _handle_cuts(args: argparse.Namespace, workspace: Workspace) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+    if args.create:
+        project.create_cut(args.create, args.label, _new_cut_edl(project, args.cut_source))
+    result = _project_result(project)
+    result["cuts"] = project.list_cuts()
+    return [result]
+
+
+def _handle_compose(args: argparse.Namespace, workspace: Workspace) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+    script_path = Path(args.script).expanduser().resolve()
+    if not script_path.is_file():
+        raise ValueError(f"文稿文件不存在：{script_path}")
+    if script_path.suffix.lower() not in {".md", ".txt"}:
+        raise ValueError("文稿文件只支持 .md/.txt")
+    if project.cut_dir(args.cut).exists():
+        raise ValueError(f"Cut 已存在：{args.cut}")
+    script_text = script_path.read_text(encoding="utf-8")
+    chat_json_fn = None
+    assemble_prompt_fn = None
+    if args.ai:
+        client = LlmClient(
+            env_store=EnvStore(),
+            api_vault_path=DEFAULT_API_VAULT_PATH,
+        )
+        if not client.available():
+            raise ValueError("缺少 LLM API Key，无法运行文稿对齐 AI 裁决")
+        prompt_store = PromptStore(
+            DEFAULT_PROMPTS_DIR,
+            workspace.root / "_settings" / "prompts",
+        )
+        chat_json_fn = client.chat_json
+        assemble_prompt_fn = lambda: prompt_store.assemble("compose_align")
+
+    transcript = load_transcript(project.transcript_path)
+    payload = compose(
+        transcript.segments,
+        script_text,
+        chat_json_fn=chat_json_fn,
+        assemble_prompt_fn=assemble_prompt_fn,
+    )
+    cut = project.create_cut(args.cut, None, payload["edl"])
+    report_path = project.cut_compose_report_path(args.cut)
+    write_json(report_path, payload["report"])
+    stats = payload["report"]["stats"]
+    if not args.json_output:
+        _progress(
+            "文稿对齐："
+            f"auto={stats['auto']}，ai={stats['ai']}，unmatched={stats['unmatched']}"
+        )
+        for paragraph in payload["report"]["paragraphs"]:
+            if paragraph["status"] == "unmatched":
+                _progress(
+                    f"[unmatched #{paragraph['index']}] {paragraph['text']}：{paragraph['note']}"
+                )
+    result = _project_result(project)
+    result.update(
+        {
+            "cut": cut,
+            "report": payload["report"],
+            "outputs": {
+                "edl": str(project.cut_dir(args.cut) / "edl.json"),
+                "compose_report": str(report_path),
+            },
+        }
+    )
+    return [result]
 
 
 def _redline_for_run(args: argparse.Namespace, project: Project) -> Path | None:
@@ -829,6 +983,7 @@ def _handle_run(args: argparse.Namespace, workspace: Workspace) -> list[dict[str
                 strategy=args.strategy,
                 redline_path=_redline_for_run(args, project),
                 out_dir=args.out,
+                cut=args.cut,
             )
             result["outputs"] = payload["outputs"]
             result["warnings"] = payload["warnings"]
@@ -873,14 +1028,17 @@ def _handle_corrections(
     return [result]
 
 
-def _selection_payload(project: Project) -> tuple[Path, dict[str, Any], list[dict[str, Any]]]:
-    selection_path = project.dir / "selection.json"
-    if selection_path.is_file():
-        payload = read_json(selection_path)
+def _selection_payload(
+    project: Project,
+    cut: str = "default",
+) -> tuple[Path, dict[str, Any], list[dict[str, Any]]]:
+    payload = project.read_edl(cut)
+    edl_path = project.cut_dir(cut) / "edl.json"
+    if payload:
         rows = payload.get("rows")
         if not isinstance(rows, list):
-            raise ValueError(f"选择文件缺少 rows：{selection_path}")
-        return selection_path, payload, rows
+            raise ValueError(f"EDL 缺少 rows：{edl_path}")
+        return edl_path, payload, rows
 
     if not project.transcript_path.is_file():
         raise ValueError(f"字幕文件不存在：{project.transcript_path}")
@@ -894,10 +1052,10 @@ def _selection_payload(project: Project) -> tuple[Path, dict[str, Any], list[dic
         }
         for segment in transcript.segments
     ]
-    return selection_path, {"rows": rows}, rows
+    return edl_path, {"rows": rows}, rows
 
 
-def _quality_rows(project: Project) -> list[dict[str, Any]]:
+def _quality_rows(project: Project, cut: str = "default") -> list[dict[str, Any]]:
     """以 transcript 的时间/token 为底，叠加 selection 的当前文字。"""
     if not project.transcript_path.is_file():
         raise ValueError(f"字幕文件不存在：{project.transcript_path}")
@@ -907,9 +1065,8 @@ def _quality_rows(project: Project) -> list[dict[str, Any]]:
         raise ValueError(f"字幕文件缺少 segments：{project.transcript_path}")
 
     current_text: dict[str, str] = {}
-    selection_path = project.dir / "selection.json"
-    if selection_path.is_file():
-        selection = read_json(selection_path)
+    selection = project.read_edl(cut)
+    if selection:
         for row in selection.get("rows") or []:
             if isinstance(row, dict) and row.get("id") is not None:
                 current_text[str(row["id"])] = str(row.get("text") or "")
@@ -935,8 +1092,8 @@ def _reference_path(project: Project) -> Path | None:
     return candidates[0] if candidates else None
 
 
-def _analyze_project(project: Project) -> dict[str, Any]:
-    rows = _quality_rows(project)
+def _analyze_project(project: Project, cut: str = "default") -> dict[str, Any]:
+    rows = _quality_rows(project, cut)
     issues = scan_confidence(rows)
     reference = _reference_path(project)
     if reference is not None:
@@ -967,7 +1124,7 @@ def _handle_check(args: argparse.Namespace, workspace: Workspace) -> list[dict[s
     project = workspace.get(args.project)
     if project is None:
         raise ValueError(f"项目不存在：{args.project}")
-    report = _analyze_project(project)
+    report = _analyze_project(project, args.cut)
     if not args.json_output:
         _print_quality_report(report)
     result = _project_result(project)
@@ -1007,7 +1164,7 @@ def _handle_fix(args: argparse.Namespace, workspace: Workspace) -> list[dict[str
     if args.auto:
         return _handle_ai_fix(args, workspace, project)
 
-    selection_path, selection, rows = _selection_payload(project)
+    selection_path, selection, rows = _selection_payload(project, args.cut)
     correction_set = CorrectionSet.load(_corrections_path(workspace))
     preview = preview_corrections(rows, correction_set)
     _print_correction_preview(preview)
@@ -1022,7 +1179,7 @@ def _handle_fix(args: argparse.Namespace, workspace: Workspace) -> list[dict[str
     changeset_path = save_changeset(project.dir, changeset)
     updated_selection = dict(selection)
     updated_selection["rows"] = new_rows
-    write_json(selection_path, updated_selection)
+    selection_path = project.write_edl(args.cut, updated_selection)
 
     result["applied"] = sum(int(item["count"]) for item in preview)
     result["changeset_id"] = changeset["change_id"]
@@ -1049,8 +1206,8 @@ def _handle_ai_fix(
     workspace: Workspace,
     project: Project,
 ) -> list[dict[str, Any]]:
-    report = _analyze_project(project)
-    quality_rows = _quality_rows(project)
+    report = _analyze_project(project, args.cut)
+    quality_rows = _quality_rows(project, args.cut)
     client = LlmClient(
         env_store=EnvStore(),
         api_vault_path=DEFAULT_API_VAULT_PATH,
@@ -1094,7 +1251,7 @@ def _handle_ai_fix(
         finding for finding in findings if finding.get("verdict") == "auto_fix"
     ]
     apply_auto = bool(changeset and auto_findings) and _confirmed(args)
-    _selection_path, _selection, original_rows = _selection_payload(project)
+    _selection_path, _selection, original_rows = _selection_payload(project, args.cut)
     result = _project_result(project)
     result.update(
         {
@@ -1106,7 +1263,7 @@ def _handle_ai_fix(
     applied_segment_ids: set[str] = set()
     changeset_path: Path | None = None
     if apply_auto and changeset is not None:
-        selection_path, selection, selection_rows = _selection_payload(project)
+        selection_path, selection, selection_rows = _selection_payload(project, args.cut)
         pending_changes = {
             str(change.get("segment_id") or ""): change
             for change in changeset.get("changes") or []
@@ -1135,7 +1292,7 @@ def _handle_ai_fix(
             changeset["changes"] = applied_changes
             changeset["label"] = f"AI 自动纠错 {applied_count} 处"
             selection["rows"] = new_rows
-            write_json(selection_path, selection)
+            selection_path = project.write_edl(args.cut, selection)
             changeset_path = save_changeset(project.dir, changeset)
             result.update(
                 {
@@ -1212,6 +1369,7 @@ def _handle_reference(
         raise ValueError(f"参考字幕不存在：{source}")
     if source.suffix.lower() not in {".srt", ".vtt"}:
         raise ValueError("参考字幕只支持 SRT/VTT")
+    project.cut_dir(args.cut)
     target = project.dir / f"reference{source.suffix}"
     shutil.copyfile(source, target)
     result = _project_result(project)
@@ -1225,12 +1383,12 @@ def _handle_undo(args: argparse.Namespace, workspace: Workspace) -> list[dict[st
     if project is None:
         raise ValueError(f"项目不存在：{args.project}")
 
-    selection_path, selection, rows = _selection_payload(project)
+    selection_path, selection, rows = _selection_payload(project, args.cut)
     changeset = load_changeset(project.dir, args.change_id)
     restored_rows, report = undo_changeset(rows, changeset)
     updated_selection = dict(selection)
     updated_selection["rows"] = restored_rows
-    write_json(selection_path, updated_selection)
+    selection_path = project.write_edl(args.cut, updated_selection)
 
     result = _project_result(project)
     result.update(report)
@@ -1323,6 +1481,10 @@ def main(argv: list[str] | None = None) -> int:
             results = _handle_reference(args, workspace)
         elif args.command == "undo":
             results = _handle_undo(args, workspace)
+        elif args.command == "cuts":
+            results = _handle_cuts(args, workspace)
+        elif args.command == "compose":
+            results = _handle_compose(args, workspace)
         elif args.command == "cache":
             results = _handle_cache_backfill(args, workspace)
         else:

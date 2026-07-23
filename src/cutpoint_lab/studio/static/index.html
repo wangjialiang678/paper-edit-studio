@@ -67,11 +67,13 @@
           </div>
         </div>
 
+        <div class="cut-bar" id="cutBar" hidden></div>
+
         <div class="replace-bar" id="replaceBar" hidden></div>
 
         <div class="ordered-banner" id="orderedBanner" hidden>
-          <span>🎬 金句混剪模式：按 HOOK → BODY → ECHO 顺序成片</span>
-          <button class="btn small" id="exitOrderedBtn">退出混剪模式</button>
+          <span id="orderedBannerText">🎬 自定义成片顺序已启用：列表按输出顺序显示</span>
+          <button class="btn small" id="exitOrderedBtn">恢复原始顺序</button>
         </div>
 
         <div class="toolbar">
@@ -79,6 +81,7 @@
           <button class="btn" id="cutFillersBtn" title="对所有保留句应用检测到的气口建议（呃/嗯/重复）">✂ 一键剪气口</button>
           <button class="btn" id="undoCutFillersBtn" hidden>↩ 撤销剪气口</button>
           <button class="btn" id="qualityBtn" title="低置信/疑似错词/参考字幕差异的质检报告">🔎 质检</button>
+          <button class="btn" id="origOrderBtn" hidden>↩ 回看原始顺序</button>
           <span class="toolbar-gap"></span>
           <button class="btn accent" id="exportBtn">导出视频</button>
         </div>

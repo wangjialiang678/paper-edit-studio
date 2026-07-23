@@ -76,6 +76,9 @@ el.importPathBtn.addEventListener("click", async () => {
 export async function selectProject(projectId) {
   state.projectId = projectId;
   state.orderedGroups = null;
+  state.order = [];
+  state.viewOriginal = false;
+  state.cutName = "default";
   resetPlayback();
   clearFillerBatch();
   clearTimers();

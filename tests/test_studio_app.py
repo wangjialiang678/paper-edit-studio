@@ -286,7 +286,7 @@ class StudioApplicationTests(unittest.TestCase):
                 },
             )
 
-            selection = read_json(project.dir / "selection.json")
+            selection = read_json(project.cut_dir("default") / "edl.json")
             self.assertEqual(
                 [row["id"] for row in selection["rows"]],
                 ["sentence_0001", "sentence_0002"],
@@ -311,7 +311,7 @@ class StudioApplicationTests(unittest.TestCase):
             rows = [{"id": row["id"], "checked": True, "text": row["text"]} for row in editor["rows"]]
             plan_result = app.save_plan(project, {"rows": rows, "strategy": "token_padding"})
             self.assertTrue(plan_result["plan"]["ranges"])
-            self.assertTrue((project.dir / "selection.json").exists())
+            self.assertTrue((project.cut_dir("default") / "edl.json").exists())
 
             # 带 nudge 的保存：range 边缘按手动偏移移动，并回读进编辑器状态。
             rows_nudged = [dict(row) for row in rows]
@@ -356,7 +356,7 @@ class StudioApplicationTests(unittest.TestCase):
             state = app.import_path(str(media), "样片")
             project = app.workspace.get(state["id"])
             _wait_stage(project, {"ready"})
-            selection = read_json(project.dir / "selection.json")
+            selection = read_json(project.cut_dir("default") / "edl.json")
             checked = {row["id"]: row["checked"] for row in selection["rows"]}
             self.assertTrue(checked["sentence_0001"])
             self.assertFalse(checked["sentence_0002"])
@@ -417,6 +417,7 @@ class HttpRoutingTests(unittest.TestCase):
             finally:
                 server.shutdown()
                 server.server_close()
+
 
 
 class DefaultPortTests(unittest.TestCase):

@@ -4,23 +4,24 @@ import { renderRows, refreshStats } from "./rows.js";
 import { scheduleAutosave } from "./plan.js";
 import { showEditor } from "./editor.js";
 
-// ---------- 金句混剪模式 ----------
+// ---------- 金句混剪 → 生成成片顺序（order 为唯一排序机制） ----------
 export function enterOrderedMode(clips) {
-  state.orderedGroups = clips.map((clip) => ({ purpose: clip.purpose, segment_ids: clip.segment_ids, note: clip.note || "" }));
-  const union = new Set(clips.flatMap((clip) => clip.segment_ids));
+  state.order = clips.flatMap((clip) => clip.segment_ids); // HOOK→BODY→ECHO 展开，允许重复
+  const union = new Set(state.order);
   for (const row of state.rows) row.checked = union.has(row.id);
-  el.orderedBanner.hidden = false;
+  state.viewOriginal = false;
   renderRows();
   scheduleAutosave();
-  setStatus("已进入金句混剪模式：预览与导出将按 HOOK→BODY→ECHO 顺序拼接。");
+  setStatus("已应用金句混剪顺序：列表、预览与导出统一按 HOOK→BODY→ECHO；可拖 ⠿ 继续调整。");
 }
 
 el.exitOrderedBtn.addEventListener("click", () => {
-  state.orderedGroups = null;
-  el.orderedBanner.hidden = true;
+  state.order = [];
+  state.viewOriginal = false;
+  renderRows();
   refreshStats();
   scheduleAutosave();
-  setStatus("已退出混剪模式，恢复按原文顺序剪辑。");
+  setStatus("已恢复按原文顺序成片。");
 });
 
 // ---------- 面板开关与 tab ----------

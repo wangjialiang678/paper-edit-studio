@@ -170,7 +170,7 @@ class SelectFlowTests(unittest.TestCase):
                 redline_path=redline_path,
             )
 
-            selection_path = project.dir / "selection.json"
+            selection_path = project.cut_dir("default") / "edl.json"
             _assert_nonempty_file(self, selection_path)
             selection = read_json(selection_path)
             self.assertEqual(selection["source"], "cli_select")
@@ -226,13 +226,13 @@ class CliIntegrationTests(unittest.TestCase):
             )
             self.assertIn("outputs", select_result)
             self.assertIn("warnings", select_result)
-            _assert_nonempty_file(self, project.dir / "selection.json")
+            _assert_nonempty_file(self, project.cut_dir("default") / "edl.json")
             _assert_nonempty_file(self, redline_path)
 
             export_result = run_export(project, strategy="token_padding")
             self.assertIn("outputs", export_result)
             self.assertIn("warnings", export_result)
-            _assert_nonempty_file(self, project.dir / "clip_plan.json")
+            _assert_nonempty_file(self, project.cut_clip_plan_path("default"))
             output_video = Path(export_result["outputs"]["video"])
             output_srt = Path(export_result["outputs"]["srt"])
             self.assertEqual(output_video.suffix, ".mp4")

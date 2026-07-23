@@ -228,7 +228,7 @@ class ReviewCliTests(unittest.TestCase):
             manifest = run_review(project)
 
             review_path = Path(manifest["outputs"]["review_html"])
-            self.assertEqual(review_path, project.dir / "review.html")
+            self.assertEqual(review_path, project.cut_dir("default") / "review.html")
             self.assertTrue(review_path.is_file())
             self.assertGreater(review_path.stat().st_size, 0)
             self.assertEqual(manifest["warnings"], [])
@@ -328,11 +328,11 @@ class ReviewCliTests(unittest.TestCase):
 
             self.assertFalse(worker.is_alive(), "确认后 run_review 未在限时内返回")
             self.assertNotIn("exception", failure)
-            self.assertEqual(read_json(project.dir / "selection.json"), expected)
+            self.assertEqual(read_json(project.cut_dir("default") / "edl.json"), expected)
             self.assertTrue(result["manifest"]["outputs"]["confirmed"])
             self.assertEqual(
                 result["manifest"]["outputs"]["selection"],
-                str(project.dir / "selection.json"),
+                str(project.cut_dir("default") / "edl.json"),
             )
 
     def test_run_review_serve_raises_after_timeout(self):

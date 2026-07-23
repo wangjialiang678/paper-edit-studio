@@ -215,7 +215,8 @@ class CorrectionsCliTests(unittest.TestCase):
             self.assertIn("web coding => vibe coding", stderr)
             fix_result = fixed["results"][0]
             self.assertEqual(fix_result["applied"], 2)
-            self.assertEqual(read_json(selection_path)["rows"][0]["text"], "vibe coding 与 vibe coding")
+            edl_path = project.cut_dir("default") / "edl.json"
+            self.assertEqual(read_json(edl_path)["rows"][0]["text"], "vibe coding 与 vibe coding")
             change_id = fix_result["changeset_id"]
 
             code, undone, _ = _run_json(
@@ -230,7 +231,7 @@ class CorrectionsCliTests(unittest.TestCase):
             )
             self.assertEqual(code, 0)
             self.assertEqual(undone["results"][0]["reverted"], 1)
-            self.assertEqual(read_json(selection_path)["rows"][0]["text"], "WEB CODING 与 web coding")
+            self.assertEqual(read_json(edl_path)["rows"][0]["text"], "WEB CODING 与 web coding")
 
     def test_fix_without_yes_only_previews_when_user_declines(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -405,12 +406,13 @@ class QualityWorkflowCliTests(unittest.TestCase):
             self.assertTrue(manifest["ok"])
             result = manifest["results"][0]
             self.assertEqual(result["applied"], 1)
+            edl_path = project.cut_dir("default") / "edl.json"
             self.assertEqual(
-                read_json(selection_path)["rows"][0]["text"],
+                read_json(edl_path)["rows"][0]["text"],
                 "今天聊超脑协作。",
             )
-            self.assertEqual(read_json(selection_path)["groups"][0]["purpose"], "hook")
-            self.assertIn("cuts", read_json(selection_path)["rows"][0])
+            self.assertEqual(read_json(edl_path)["order"], ["s1"])
+            self.assertIn("cuts", read_json(edl_path)["rows"][0])
             self.assertEqual(len(result["ask_user"]), 1)
             self.assertEqual(result["ask_user"][0]["segment_id"], "s2")
             self.assertEqual(result["ask_user"][0]["span"]["text"], "含混词")
@@ -432,7 +434,7 @@ class QualityWorkflowCliTests(unittest.TestCase):
             self.assertEqual(undo_code, 0)
             self.assertEqual(undone["results"][0]["reverted"], 1)
             self.assertEqual(
-                read_json(selection_path)["rows"][0]["text"],
+                read_json(edl_path)["rows"][0]["text"],
                 "今天聊超导协作。",
             )
 

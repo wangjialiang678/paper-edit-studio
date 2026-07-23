@@ -4,7 +4,7 @@
    report = {generated_at, issues: [{id, segment_id, kind, span{text,...}, suggestion?,
              confidence, reason, source, status}], stats, meta}
    行内高亮由 rows.js 依据 state.quality.report 渲染（open 状态的 token 级 issue）。 */
-import { $, el, state, api, postJson, escapeHtml, setStatus, markActive } from "./shared.js";
+import { $, el, state, api, postJson, escapeHtml, setStatus, markActive, withCut } from "./shared.js";
 import { scheduleAutosave } from "./plan.js";
 import { showEditor } from "./editor.js";
 
@@ -32,7 +32,7 @@ el.qualityCloseBtn.addEventListener("click", () => { el.qualityPanel.hidden = tr
 export async function loadQualityReport() {
   if (!state.projectId) return;
   try {
-    state.quality.report = await api(`/api/projects/${encodeURIComponent(state.projectId)}/quality/report`);
+    state.quality.report = await api(withCut(`/api/projects/${encodeURIComponent(state.projectId)}/quality/report`));
   } catch {
     state.quality.report = null;
   }
@@ -50,7 +50,7 @@ export function openIssuesBySegment() {
 
 async function setIssueStatus(issue, status) {
   try {
-    await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/quality/issues/${encodeURIComponent(issue.id)}`, { status });
+    await postJson(withCut(`/api/projects/${encodeURIComponent(state.projectId)}/quality/issues/${encodeURIComponent(issue.id)}`), { status });
     issue.status = status;
   } catch (error) {
     setStatus(`更新质检项失败：${error.message}`, "warn");
@@ -92,7 +92,7 @@ async function runAnalyze(withAi) {
   const box = $("qualityResult");
   if (box) box.textContent = withAi ? "AI 复核已启动（后台运行，成本按 token 计）…" : "分析中…";
   try {
-    state.quality.report = await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/quality/analyze`, { ai: withAi });
+    state.quality.report = await postJson(withCut(`/api/projects/${encodeURIComponent(state.projectId)}/quality/analyze`), { ai: withAi });
     if (withAi) { state.quality.aiRunning = true; pollAiReview(); }
     renderQualityPanel();
     document.dispatchEvent(new CustomEvent("quality-report-updated"));
@@ -188,7 +188,7 @@ export function renderQualityPanel() {
   const undoBtn = $("qualityUndoAiBtn");
   if (undoBtn) undoBtn.addEventListener("click", async () => {
     try {
-      await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/quality/undo/${encodeURIComponent(meta.ai_changeset_id)}`, {});
+      await postJson(withCut(`/api/projects/${encodeURIComponent(state.projectId)}/quality/undo/${encodeURIComponent(meta.ai_changeset_id)}`), {});
       await showEditor();
       await loadQualityReport();
       setStatus("已撤销 AI 自动纠正。");

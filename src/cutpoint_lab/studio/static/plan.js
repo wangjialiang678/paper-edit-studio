@@ -1,5 +1,5 @@
-/* 剪辑计划：payload 组装、保存与自动保存。 */
-import { el, state, postJson, setStatus } from "./shared.js";
+/* 剪辑计划：payload 组装、保存与自动保存。order（EDL 成片顺序）为唯一排序权威。 */
+import { el, state, postJson, setStatus, withCut } from "./shared.js";
 import { setRanges } from "./player.js";
 
 export function planBody() {
@@ -12,19 +12,19 @@ export function planBody() {
       if (row.cuts && row.cuts.length) item.cuts = row.cuts;
       return item;
     }),
-    groups: state.orderedGroups || undefined,
+    order: state.order.length ? state.order : undefined,
   };
 }
 
 export function hasSelection() {
-  if (state.orderedGroups) return state.orderedGroups.some((group) => group.segment_ids.length);
+  if (state.order.length) return true;
   return state.rows.some((row) => row.checked);
 }
 
 /* 保存剪辑计划并刷新成片播放范围；无选中时清空。 */
 export async function syncPlan() {
   if (!state.projectId || !hasSelection()) { setRanges([]); return null; }
-  const payload = await postJson(`/api/projects/${state.projectId}/plan`, planBody());
+  const payload = await postJson(withCut(`/api/projects/${state.projectId}/plan`), planBody());
   setRanges(payload.plan.ranges || []);
   return payload;
 }

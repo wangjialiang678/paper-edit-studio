@@ -10,6 +10,7 @@ MODE_PROMPT_FILES = {
     "topic_slicing": "topic-slicing.md",
     "highlight_remix": "highlight-remix.md",
     "quality_review": "quality-review.md",
+    "compose_align": "compose-align.md",
 }
 
 # 旧版全文格式（协议下沉前保存的覆盖层）以是否自带输出协议段来识别。

@@ -131,6 +131,42 @@ video { width: 100%; flex: 1; min-height: 0; background: #000; border-radius: 10
 }
 .replace-bar b { color: #7db8e8; }
 
+/* ---------- 成片方案切换条 / 调序 ---------- */
+.cut-bar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 6px 16px 0; padding: 6px 10px; border-radius: 8px;
+  background: var(--bg-2); border: 1px solid var(--line); font-size: 12px;
+}
+.cut-label { color: var(--muted); }
+.cut-pill {
+  background: var(--bg-3); border: 1px solid var(--line); color: var(--ink);
+  border-radius: 999px; padding: 3px 12px; cursor: pointer; font-size: 12px;
+}
+.cut-pill.active { background: var(--accent); border-color: var(--accent-2); color: #fff; }
+.cut-form { display: inline-flex; gap: 4px; align-items: center; }
+.cut-input { width: 150px; margin-top: 0; }
+.drag-handle {
+  cursor: grab; color: var(--muted); user-select: none; padding: 0 3px;
+  font-size: 13px; touch-action: none;
+}
+.drag-handle:hover { color: var(--ink); }
+.drag-handle.drag-off { visibility: hidden; }
+.subtitle-row.dragging { opacity: .65; outline: 1px dashed var(--accent); background: var(--bg-2); }
+.pos-out { font-size: 10px; color: var(--accent); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.pos-orig { font-size: 10px; color: var(--warn); margin-left: 3px; }
+.order-divider .pill { border-color: var(--warn); color: var(--warn); }
+
+.script-dialog {
+  position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.script-dialog-box {
+  width: min(680px, 92vw); background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 18px 20px; font-size: 13px;
+}
+.script-dialog-box h4 { margin: 0 0 6px; }
+.script-dialog-box .prompt-editor { min-height: 220px; margin-top: 8px; }
+
 .toolbar {
   display: flex; align-items: center; gap: 8px; padding: 10px 16px;
   border-bottom: 1px solid var(--line); flex: none; flex-wrap: wrap;

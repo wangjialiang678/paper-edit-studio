@@ -8,6 +8,13 @@ import "./exporter.js";
 import "./ai.js";
 import "./settings.js";
 import "./quality.js";
+import "./cuts.js";
+import { renderRows } from "./rows.js";
+
+el.origOrderBtn.addEventListener("click", () => {
+  state.viewOriginal = !state.viewOriginal;
+  renderRows();
+});
 
 document.addEventListener("keydown", (event) => {
   if (el.editorView.hidden) return;
@@ -22,6 +29,8 @@ el.cutFillersBtn.addEventListener("click", () => {
   applyAllSuggestedCuts();
 });
 el.undoCutFillersBtn.addEventListener("click", undoFillerBatch);
+
+
 refreshProjects();
 setInterval(refreshProjects, 8000);
 showView("empty");

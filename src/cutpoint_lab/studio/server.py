@@ -22,11 +22,16 @@ from ..export.subtitles import write_srt
 from ..export.video import export_video_plan
 from ..features import AudioFrame, load_rms_frames
 from ..io import load_transcript, load_vad, read_json, write_json
-from ..paper_edit.state import apply_editor_rows, build_editor_state, build_plan_from_editor_rows
+from ..paper_edit.state import (
+    apply_editor_rows,
+    build_editor_state,
+    build_plan_from_selection,
+)
 from ..quality import (
     CorrectionSet,
     align_reference,
     apply_corrections,
+    compose,
     load_changeset,
     load_report,
     merge_report,
@@ -71,6 +76,10 @@ STUDIO_STRATEGIES = [
 ]
 FRAME_STRATEGIES = {"rms_snap", "anchored_rms", "visual_waveform", "hybrid_valley"}
 AI_MODES = ["koubo_tighten", "topic_slicing", "highlight_remix"]
+
+
+class ConflictError(ValueError):
+    """请求与当前 Cut 状态冲突。"""
 
 
 class StudioApplication:
@@ -337,7 +346,7 @@ class StudioApplication:
         state["pipeline_running"] = self.pipeline.is_running(project)
         return state
 
-    def editor_state(self, project: Project) -> dict[str, Any]:
+    def editor_state(self, project: Project, *, cut: str = "default") -> dict[str, Any]:
         if not project.transcript_ready():
             raise ValueError("字幕尚未就绪")
         transcript = load_transcript(project.transcript_path)
@@ -352,7 +361,7 @@ class StudioApplication:
                 if row.get("has_word_timestamps")
                 else []
             )
-        self._apply_saved_selection(project, state["rows"])
+        edl = self._apply_saved_selection(project, state["rows"], cut=cut)
         return {
             "project": self.project_detail(project),
             "rows": state["rows"],
@@ -360,9 +369,18 @@ class StudioApplication:
             "silence_gaps": silence_gaps(transcript),
             "strategies": list(STUDIO_STRATEGIES),
             "ai": self._ai_overview(project),
+            "order": list(edl.get("order") or []),
+            "label": edl.get("label"),
+            "brief": edl.get("brief"),
         }
 
-    def save_plan(self, project: Project, payload: dict[str, Any]) -> dict[str, Any]:
+    def save_plan(
+        self,
+        project: Project,
+        payload: dict[str, Any],
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
         strategy = str(payload.get("strategy") or STUDIO_STRATEGIES[0])
         if strategy not in STUDIO_STRATEGIES:
             raise ValueError(f"未知切点策略：{strategy}")
@@ -370,9 +388,46 @@ class StudioApplication:
         if not isinstance(rows, list):
             raise ValueError("rows 必须是数组")
         transcript = self._transcript_with_source(project)
+        current = project.read_edl(cut)
+        edl = dict(current)
+        if "label" in payload:
+            label = payload.get("label")
+            if label is not None and not isinstance(label, str):
+                raise ValueError("label 必须是字符串")
+            if label is None:
+                edl.pop("label", None)
+            else:
+                edl["label"] = label
+        if "brief" in payload:
+            brief = payload.get("brief")
+            if brief is not None and not isinstance(brief, dict):
+                raise ValueError("brief 必须是对象")
+            if brief is None:
+                edl.pop("brief", None)
+            else:
+                edl["brief"] = copy.deepcopy(brief)
+        if rows:
+            edl["rows"] = _full_editor_rows(transcript, rows)
+        elif not isinstance(edl.get("rows"), list):
+            raise ValueError("rows 必须是数组")
         groups = payload.get("groups")
-        if groups:
-            edited = apply_editor_rows(transcript, rows) if rows else transcript
+        if "order" in payload:
+            order = payload.get("order")
+            if not isinstance(order, list):
+                raise ValueError("order 必须是数组")
+            edl["order"] = [str(segment_id) for segment_id in order]
+        elif groups is not None:
+            edl["order"] = _order_from_groups(groups)
+        elif "order" not in edl:
+            edl["order"] = []
+        if edl["order"]:
+            selected = set(edl["order"])
+            for row in edl["rows"]:
+                if isinstance(row, dict):
+                    row["checked"] = str(row.get("id")) in selected
+
+        if groups and "order" not in payload:
+            edited = apply_editor_rows(transcript, edl["rows"])
             plan = build_ordered_plan(
                 edited,
                 groups,
@@ -381,41 +436,132 @@ class StudioApplication:
                 vad=self._vad(project, strategy),
             )
         else:
-            edited, plan = build_plan_from_editor_rows(
+            edited, plan = build_plan_from_selection(
                 transcript,
-                rows,
+                edl,
                 strategy=strategy,
                 frames=self._frames(project, strategy),
                 vad=self._vad(project, strategy),
             )
+        plan["reordered"] = bool(edl.get("order"))
+        # groups 只是旧请求载荷的兼容输入；EDL 与持久化计划都只保留 order。
+        plan.pop("groups", None)
         apply_manual_nudges(plan, _nudges_from_rows(rows))
-        if rows:
-            with self._quality_io_lock:
-                write_json(
-                    project.dir / "selection.json",
-                    {
-                        "rows": _full_editor_rows(transcript, rows),
-                        "groups": groups or None,
-                    },
-                )
-        write_json(project.dir / "clip_plan.json", plan)
-        srt_path = project.dir / "edited_preview.srt"
+        with self._quality_io_lock:
+            project.write_edl(cut, edl)
+        clip_plan_path = project.cut_clip_plan_path(cut)
+        write_json(clip_plan_path, plan)
+        srt_path = project.cut_dir(cut) / "edited_preview.srt"
         write_srt(edited, plan, srt_path)
-        return {"ok": True, "plan": plan, "paths": {"clip_plan": str(project.dir / "clip_plan.json"), "subtitle": str(srt_path)}}
+        return {"ok": True, "plan": plan, "paths": {"clip_plan": str(clip_plan_path), "subtitle": str(srt_path)}}
+
+    def list_cuts(self, project: Project) -> dict[str, Any]:
+        return {"cuts": project.list_cuts()}
+
+    def create_cut(self, project: Project, payload: dict[str, Any]) -> dict[str, Any]:
+        name = str(payload.get("name") or "")
+        label = payload.get("label")
+        if label is not None and not isinstance(label, str):
+            raise ValueError("label 必须是字符串")
+        source = str(payload.get("from") or "blank")
+        transcript = self._transcript_with_source(project)
+        if source == "blank":
+            edl = {"rows": _editor_rows_from_transcript(transcript), "order": []}
+        elif source.startswith("copy:"):
+            edl = copy.deepcopy(project.read_edl(source.removeprefix("copy:")))
+        elif source.startswith("topic:"):
+            topic_id = source.removeprefix("topic:")
+            topic = self._topic_slicing_topic(project, topic_id)
+            best_clip = topic.get("best_clip") if isinstance(topic, dict) else None
+            segment_ids = best_clip.get("segment_ids") if isinstance(best_clip, dict) else None
+            if not isinstance(segment_ids, list):
+                raise ValueError(f"主题 {topic_id} 缺少可用 best_clip")
+            selected = {str(segment_id) for segment_id in segment_ids}
+            edl = {
+                "rows": [
+                    {"id": segment.id, "checked": segment.id in selected, "text": segment.text}
+                    for segment in transcript.segments
+                ],
+                "order": [],
+            }
+        else:
+            raise ValueError("from 必须是 blank、copy:<cut> 或 topic:<topic_id>")
+        return project.create_cut(name, label, edl)
+
+    def create_cut_from_script(
+        self,
+        project: Project,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        name = str(payload.get("name") or "")
+        label = payload.get("label")
+        script = payload.get("script")
+        ai = payload.get("ai", False)
+        if label is not None and not isinstance(label, str):
+            raise ValueError("label 必须是字符串")
+        if not isinstance(script, str) or not script.strip():
+            raise ValueError("script 必须是非空字符串")
+        if not isinstance(ai, bool):
+            raise ValueError("ai 必须是 JSON boolean")
+        if project.cut_dir(name).exists():
+            raise ConflictError(f"Cut 已存在：{name}")
+        if ai and not self.quality_llm.available():
+            raise ValueError("缺少 LLM API Key，无法运行文稿对齐 AI 裁决")
+
+        transcript = self._transcript_with_source(project)
+        result = compose(
+            transcript.segments,
+            script,
+            chat_json_fn=self.quality_llm.chat_json if ai else None,
+            assemble_prompt_fn=(
+                lambda: self.prompt_store.assemble("compose_align")
+                if ai
+                else None
+            ),
+        )
+        try:
+            cut = project.create_cut(name, label, result["edl"])
+        except ValueError as exc:
+            if str(exc).startswith("Cut 已存在："):
+                raise ConflictError(str(exc)) from exc
+            raise
+        report_path = project.cut_compose_report_path(name)
+        write_json(report_path, result["report"])
+        logger.info(
+            "compose cut created: project=%s cut=%s stats=%s",
+            project.id,
+            name,
+            result["report"]["stats"],
+        )
+        return {"ok": True, "cut": cut, "report": result["report"]}
+
+    def compose_report(self, project: Project, name: str) -> dict[str, Any]:
+        project.read_edl(name)
+        report_path = project.cut_compose_report_path(name)
+        if not report_path.is_file():
+            raise ValueError(f"Cut 没有文稿对齐报告：{name}")
+        report = read_json(report_path)
+        if not isinstance(report, dict):
+            raise ValueError("文稿对齐报告必须是 JSON 对象")
+        return report
+
+    def delete_cut(self, project: Project, name: str) -> dict[str, Any]:
+        project.delete_cut(name)
+        return {"ok": True}
 
     # ---------- 字幕质量 ----------
-    def corrections_preview(self, project: Project) -> dict[str, Any]:
-        rows, _ = self._correction_rows(project)
+    def corrections_preview(self, project: Project, *, cut: str = "default") -> dict[str, Any]:
+        rows, _ = self._correction_rows(project, cut=cut)
         items = preview_corrections(rows, CorrectionSet.load(self._corrections_path()))
         return {"items": items, "total": sum(item["count"] for item in items)}
 
-    def apply_dictionary_corrections(self, project: Project) -> dict[str, Any]:
-        rows, selection = self._correction_rows(project)
+    def apply_dictionary_corrections(self, project: Project, *, cut: str = "default") -> dict[str, Any]:
+        rows, selection = self._correction_rows(project, cut=cut)
         correction_set = CorrectionSet.load(self._corrections_path())
         items = preview_corrections(rows, correction_set)
         new_rows, changeset = apply_corrections(rows, correction_set)
         selection["rows"] = new_rows
-        write_json(project.dir / "selection.json", selection)
+        project.write_edl(cut, selection)
         save_changeset(project.dir, changeset)
         applied = sum(item["count"] for item in items)
         logger.info(
@@ -431,20 +577,25 @@ class StudioApplication:
             "rows": new_rows,
         }
 
-    def undo_dictionary_changeset(self, project: Project, change_id: str) -> dict[str, Any]:
-        selection_path = project.dir / "selection.json"
-        if not selection_path.is_file():
+    def undo_dictionary_changeset(
+        self,
+        project: Project,
+        change_id: str,
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        selection = project.read_edl(cut)
+        if not selection:
             raise ValueError("尚未保存编辑状态，无法撤销")
-        selection = read_json(selection_path)
         rows = selection.get("rows")
         if not isinstance(rows, list):
-            raise ValueError("selection.json 的 rows 必须是数组")
+            raise ValueError("EDL 的 rows 必须是数组")
         restored_rows, report = undo_changeset(
             rows,
             load_changeset(project.dir, change_id),
         )
         selection["rows"] = restored_rows
-        write_json(selection_path, selection)
+        project.write_edl(cut, selection)
         logger.info(
             "corrections undone: project=%s changeset=%s reverted=%s skipped=%s",
             project.id,
@@ -454,15 +605,22 @@ class StudioApplication:
         )
         return {"ok": True, **report, "rows": restored_rows}
 
-    def quality_report(self, project: Project) -> dict[str, Any]:
+    def quality_report(self, project: Project, *, cut: str = "default") -> dict[str, Any]:
+        project.read_edl(cut)
         with self._quality_io_lock:
             return load_report(project.dir)
 
-    def analyze_quality(self, project: Project, payload: dict[str, Any]) -> dict[str, Any]:
+    def analyze_quality(
+        self,
+        project: Project,
+        payload: dict[str, Any],
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
         run_ai = payload.get("ai", False)
         if not isinstance(run_ai, bool):
             raise ValueError("ai 必须是 JSON boolean")
-        rows = self._quality_rows(project)
+        rows = self._quality_rows(project, cut=cut)
         issues = scan_confidence(rows)
         reference = self._reference_path(project)
         if reference is not None:
@@ -481,7 +639,7 @@ class StudioApplication:
             run_ai,
         )
         if run_ai:
-            self._start_quality_ai(project)
+            self._start_quality_ai(project, cut=cut)
         return report
 
     def update_quality_issue(
@@ -489,7 +647,10 @@ class StudioApplication:
         project: Project,
         issue_id: str,
         payload: dict[str, Any],
+        *,
+        cut: str = "default",
     ) -> dict[str, Any]:
+        project.read_edl(cut)
         status = payload.get("status")
         if status not in {"resolved", "ignored"}:
             raise ValueError("status 只能是 resolved 或 ignored")
@@ -503,21 +664,29 @@ class StudioApplication:
                 return report
         raise KeyError(issue_id)
 
-    def reference_info(self, project: Project) -> dict[str, Any]:
+    def reference_info(self, project: Project, *, cut: str = "default") -> dict[str, Any]:
+        project.read_edl(cut)
         path = self._reference_path(project)
         return {
             "exists": path is not None,
             "filename": path.name if path is not None else None,
         }
 
-    def save_reference_path(self, project: Project, raw_path: Any) -> dict[str, Any]:
+    def save_reference_path(
+        self,
+        project: Project,
+        raw_path: Any,
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        project.read_edl(cut)
         source = Path(str(raw_path or "")).expanduser().resolve()
         if not source.is_file():
             raise ValueError(f"参考字幕不存在：{source}")
         target = self._reference_target(project, source.name)
         shutil.copyfile(source, target)
         logger.info("reference imported: project=%s filename=%s", project.id, target.name)
-        return {"ok": True, "path": str(target), **self.reference_info(project)}
+        return {"ok": True, "path": str(target), **self.reference_info(project, cut=cut)}
 
     def save_reference_upload(
         self,
@@ -525,7 +694,10 @@ class StudioApplication:
         filename: str,
         body_stream,
         content_length: int,
+        *,
+        cut: str = "default",
     ) -> dict[str, Any]:
+        project.read_edl(cut)
         target = self._reference_target(project, filename)
         if content_length <= 0:
             raise ValueError("上传内容为空")
@@ -543,15 +715,15 @@ class StudioApplication:
         finally:
             temporary.unlink(missing_ok=True)
         logger.info("reference uploaded: project=%s filename=%s", project.id, target.name)
-        return {"ok": True, "path": str(target), **self.reference_info(project)}
+        return {"ok": True, "path": str(target), **self.reference_info(project, cut=cut)}
 
-    def _start_quality_ai(self, project: Project) -> None:
+    def _start_quality_ai(self, project: Project, *, cut: str = "default") -> None:
         if not self.quality_llm.available():
             raise ValueError("缺少 LLM API Key，无法运行 AI 复核")
 
         def _run() -> None:
             try:
-                rows = self._quality_rows(project)
+                rows = self._quality_rows(project, cut=cut)
                 with self._quality_io_lock:
                     report = load_report(project.dir)
                 correction_set = CorrectionSet.load(self._corrections_path())
@@ -574,7 +746,7 @@ class StudioApplication:
                 applied_segment_ids: set[str] = set()
                 if changeset is not None and changeset.get("changes"):
                     with self._quality_io_lock:
-                        selection_rows, selection = self._correction_rows(project)
+                        selection_rows, selection = self._correction_rows(project, cut=cut)
                         pending_changes = {
                             str(change.get("segment_id") or ""): change
                             for change in changeset["changes"]
@@ -611,10 +783,7 @@ class StudioApplication:
                                 f"AI 自动纠错 {applied_count} 处"
                             )
                             selection["rows"] = updated_rows
-                            write_json(
-                                project.dir / "selection.json",
-                                selection,
-                            )
+                            project.write_edl(cut, selection)
                             changeset_path = save_changeset(
                                 project.dir,
                                 changeset,
@@ -713,10 +882,11 @@ class StudioApplication:
             name=f"quality-ai-{project.id}",
         )
         with self._lock:
-            existing = self._quality_threads.get(project.id)
+            quality_key = f"{project.id}:{cut}"
+            existing = self._quality_threads.get(quality_key)
             if existing and existing.is_alive():
                 raise ValueError("该项目的 AI 质检任务已在运行")
-            self._quality_threads[project.id] = thread
+            self._quality_threads[quality_key] = thread
             project.update_state(
                 quality_ai={
                     "status": "running",
@@ -726,21 +896,30 @@ class StudioApplication:
             try:
                 thread.start()
             except Exception:
-                self._quality_threads.pop(project.id, None)
+                self._quality_threads.pop(quality_key, None)
                 raise
 
     # ---------- 导出 ----------
-    def start_export(self, project: Project, payload: dict[str, Any]) -> dict[str, Any]:
+    def start_export(
+        self,
+        project: Project,
+        payload: dict[str, Any],
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        project.read_edl(cut)
+        export_key = f"{project.id}:{cut}"
         with self._lock:
-            thread = self._export_threads.get(project.id)
+            thread = self._export_threads.get(export_key)
             if thread and thread.is_alive():
                 raise ValueError("导出任务已在运行")
-        plan_result = self.save_plan(project, payload)
+        plan_result = self.save_plan(project, payload, cut=cut)
         plan = plan_result["plan"]
         stamp = time.strftime("%Y%m%d-%H%M%S")
-        output_video = project.exports_dir / f"edited-{stamp}.mp4"
-        output_srt = project.exports_dir / f"edited-{stamp}.srt"
-        rows = payload.get("rows") or []
+        exports_dir = project.cut_exports_dir(cut)
+        output_video = exports_dir / f"edited-{stamp}.mp4"
+        output_srt = exports_dir / f"edited-{stamp}.srt"
+        rows = project.read_edl(cut).get("rows") or []
         source_transcript = self._transcript_with_source(project)
         transcript = apply_editor_rows(source_transcript, rows) if rows else source_transcript
         project.update_state(export={"status": "running", "started_at": stamp})
@@ -750,9 +929,9 @@ class StudioApplication:
                 source = project.source_path
                 if source is None or not source.exists():
                     raise RuntimeError("源媒体不存在")
-                manifest = export_video_plan(source, plan, output_video, work_dir=project.exports_dir / f"segments-{stamp}")
+                manifest = export_video_plan(source, plan, output_video, work_dir=exports_dir / f"segments-{stamp}")
                 write_srt(transcript, plan, output_srt)
-                shutil.rmtree(project.exports_dir / f"segments-{stamp}", ignore_errors=True)
+                shutil.rmtree(exports_dir / f"segments-{stamp}", ignore_errors=True)
                 project.update_state(
                     export={
                         "status": "done",
@@ -769,14 +948,15 @@ class StudioApplication:
                 logger.exception("export %s failed", project.id)
                 project.update_state(export={"status": "error", "error": _redact_known_secrets(str(exc))})
 
-        thread = threading.Thread(target=_run, daemon=True, name=f"export-{project.id}")
+        thread = threading.Thread(target=_run, daemon=True, name=f"export-{project.id}-{cut}")
         with self._lock:
-            self._export_threads[project.id] = thread
+            self._export_threads[export_key] = thread
         thread.start()
         return {"ok": True, "export": {"status": "running"}}
 
     # ---------- AI ----------
-    def start_ai(self, project: Project, payload: dict[str, Any]) -> dict[str, Any]:
+    def start_ai(self, project: Project, payload: dict[str, Any], *, cut: str = "default") -> dict[str, Any]:
+        project.read_edl(cut)
         mode = str(payload.get("mode") or "koubo_tighten")
         if mode not in AI_MODES:
             raise ValueError(f"未知 AI 模式：{mode}")
@@ -785,7 +965,7 @@ class StudioApplication:
         if not project.transcript_ready():
             raise ValueError("字幕尚未就绪")
         with self._lock:
-            thread = self._ai_threads.get(f"{project.id}:{mode}")
+            thread = self._ai_threads.get(f"{project.id}:{cut}:{mode}")
             if thread and thread.is_alive():
                 raise ValueError("该模式的 AI 任务已在运行")
         brief = str(payload.get("brief") or "")
@@ -811,13 +991,14 @@ class StudioApplication:
                 logger.exception("ai %s/%s failed", project.id, mode)
                 self._set_ai_state(project, mode, {"status": "error", "error": _redact_known_secrets(str(exc))})
 
-        thread = threading.Thread(target=_run, daemon=True, name=f"ai-{project.id}-{mode}")
+        thread = threading.Thread(target=_run, daemon=True, name=f"ai-{project.id}-{cut}-{mode}")
         with self._lock:
-            self._ai_threads[f"{project.id}:{mode}"] = thread
+            self._ai_threads[f"{project.id}:{cut}:{mode}"] = thread
         thread.start()
         return {"ok": True, "mode": mode, "status": "running"}
 
-    def ai_suggestion(self, project: Project, mode: str) -> dict[str, Any]:
+    def ai_suggestion(self, project: Project, mode: str, *, cut: str = "default") -> dict[str, Any]:
+        project.read_edl(cut)
         entry = (project.read_state().get("ai") or {}).get(mode) or {}
         if entry.get("status") != "done" or not entry.get("file"):
             return {"mode": mode, "status": entry.get("status", "idle"), "error": entry.get("error")}
@@ -837,21 +1018,23 @@ class StudioApplication:
             "koubo_tighten",
             {"status": "done", "file": str(path), "warnings": suggestion.warnings, "auto": True},
         )
-        selection_path = project.dir / "selection.json"
-        if not selection_path.exists():
+        if not project.read_edl("default"):
             keeps = set(suggestion.payload.get("keep_segment_ids") or [])
             reasons = {item["segment_id"]: item for item in suggestion.payload.get("decisions") or []}
             rows = [
                 {"id": segment.id, "checked": segment.id in keeps, "text": segment.text}
                 for segment in transcript.segments
             ]
-            write_json(selection_path, {"rows": rows, "source": "auto_ai", "reasons_available": bool(reasons)})
+            project.write_edl(
+                "default",
+                {"rows": rows, "source": "auto_ai", "reasons_available": bool(reasons)},
+            )
 
     # ---------- 内部 ----------
     def _corrections_path(self) -> Path:
         return self.workspace.root / "_settings" / "corrections.json"
 
-    def _quality_rows(self, project: Project) -> list[dict[str, Any]]:
+    def _quality_rows(self, project: Project, *, cut: str = "default") -> list[dict[str, Any]]:
         """以 transcript 的时间/token 为底，叠加 selection 的当前文字。"""
         if not project.transcript_path.is_file():
             raise ValueError("字幕尚未就绪")
@@ -860,9 +1043,8 @@ class StudioApplication:
         if not isinstance(segments, list):
             raise ValueError("transcript.json 的 segments 必须是数组")
         current_text: dict[str, str] = {}
-        selection_path = project.dir / "selection.json"
-        if selection_path.is_file():
-            selection = read_json(selection_path)
+        selection = project.read_edl(cut)
+        if selection:
             for row in selection.get("rows") or []:
                 if isinstance(row, dict) and row.get("id") is not None:
                     current_text[str(row["id"])] = str(row.get("text") or "")
@@ -908,18 +1090,19 @@ class StudioApplication:
     def _correction_rows(
         self,
         project: Project,
+        *,
+        cut: str = "default",
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-        selection_path = project.dir / "selection.json"
-        if selection_path.is_file():
-            selection = read_json(selection_path)
+        selection = project.read_edl(cut)
+        if selection:
             if not isinstance(selection, dict):
-                raise ValueError("selection.json 必须是 JSON 对象")
+                raise ValueError("EDL 必须是 JSON 对象")
             rows = selection.get("rows")
             if not isinstance(rows, list):
-                raise ValueError("selection.json 的 rows 必须是数组")
+                raise ValueError("EDL 的 rows 必须是数组")
             return rows, selection
 
-        rows = self.editor_state(project)["rows"]
+        rows = self.editor_state(project, cut=cut)["rows"]
         return rows, {"rows": rows}
 
     def _ai_overview(self, project: Project) -> dict[str, Any]:
@@ -931,15 +1114,26 @@ class StudioApplication:
             overview["modes"][mode] = entry or {"status": "idle"}
         return overview
 
-    def _apply_saved_selection(self, project: Project, rows: list[dict[str, Any]]) -> None:
-        selection_path = project.dir / "selection.json"
+    def _apply_saved_selection(
+        self,
+        project: Project,
+        rows: list[dict[str, Any]],
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        saved_edl = project.read_edl(cut)
         decisions = self._koubo_decisions(project)
-        if selection_path.exists():
-            saved = {str(row.get("id")): row for row in (read_json(selection_path).get("rows") or [])}
+        if saved_edl:
+            saved = {str(row.get("id")): row for row in (saved_edl.get("rows") or [])}
+            ordered_ids = set(saved_edl.get("order") or [])
             for row in rows:
                 update = saved.get(row["id"])
                 if update is not None:
-                    row["checked"] = bool(update.get("checked", row["checked"]))
+                    row["checked"] = (
+                        row["id"] in ordered_ids
+                        if ordered_ids
+                        else bool(update.get("checked", row["checked"]))
+                    )
                     row["text"] = str(update.get("text", row["text"]))
                     if update.get("trim"):
                         row["trim"] = update["trim"]
@@ -953,6 +1147,21 @@ class StudioApplication:
                 row["ai_keep"] = decision.get("keep")
                 row["ai_reason"] = decision.get("reason")
                 row["ai_labels"] = decision.get("labels") or []
+        return saved_edl
+
+    def _topic_slicing_topic(self, project: Project, topic_id: str) -> dict[str, Any]:
+        suggestions = sorted(
+            (path for path in project.ai_dir.glob("topic_slicing-*.json") if path.is_file()),
+            key=lambda path: path.stat().st_mtime_ns,
+            reverse=True,
+        )
+        if not suggestions:
+            raise ValueError("没有可用的 topic_slicing 建议")
+        payload = read_json(suggestions[0])
+        for topic in payload.get("topics") or []:
+            if isinstance(topic, dict) and str(topic.get("topic_id") or "") == topic_id:
+                return topic
+        raise ValueError(f"topic_slicing 建议中不存在主题：{topic_id}")
 
     def _koubo_decisions(self, project: Project) -> dict[str, dict[str, Any]]:
         entry = (project.read_state().get("ai") or {}).get("koubo_tighten") or {}
@@ -1007,8 +1216,16 @@ class StudioApplication:
         self._frames_cache[project.id] = frames
         return frames
 
-    def rms_slice(self, project: Project, start_ms: int, end_ms: int) -> dict[str, Any]:
+    def rms_slice(
+        self,
+        project: Project,
+        start_ms: int,
+        end_ms: int,
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
         """给微调面板的波形条：区间内 10ms 步长的归一化 RMS。"""
+        project.read_edl(cut)
         if end_ms <= start_ms:
             raise ValueError("end_ms 必须大于 start_ms")
         if end_ms - start_ms > 120_000:
@@ -1043,6 +1260,24 @@ def _nudges_from_rows(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         if isinstance(nudge, dict) and (nudge.get("start_ms") or nudge.get("end_ms")):
             nudges[str(row.get("id"))] = nudge
     return nudges
+
+
+def _order_from_groups(groups: Any) -> list[str]:
+    if not isinstance(groups, list):
+        raise ValueError("groups 必须是数组")
+    return [
+        str(segment_id)
+        for group in groups
+        if isinstance(group, dict)
+        for segment_id in (group.get("segment_ids") or [])
+    ]
+
+
+def _editor_rows_from_transcript(transcript) -> list[dict[str, Any]]:
+    return [
+        {"id": segment.id, "checked": False, "text": segment.text}
+        for segment in transcript.segments
+    ]
 
 
 def _full_editor_rows(
@@ -1130,6 +1365,11 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/projects/import-path"): "_route_import_path",
     ("POST", "/api/projects/upload"): "_route_upload",
     ("GET", "/api/projects/{id}"): "_route_project",
+    ("GET", "/api/projects/{id}/cuts"): "_route_cuts",
+    ("POST", "/api/projects/{id}/cuts"): "_route_cuts",
+    ("POST", "/api/projects/{id}/cuts/from-script"): "_route_cut_from_script",
+    ("GET", "/api/projects/{id}/cuts/{name}/compose-report"): "_route_compose_report",
+    ("DELETE", "/api/projects/{id}/cuts/{name}"): "_route_cut",
     ("GET", "/api/projects/{id}/editor"): "_route_editor",
     ("GET", "/api/projects/{id}/editor/{rest...}"): "_route_editor",
     ("GET", "/api/projects/{id}/rms"): "_route_rms",
@@ -1214,6 +1454,8 @@ def _handler_factory(app: StudioApplication):
                 handler_name, params = resolved
                 handler = getattr(self, handler_name)
                 handler(parsed, params)
+            except ConflictError as exc:
+                self._send_error_json(409, str(exc))
             except ValueError as exc:
                 self._send_error_json(400, str(exc))
             except Exception as exc:  # noqa: BLE001 - 本地工具返回可读错误。
@@ -1279,28 +1521,51 @@ def _handler_factory(app: StudioApplication):
         def _route_project(self, _parsed, params: dict[str, str]) -> None:
             self._send_json(app.project_detail(self._project(params["id"])))
 
-        def _route_editor(self, _parsed, params: dict[str, str]) -> None:
-            self._send_json(app.editor_state(self._project(params["id"])))
+        def _route_editor(self, parsed, params: dict[str, str]) -> None:
+            self._send_json(app.editor_state(self._project(params["id"]), cut=self._cut(parsed)))
 
         def _route_rms(self, parsed, params: dict[str, str]) -> None:
             query = parse_qs(parsed.query)
             start_ms = int((query.get("start_ms") or ["0"])[0])
             end_ms = int((query.get("end_ms") or ["0"])[0])
-            self._send_json(app.rms_slice(self._project(params["id"]), start_ms, end_ms))
+            self._send_json(app.rms_slice(self._project(params["id"]), start_ms, end_ms, cut=self._cut(parsed)))
 
-        def _route_ai_suggestion(self, _parsed, params: dict[str, str]) -> None:
-            self._send_json(app.ai_suggestion(self._project(params["id"]), params["mode"]))
+        def _route_ai_suggestion(self, parsed, params: dict[str, str]) -> None:
+            self._send_json(app.ai_suggestion(self._project(params["id"]), params["mode"], cut=self._cut(parsed)))
 
-        def _route_corrections_preview(self, _parsed, params: dict[str, str]) -> None:
-            self._send_json(app.corrections_preview(self._project(params["id"])))
+        def _route_corrections_preview(self, parsed, params: dict[str, str]) -> None:
+            self._send_json(app.corrections_preview(self._project(params["id"]), cut=self._cut(parsed)))
 
-        def _route_quality_report(self, _parsed, params: dict[str, str]) -> None:
-            self._send_json(app.quality_report(self._project(params["id"])))
+        def _route_quality_report(self, parsed, params: dict[str, str]) -> None:
+            self._send_json(app.quality_report(self._project(params["id"]), cut=self._cut(parsed)))
+
+        def _route_cuts(self, _parsed, params: dict[str, str]) -> None:
+            project = self._project(params["id"])
+            if self.command == "GET":
+                self._send_json(app.list_cuts(project))
+                return
+            self._send_json(app.create_cut(project, self._read_json_body()))
+
+        def _route_cut(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(app.delete_cut(self._project(params["id"]), params["name"]))
+
+        def _route_cut_from_script(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.create_cut_from_script(
+                    self._project(params["id"]),
+                    self._read_json_body(),
+                )
+            )
+
+        def _route_compose_report(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.compose_report(self._project(params["id"]), params["name"])
+            )
 
         def _route_reference(self, parsed, params: dict[str, str]) -> None:
             project = self._project(params["id"])
             if self.command == "GET":
-                self._send_json(app.reference_info(project))
+                self._send_json(app.reference_info(project, cut=self._cut(parsed)))
                 return
             query = parse_qs(parsed.query)
             filename = (query.get("filename") or [""])[0]
@@ -1312,44 +1577,47 @@ def _handler_factory(app: StudioApplication):
                         filename,
                         self.rfile,
                         length,
+                        cut=self._cut(parsed),
                     )
                 )
                 return
             body = self._read_json_body()
-            self._send_json(app.save_reference_path(project, body.get("path")))
+            self._send_json(app.save_reference_path(project, body.get("path"), cut=self._cut(parsed)))
 
         def _route_unknown_project_get(self, _parsed, params: dict[str, str]) -> None:
             self._project(params["id"])
             self._send_error_json(404, "not found")
 
-        def _route_ai_suggest(self, _parsed, params: dict[str, str]) -> None:
+        def _route_ai_suggest(self, parsed, params: dict[str, str]) -> None:
             project = self._project(params["id"])
-            self._send_json(app.start_ai(project, self._read_json_body()))
+            self._send_json(app.start_ai(project, self._read_json_body(), cut=self._cut(parsed)))
 
-        def _route_apply_corrections(self, _parsed, params: dict[str, str]) -> None:
+        def _route_apply_corrections(self, parsed, params: dict[str, str]) -> None:
             self._read_json_body()
             project = self._project(params["id"])
-            self._send_json(app.apply_dictionary_corrections(project))
+            self._send_json(app.apply_dictionary_corrections(project, cut=self._cut(parsed)))
 
-        def _route_undo_changeset(self, _parsed, params: dict[str, str]) -> None:
+        def _route_undo_changeset(self, parsed, params: dict[str, str]) -> None:
             self._read_json_body()
             project = self._project(params["id"])
-            self._send_json(app.undo_dictionary_changeset(project, params["change_id"]))
+            self._send_json(app.undo_dictionary_changeset(project, params["change_id"], cut=self._cut(parsed)))
 
-        def _route_quality_analyze(self, _parsed, params: dict[str, str]) -> None:
+        def _route_quality_analyze(self, parsed, params: dict[str, str]) -> None:
             self._send_json(
                 app.analyze_quality(
                     self._project(params["id"]),
                     self._read_json_body(),
+                    cut=self._cut(parsed),
                 )
             )
 
-        def _route_quality_issue(self, _parsed, params: dict[str, str]) -> None:
+        def _route_quality_issue(self, parsed, params: dict[str, str]) -> None:
             try:
                 report = app.update_quality_issue(
                     self._project(params["id"]),
                     params["issue_id"],
                     self._read_json_body(),
+                    cut=self._cut(parsed),
                 )
             except KeyError:
                 self._send_error_json(404, "quality issue not found")
@@ -1360,16 +1628,16 @@ def _handler_factory(app: StudioApplication):
             self._read_json_body()
             self._send_json(app.retranscribe(self._project(params["id"])))
 
-        def _route_project_action(self, _parsed, params: dict[str, str]) -> None:
+        def _route_project_action(self, parsed, params: dict[str, str]) -> None:
             project = self._project(params["id"])
             action = params["action"]
             if action == "retry":
                 return self._send_json(app.retry(project))
             body = self._read_json_body()
             if action == "plan":
-                return self._send_json(app.save_plan(project, body))
+                return self._send_json(app.save_plan(project, body, cut=self._cut(parsed)))
             if action == "export":
-                return self._send_json(app.start_export(project, body))
+                return self._send_json(app.start_export(project, body, cut=self._cut(parsed)))
             self._send_error_json(404, "not found")
 
         def _route_media_source(self, _parsed, params: dict[str, str]) -> None:
@@ -1378,9 +1646,9 @@ def _handler_factory(app: StudioApplication):
                 return self._send_error_json(404, "源媒体不存在")
             _serve_file_with_range(self, source)
 
-        def _route_media_export(self, _parsed, params: dict[str, str]) -> None:
+        def _route_media_export(self, parsed, params: dict[str, str]) -> None:
             project = self._project(params["id"])
-            target = project.exports_dir / Path(params["filename"]).name
+            target = project.cut_exports_dir(self._cut(parsed)) / Path(params["filename"]).name
             if not target.exists():
                 return self._send_error_json(404, "导出文件不存在")
             _serve_file_with_range(self, target, as_download=True)
@@ -1397,6 +1665,10 @@ def _handler_factory(app: StudioApplication):
             if project is None:
                 raise ValueError(f"项目不存在：{project_id}")
             return project
+
+        @staticmethod
+        def _cut(parsed) -> str:
+            return str((parse_qs(parsed.query).get("cut") or ["default"])[0])
 
         def _read_json_body(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0") or 0)

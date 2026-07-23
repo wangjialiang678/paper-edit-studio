@@ -1,5 +1,5 @@
 /* 设置面板：DashScope API Key（脱敏/修改/测试）+ 热词表（查看/编辑/新建）+ 纠错词典。 */
-import { $, el, state, api, putJson, postJson, escapeHtml, setStatus } from "./shared.js";
+import { $, el, state, api, putJson, postJson, escapeHtml, setStatus, withCut } from "./shared.js";
 import { showEditor } from "./editor.js";
 
 const ui = { settings: null, vocab: null, loadingVocab: false, corrections: null, lastChangesetId: null };
@@ -143,7 +143,7 @@ function renderCorrections() {
     const box = $("corrResult");
     box.textContent = "统计中…";
     try {
-      const preview = await api(`/api/projects/${encodeURIComponent(state.projectId)}/quality/corrections-preview`);
+      const preview = await api(withCut(`/api/projects/${encodeURIComponent(state.projectId)}/quality/corrections-preview`));
       if (!preview.total) { box.textContent = "当前项目没有词典命中。"; return; }
       const lines = (preview.items || []).map((item) =>
         `「${escapeHtml(item.wrong)}」→「${escapeHtml(item.right)}」 ×${item.count}`).join("<br>");
@@ -157,7 +157,7 @@ function renderCorrections() {
     const box = $("corrResult");
     box.textContent = "应用中…";
     try {
-      const result = await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/quality/apply-corrections`, {});
+      const result = await postJson(withCut(`/api/projects/${encodeURIComponent(state.projectId)}/quality/apply-corrections`), {});
       ui.lastChangesetId = result.changeset_id;
       await showEditor();
       renderCorrections();
@@ -171,7 +171,7 @@ function renderCorrections() {
     const box = $("corrResult");
     box.textContent = "撤销中…";
     try {
-      const result = await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/quality/undo/${encodeURIComponent(ui.lastChangesetId)}`, {});
+      const result = await postJson(withCut(`/api/projects/${encodeURIComponent(state.projectId)}/quality/undo/${encodeURIComponent(ui.lastChangesetId)}`), {});
       ui.lastChangesetId = null;
       await showEditor();
       renderCorrections();

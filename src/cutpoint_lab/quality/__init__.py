@@ -13,6 +13,7 @@ from .ai_review import review as review_quality
 from .align_reference import align as align_reference
 from .align_reference import parse_reference
 from .confidence import LOW_CONFIDENCE_THRESHOLD, scan as scan_confidence
+from .compose_align import compose
 from .report import (
     create_issue,
     empty_report,
@@ -27,6 +28,7 @@ __all__ = [
     "LOW_CONFIDENCE_THRESHOLD",
     "align_reference",
     "apply_corrections",
+    "compose",
     "create_issue",
     "empty_report",
     "load_changeset",

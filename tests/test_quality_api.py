@@ -425,8 +425,8 @@ class QualityRouteTests(unittest.TestCase):
                 self.assertEqual(applied["rows"][0]["text"], "vibe coding")
                 change_id = applied["changeset_id"]
                 self.assertTrue((project.dir / "changesets" / f"{change_id}.json").is_file())
-                saved_selection = read_json(selection_path)
-                self.assertEqual(saved_selection["groups"][0]["purpose"], "hook")
+                saved_selection = read_json(project.cut_dir("default") / "edl.json")
+                self.assertEqual(saved_selection["order"], ["s1"])
                 self.assertTrue(saved_selection["rows"][0]["checked"])
                 self.assertIn("cuts", saved_selection["rows"][0])
 
@@ -752,7 +752,7 @@ class QualityAnalysisHttpTests(unittest.TestCase):
                 self.assertEqual(quality_ai["status"], "done", quality_ai)
                 self.assertTrue(selector.client.calls)
 
-                selection = read_json(project.dir / "selection.json")
+                selection = read_json(project.cut_dir("default") / "edl.json")
                 rows = {row["id"]: row for row in selection["rows"]}
                 self.assertEqual(rows["s1"]["text"], "今天聊超脑")
                 self.assertEqual(rows["s2"]["text"], "控制成本")
