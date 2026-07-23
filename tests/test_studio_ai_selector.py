@@ -157,6 +157,48 @@ class RemixSelectorTests(unittest.TestCase):
         self.assertGreater(suggestion.payload["clips_duration_ms"], 0)
 
 
+class SegmentIdRepairTests(unittest.TestCase):
+    """模型简写 segment_id（0055 / 55 / sentence_55）应被确定性还原，歧义与未知仍拒绝。"""
+
+    def test_alias_map_and_resolve(self):
+        from cutpoint_lab.studio.ai_selector import _alias_map, _resolve_id
+
+        aliases = _alias_map(["sentence_0055", "sentence_0102"])
+        self.assertEqual(_resolve_id("sentence_0055", aliases), "sentence_0055")
+        self.assertEqual(_resolve_id("0055", aliases), "sentence_0055")
+        self.assertEqual(_resolve_id(55, aliases), "sentence_0055")
+        self.assertEqual(_resolve_id("sentence_55", aliases), "sentence_0055")
+        self.assertEqual(_resolve_id("102", aliases), "sentence_0102")
+        self.assertIsNone(_resolve_id("9999", aliases))
+        self.assertIsNone(_resolve_id(None, aliases))
+
+    def test_ambiguous_alias_dropped(self):
+        from cutpoint_lab.studio.ai_selector import _alias_map, _resolve_id
+
+        # 两个 id 数字部分相同（不同前缀）→ "7" 歧义，须拒绝；全称仍可解析
+        aliases = _alias_map(["a_0007", "b_0007"])
+        self.assertIsNone(_resolve_id("0007", aliases))
+        self.assertEqual(_resolve_id("a_0007", aliases), "a_0007")
+
+    def test_koubo_repairs_shorthand_ids_without_warnings(self):
+        class ShorthandClient:
+            def available(self):
+                return True
+
+            def chat_json(self, _system, _user, **_kwargs):
+                return {"decisions": [
+                    {"segment_id": "0001", "keep": True, "reason": "简写形式"},
+                    {"segment_id": "sentence_0002", "keep": False, "reason": "全称"},
+                ]}
+
+        selector = AiSelector(PROMPTS_DIR, client=ShorthandClient())
+        suggestion = selector.suggest(_transcript(), "koubo_tighten")
+        by_id = {d["segment_id"]: d for d in suggestion.payload["decisions"]}
+        self.assertTrue(by_id["sentence_0001"]["keep"])
+        self.assertNotIn("uncovered", by_id["sentence_0001"]["labels"])
+        self.assertFalse(any("未知" in w or "未覆盖" in w for w in suggestion.warnings))
+
+
 class PromptFilesTests(unittest.TestCase):
     def test_prompt_files_are_pure_editorial_and_assemble_with_constraints(self):
         """提示词文件=纯自然语言剪辑理念；协议（输出格式/硬约束/占位符）在拼装层追加。"""

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -87,11 +88,11 @@ class AiSelector:
         for offset in range(0, len(segments), KOUBO_CHUNK_SIZE):
             chunk = segments[offset : offset + KOUBO_CHUNK_SIZE]
             raw = self.client.chat_json(system, _digest(chunk))
-            chunk_ids = {segment.id for segment in chunk}
+            aliases = _alias_map([segment.id for segment in chunk])
             for item in raw.get("decisions") or []:
-                segment_id = str(item.get("segment_id") or "")
-                if segment_id not in chunk_ids:
-                    warnings.append(f"忽略未知/越界 segment_id：{segment_id}")
+                segment_id = _resolve_id(item.get("segment_id"), aliases)
+                if segment_id is None:
+                    warnings.append(f"忽略未知/越界 segment_id：{item.get('segment_id')}")
                     continue
                 decisions[segment_id] = {
                     "segment_id": segment_id,
@@ -150,7 +151,7 @@ def _clock(value_ms: int) -> str:
 
 
 def _normalize_topics(raw: dict[str, Any], known_ids: list[str]) -> tuple[dict[str, Any], list[str]]:
-    known = set(known_ids)
+    known = _alias_map(known_ids)
     order = {segment_id: index for index, segment_id in enumerate(known_ids)}
     warnings: list[str] = []
     topics = []
@@ -165,7 +166,7 @@ def _normalize_topics(raw: dict[str, Any], known_ids: list[str]) -> tuple[dict[s
         clip_ids.sort(key=lambda item: order[item])
         if not clip_ids:
             clip_ids = segment_ids
-        hook = str(best.get("hook_segment_id") or "")
+        hook = _resolve_id(best.get("hook_segment_id"), known) or ""
         if hook not in clip_ids:
             hook = clip_ids[0]
         topics.append(
@@ -191,14 +192,14 @@ def _normalize_topics(raw: dict[str, Any], known_ids: list[str]) -> tuple[dict[s
 
 
 def _normalize_remix(raw: dict[str, Any], known_ids: list[str]) -> tuple[dict[str, Any], list[str]]:
-    known = set(known_ids)
+    known = _alias_map(known_ids)
     order = {segment_id: index for index, segment_id in enumerate(known_ids)}
     warnings: list[str] = []
     quotes = []
     for quote in raw.get("golden_quotes") or []:
-        segment_id = str(quote.get("segment_id") or "")
-        if segment_id not in known:
-            warnings.append(f"忽略未知金句 segment_id：{segment_id}")
+        segment_id = _resolve_id(quote.get("segment_id"), known)
+        if segment_id is None:
+            warnings.append(f"忽略未知金句 segment_id：{quote.get('segment_id')}")
             continue
         strength = quote.get("strength")
         quotes.append(
@@ -230,19 +231,57 @@ def _normalize_remix(raw: dict[str, Any], known_ids: list[str]) -> tuple[dict[st
     return payload, warnings
 
 
-def _filter_ids(raw_ids: Any, known: set[str], warnings: list[str]) -> list[str]:
+def _filter_ids(raw_ids: Any, known: dict[str, str], warnings: list[str]) -> list[str]:
     result = []
     seen = set()
     for raw in raw_ids or []:
-        segment_id = str(raw)
-        if segment_id not in known:
-            warnings.append(f"忽略未知 segment_id：{segment_id}")
+        segment_id = _resolve_id(raw, known)
+        if segment_id is None:
+            warnings.append(f"忽略未知 segment_id：{raw}")
             continue
         if segment_id in seen:
             continue
         seen.add(segment_id)
         result.append(segment_id)
     return result
+
+
+def _alias_map(ids: list[str]) -> dict[str, str]:
+    """规范 id 及其常见变体 → 规范 id 的映射。
+
+    模型偶尔把 sentence_0055 简写成 0055 / 55 / sentence_55（实测 glm-5.2-fast-preview），
+    这些变体在已知集合内可确定性还原；产生歧义的别名直接丢弃（宁缺勿错）。
+    """
+    AMBIGUOUS = object()
+    aliases: dict[str, Any] = {}
+
+    def put(alias: str, target: str) -> None:
+        if not alias:
+            return
+        current = aliases.get(alias)
+        if current is None:
+            aliases[alias] = target
+        elif current is not AMBIGUOUS and current != target:
+            aliases[alias] = AMBIGUOUS
+
+    for segment_id in ids:
+        put(segment_id, segment_id)
+        match = re.search(r"(\d+)$", segment_id)
+        if match:
+            digits = match.group(1)
+            prefix = segment_id[: match.start()]
+            put(digits, segment_id)
+            put(str(int(digits)), segment_id)
+            put(prefix + str(int(digits)), segment_id)
+    return {alias: target for alias, target in aliases.items() if target is not AMBIGUOUS}
+
+
+def _resolve_id(raw: Any, aliases: dict[str, str]) -> str | None:
+    """把模型输出的 segment_id（含变体写法）还原成规范 id；无法确定时返回 None。"""
+    if raw is None:
+        return None
+    text = str(raw).strip()
+    return aliases.get(text) or aliases.get(text.lower())
 
 
 def _attach_durations(payload: dict[str, Any], transcript: Transcript) -> None:
