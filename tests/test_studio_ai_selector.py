@@ -169,7 +169,11 @@ class SegmentIdRepairTests(unittest.TestCase):
         self.assertEqual(_resolve_id(55, aliases), "sentence_0055")
         self.assertEqual(_resolve_id("sentence_55", aliases), "sentence_0055")
         self.assertEqual(_resolve_id("102", aliases), "sentence_0102")
+        # 前缀被写坏但数字尾巴还在（实测 glm 产出）→ 仍可确定性还原
+        self.assertEqual(_resolve_id("性_0055", aliases), "sentence_0055")
+        self.assertEqual(_resolve_id("游戏_id_0102", aliases), "sentence_0102")
         self.assertIsNone(_resolve_id("9999", aliases))
+        self.assertIsNone(_resolve_id("坏前缀_9999", aliases))
         self.assertIsNone(_resolve_id(None, aliases))
 
     def test_ambiguous_alias_dropped(self):

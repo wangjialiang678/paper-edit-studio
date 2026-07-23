@@ -172,10 +172,17 @@ def _read_sse_stream(response) -> tuple[str, dict[str, Any]]:
     timeout 在流式下是"单次读的空闲超时"而非总时长——只要模型持续吐 token 就不会断。
     个别网关会无视 stream 参数直接返回整块 JSON：没读到任何 SSE 行时按普通响应回退解析。
     """
+    import time as _time
+
+    STALL_SECONDS = 120   # 距上一个内容 token 超过此时长视为假活（keepalive 苟着但模型不产出）
+    HARD_CAP_SECONDS = 900  # 绝对兜底
+
     parts: list[str] = []
     raw_lines: list[bytes] = []
     usage: dict[str, Any] = {}
     saw_sse = False
+    started = _time.monotonic()
+    last_progress = started
     try:
         iterator = iter(response)
     except TypeError:
@@ -184,6 +191,11 @@ def _read_sse_stream(response) -> tuple[str, dict[str, Any]]:
 
         iterator = iter(io.BytesIO(response.read()))
     for raw in iterator:
+        now = _time.monotonic()
+        if now - last_progress > STALL_SECONDS:
+            raise LlmError(f"LLM 流式响应停滞超过 {STALL_SECONDS}s（连接假活），已中止")
+        if now - started > HARD_CAP_SECONDS:
+            raise LlmError(f"LLM 流式响应超过 {HARD_CAP_SECONDS}s 上限，已中止")
         raw_lines.append(raw)
         line = raw.decode("utf-8", errors="replace").strip()
         if not line.startswith("data:"):
@@ -203,6 +215,7 @@ def _read_sse_stream(response) -> tuple[str, dict[str, Any]]:
             delta = (choices[0].get("delta") or {}).get("content")
             if isinstance(delta, str):
                 parts.append(delta)
+                last_progress = _time.monotonic()
     if not saw_sse:
         try:
             body = json.loads(b"".join(raw_lines).decode("utf-8"))

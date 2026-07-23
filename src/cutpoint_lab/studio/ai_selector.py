@@ -9,7 +9,7 @@ from typing import Any
 
 from ..models import Transcript
 from .llm_client import LlmClient, LlmError
-from .prompt_store import MODE_PROMPT_FILES, PromptStore
+from .prompt_store import PromptStore
 
 logger = logging.getLogger("studio.ai")
 
@@ -18,6 +18,7 @@ logger = logging.getLogger("studio.ai")
 # 约 1s/句，300 句会撞上 DashScope 网关约 298s 的响应流超时（HTTP 504）。
 KOUBO_CHUNK_SIZE = 100
 GLOBAL_MODE_MAX_SEGMENTS = 1200
+SELECTION_MODES = {"koubo_tighten", "topic_slicing", "highlight_remix"}
 
 HARD_CONSTRAINTS = (
     "\n\n【系统级硬约束（优先级最高）】"
@@ -61,7 +62,7 @@ class AiSelector:
         brief: str = "",
         target_duration: str = "",
     ) -> Suggestion:
-        if mode not in MODE_PROMPT_FILES:
+        if mode not in SELECTION_MODES:
             raise ValueError(f"未知 AI 模式：{mode}")
         system = self._render_system(mode, brief=brief, target_duration=target_duration)
         known_ids = [segment.id for segment in transcript.segments]
@@ -277,11 +278,21 @@ def _alias_map(ids: list[str]) -> dict[str, str]:
 
 
 def _resolve_id(raw: Any, aliases: dict[str, str]) -> str | None:
-    """把模型输出的 segment_id（含变体写法）还原成规范 id；无法确定时返回 None。"""
+    """把模型输出的 segment_id（含变体写法）还原成规范 id；无法确定时返回 None。
+
+    兜底一层：前缀被模型写坏（实测 glm 产出过 性_0021、游戏_id_0080）时，
+    提取尾部数字段在别名表里再查一次——编号在集合内唯一，仍是确定性还原。
+    """
     if raw is None:
         return None
     text = str(raw).strip()
-    return aliases.get(text) or aliases.get(text.lower())
+    direct = aliases.get(text) or aliases.get(text.lower())
+    if direct:
+        return direct
+    match = re.search(r"(\d+)\s*$", text)
+    if match:
+        return aliases.get(match.group(1)) or aliases.get(str(int(match.group(1))))
+    return None
 
 
 def _attach_durations(payload: dict[str, Any], transcript: Transcript) -> None:
