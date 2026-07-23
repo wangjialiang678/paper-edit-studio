@@ -38,8 +38,8 @@ python -m cutpoint_lab select <项目id> \
     --target-duration "3分钟" \
     --redline redline.md
 
-# 3) 引导式确认：生成自包含交互 HTML，可逐句/逐词调整并导出 selection.json
-python -m cutpoint_lab review <项目id> --open
+# 3) 引导式确认：网页点确认后 CLI 自动继续，无需手动回传 selection.json
+python -m cutpoint_lab review <项目id> --serve --open
 
 # 4) 批量导出：按选择的切点导出成片 mp4 + 重排 SRT
 python -m cutpoint_lab export <项目id>
@@ -47,6 +47,14 @@ python -m cutpoint_lab export <项目id>
 # 一条命令跑完整流程（AI 主用入口）：转写→选段→导出
 python -m cutpoint_lab run a.mp4 --brief "..." --redline --json
 ```
+
+## 导出速度
+
+导出对每个保留区间用 ffmpeg 帧精确重编码再拼接（切点是词级毫秒精度，无法用 `-c copy` 无损快切）。已做的提速：
+
+- **快速 seek（默认，零配置）**：每段用输入侧 `-ss` 定位，只解码该段而非从文件头解码到切点——对靠后切点是数量级提升（实测 8 分钟 HEVC 里第 7 分钟的单段：18s → 0.8s）。
+- **段级并行**：软件编码按 CPU 核数并行（`PE_EXPORT_WORKERS` 可覆盖）。
+- **硬件编码（opt-in）**：默认走 `libx264`。实测在常见素材上瓶颈是源解码而非编码，硬件编码（mac VideoToolbox / Win NVENC·QSV·AMF）反而更慢，故不默认开启。需要时设 `PE_EXPORT_ENCODER=auto` 探测并使用硬件编码（探测/失败自动回退 libx264），或直接指定编码器名。
 
 ## 参数速查
 
@@ -58,7 +66,9 @@ python -m cutpoint_lab run a.mp4 --brief "..." --redline --json
 | `--redline` | run | 生成修订对照（默认写到项目目录 `redline.md`） |
 | `--redline-dir DIR` | select / run | 批量时每个项目写 `<项目id>.md` |
 | `--out PATH` | review | 单项目确认页输出路径；默认 `workspace/<项目id>/review.html` |
-| `--open` | review | 生成确认页后在默认浏览器打开 |
+| `--serve` | review | 单项目启动仅绑定 `127.0.0.1` 的确认服务；网页确认后自动写回 `selection.json` 并结束等待；不能与 `--all` 同用 |
+| `--timeout SECONDS` | review + `--serve` | 最长等待确认的秒数，默认 `1800`；超时后命令返回错误，仍可下载文件手动回传 |
+| `--open` | review | 在默认浏览器打开确认页；`--serve` 时打开本机确认服务地址 |
 | `--strategy NAME` | export / run | 切点策略，默认 `hybrid_valley`；缺分析音频自动回退 `token_padding` |
 | `--out DIR` | export / run | 额外把成片/SRT 复制到此目录 |
 | `--all` | select / review / export | 处理工作区内全部项目；review 批量时不能使用 `--out` |
@@ -78,18 +88,20 @@ python -m cutpoint_lab run a.mp4 --brief "..." --redline --json
   ```
   批量逐项隔离失败：某项失败其 `error` 非 null、不影响其他项；**任一失败进程退出码为 1**（全成功为 0，argparse 参数错误为 2）。
 - **修订对照文件**（Markdown 划线）：保留句正常显示、删除句 `~~划线~~` 并在行尾标注 AI 删除理由，文件头有保留/删除句数与时长统计。可读、可 diff、可转 Word——**先审再导出**的信任抓手。
-- **交互确认页**：`review` 输出完全自包含的 `review.html`，无需服务即可打开；页面可调整句子和词块，下载更新后的 `selection.json`。
+- **交互确认页**：`review` 总会输出完全自包含的 `review.html`，无需服务即可打开；词块按句内文字连排，英文相邻词自动补空格。使用 `--serve` 时，页面还会把确认结果直接写回项目的 `selection.json`。
 - **项目目录** `workspace/<项目id>/`：`transcript.json`（词级字幕）、`selection.json`（保留/删除）、`review.html`（交互确认）、`clip_plan.json`（切点）、`exports/edited-*.mp4` + `.srt`。
 
 ## 引导式确认
 
-需要在导出前逐句、逐词确认时，按下面的闭环操作：
+需要在导出前逐句、逐词确认时，推荐用本机确认服务完成闭环：
 
 1. `select <项目id> --brief "..."` 生成 AI 初选和 `selection.json`。
-2. `review <项目id> --open` 生成并打开 `workspace/<项目id>/review.html`。
-3. 在页面里勾选句子、点击词块删除或恢复，然后点「导出 selection.json」。
-4. 用下载的文件覆盖 `workspace/<项目id>/selection.json`。
+2. `review <项目id> --serve --open` 启动仅本机可访问的确认页；终端会等待网页操作。
+3. 在页面里勾选句子、点击词块删除或恢复，然后点「✓ 确认完成，继续剪辑」。
+4. 页面确认后，CLI 自动把同一结构的选择结果写入 `workspace/<项目id>/selection.json`，终端返回包含 `selection` 与 `confirmed: true` 的结果。
 5. `export <项目id>` 按确认后的逐句/逐词选择导出成片。
+
+如果无法使用 `--serve`，可退回静态模式：`review <项目id> --open`，在页面点「导出 selection.json」后手动覆盖项目目录里的同名文件。确认服务超时时，页面上的「下载 selection.json」也可作为同一后备路径。
 
 页面不含视频预览和切点微调；这些操作继续使用完整版网页界面。
 

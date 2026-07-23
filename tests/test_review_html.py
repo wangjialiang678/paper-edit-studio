@@ -4,12 +4,17 @@ import io
 import json
 import re
 import tempfile
+import threading
+import time
 import unittest
+import urllib.request
 from contextlib import redirect_stdout
 from pathlib import Path
+from queue import Empty, Queue
+from unittest.mock import patch
 
 from cutpoint_lab.cli import main, run_review
-from cutpoint_lab.io import load_transcript, write_json
+from cutpoint_lab.io import load_transcript, read_json, write_json
 from cutpoint_lab.paper_edit.review_html import render_review_html
 from cutpoint_lab.studio.workspace import Workspace
 
@@ -126,6 +131,40 @@ class RenderReviewHtmlTests(unittest.TestCase):
         self.assertEqual(data["rows"][0]["reason"], "开场核心观点")
         self.assertEqual(data["rows"][2]["tokens"], [])
 
+    def test_renders_inline_tokens_with_ascii_space_rule(self):
+        payload = _transcript_payload()
+        payload["segments"][0]["tokens"] = [
+            {"text": "hello", "start_ms": 50, "end_ms": 150},
+            {"text": "world", "start_ms": 160, "end_ms": 260},
+            {"text": "中文", "start_ms": 270, "end_ms": 370},
+            {"text": "again", "start_ms": 380, "end_ms": 480},
+            {"text": "Case", "start_ms": 490, "end_ms": 590},
+        ]
+
+        page = render_review_html(load_transcript(payload), [])
+
+        self.assertIn(".tokens {\n      display: block;", page)
+        self.assertIn(".token {\n      display: inline;", page)
+        token_rules = page.split(".tokens {", maxsplit=1)[1].split("}", maxsplit=1)[0]
+        self.assertNotIn("flex", token_rules)
+        self.assertNotIn("gap", token_rules)
+        self.assertIn("function needsAsciiSpace", page)
+        self.assertIn("/[A-Za-z]$/.test(previousText)", page)
+        self.assertIn("/^[A-Za-z]/.test(currentText)", page)
+        self.assertIn('document.createTextNode(" ")', page)
+
+    def test_renders_confirm_mode_payload_and_controls(self):
+        page = render_review_html(
+            load_transcript(_transcript_payload()),
+            [],
+            confirm_url="/confirm",
+        )
+
+        self.assertEqual(_embedded_data(page)["confirm_url"], "/confirm")
+        self.assertIn("✓ 确认完成，继续剪辑", page)
+        self.assertIn("已确认，剪辑继续进行中，可关闭本页回到终端", page)
+        self.assertIn('fetch(confirmUrl, {', page)
+
 
 class ReviewCliTests(unittest.TestCase):
     def test_run_review_writes_html_and_reads_ai_decisions(self):
@@ -211,6 +250,97 @@ class ReviewCliTests(unittest.TestCase):
                 Path(manifest["outputs"]["review_html"]).read_text(encoding="utf-8")
             )
             self.assertEqual([row["checked"] for row in data["rows"]], [True, True, True])
+
+    def test_run_review_serve_confirms_selection_and_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = Workspace(root / "workspace")
+            project = workspace.create_project(
+                "网页确认",
+                source_path=root / "source.mp4",
+                imported_via="path",
+            )
+            write_json(project.transcript_path, _transcript_payload())
+            messages: Queue[str] = Queue()
+            result: dict = {}
+            failure: dict = {}
+
+            def run_server() -> None:
+                try:
+                    result["manifest"] = run_review(
+                        project,
+                        serve=True,
+                        timeout_seconds=10,
+                        open_browser=False,
+                    )
+                except Exception as exc:  # noqa: BLE001 - 测试需收集线程异常。
+                    failure["exception"] = exc
+
+            with patch("cutpoint_lab.cli._progress", messages.put):
+                worker = threading.Thread(target=run_server, daemon=True)
+                worker.start()
+                deadline = time.monotonic() + 3
+                review_url: str | None = None
+                while time.monotonic() < deadline and review_url is None:
+                    try:
+                        message = messages.get(timeout=0.1)
+                    except Empty:
+                        continue
+                    match = re.search(r"http://127\.0\.0\.1:\d+/", message)
+                    if match is not None:
+                        review_url = match.group(0)
+
+                self.assertIsNotNone(review_url, "确认服务未输出本机 URL")
+                with urllib.request.urlopen(review_url, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
+                    page = response.read().decode("utf-8")
+                self.assertEqual(_embedded_data(page)["confirm_url"], "/confirm")
+
+                expected = {
+                    "rows": [
+                        {
+                            "id": "sentence_0001",
+                            "checked": True,
+                            "text": "先说一个核心观点。",
+                            "cuts": [],
+                        }
+                    ],
+                    "source": "review_html",
+                }
+                request = urllib.request.Request(
+                    f"{review_url}confirm",
+                    data=json.dumps(expected, ensure_ascii=False).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(json.loads(response.read()), {"ok": True})
+
+                worker.join(timeout=3)
+
+            self.assertFalse(worker.is_alive(), "确认后 run_review 未在限时内返回")
+            self.assertNotIn("exception", failure)
+            self.assertEqual(read_json(project.dir / "selection.json"), expected)
+            self.assertTrue(result["manifest"]["outputs"]["confirmed"])
+            self.assertEqual(
+                result["manifest"]["outputs"]["selection"],
+                str(project.dir / "selection.json"),
+            )
+
+    def test_run_review_serve_raises_after_timeout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = Workspace(root / "workspace")
+            project = workspace.create_project(
+                "确认超时",
+                source_path=root / "source.mp4",
+                imported_via="path",
+            )
+            write_json(project.transcript_path, _transcript_payload())
+
+            with self.assertRaisesRegex(RuntimeError, r"确认超时（1s）："):
+                run_review(project, serve=True, timeout_seconds=1)
 
     def test_review_help_is_available(self):
         with redirect_stdout(io.StringIO()):

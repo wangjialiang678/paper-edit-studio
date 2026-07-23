@@ -46,8 +46,8 @@ python -m cutpoint_lab transcribe a.mp4 b.mp4
 # 2) AI 选段：口播精剪（保留高光、删赘语口癖重复），--redline 可选导出「修订模式」Markdown
 python -m cutpoint_lab select <项目id> --brief "保留成长与创作过程的高光，删掉口癖和重复" --redline redline.md
 
-# 3) 交互确认：浏览器逐句/逐词调整，导出新的 selection.json
-python -m cutpoint_lab review <项目id> --open
+# 3) 交互确认：浏览器逐句/逐词调整，点确认后 CLI 自动写回 selection.json
+python -m cutpoint_lab review <项目id> --serve --open
 
 # 4) 批量导出：按选择的切点导出成片 mp4 + 重排 SRT
 python -m cutpoint_lab export <项目id>
@@ -57,7 +57,7 @@ python -m cutpoint_lab run a.mp4 b.mp4 --brief "..." --redline --json
 ```
 
 - `--json`：stdout 只输出结构化 manifest（项目 id / 产物路径 / 计数 / warnings），人类进度打到 stderr，便于 AI 解析。
-- `select`/`review`/`export` 支持 `--all` 处理工作区全部项目；批量逐项隔离失败，任一失败退出码非 0。
+- `select`/`review`/`export` 支持 `--all` 处理工作区全部项目；`review --serve` 仅支持单项目。批量逐项隔离失败，任一失败退出码非 0。
 - **「修订模式」文件**是 Markdown 划线：保留句正常显示、删除句 `~~划线~~` 并在行尾标注 AI 删除理由，可读、可 diff、可转 Word。
 - 默认切点策略 `hybrid_valley`（与网页版一致），缺分析音频时自动回退 `token_padding`。
 - 依赖与网页版相同：`ffmpeg` 在 `PATH` + `DASHSCOPE_API_KEY`（详见下方「环境依赖」）。

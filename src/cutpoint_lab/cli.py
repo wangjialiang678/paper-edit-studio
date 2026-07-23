@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import http.server
 import json
 import shutil
 import sys
+import threading
 import time
 import webbrowser
 from pathlib import Path
@@ -44,6 +46,113 @@ from cutpoint_lab.engine import (
 
 DEFAULT_PROMPTS_DIR = Path(__file__).resolve().parents[2] / "prompts"
 FRAME_STRATEGIES = {"rms_snap", "anchored_rms", "visual_waveform", "hybrid_valley"}
+MAX_REVIEW_CONFIRM_BODY_BYTES = 10 * 1024 * 1024
+
+
+class _ReviewConfirmationServer:
+    """仅供一次本地确认使用的 HTTP 服务。"""
+
+    def __init__(self, page_html: str, selection_path: Path) -> None:
+        self._page = page_html.encode("utf-8")
+        self._selection_path = selection_path
+        self.confirmed = threading.Event()
+        self._confirmation_lock = threading.Lock()
+
+        owner = self
+
+        class RequestHandler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802 - HTTP handler hook.
+                if self.path != "/":
+                    self.send_error(404)
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(owner._page)))
+                self.end_headers()
+                self.wfile.write(owner._page)
+
+            def do_POST(self) -> None:  # noqa: N802 - HTTP handler hook.
+                if self.path != "/confirm":
+                    self.send_error(404)
+                    return
+                owner._confirm(self)
+
+            def log_message(self, _format: str, *_args: object) -> None:
+                return
+
+        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), RequestHandler)
+        self._server.daemon_threads = True
+        self._thread = threading.Thread(
+            target=self._server.serve_forever,
+            name="pe-review-confirm",
+            daemon=True,
+        )
+
+    @property
+    def url(self) -> str:
+        host, port = self._server.server_address[:2]
+        return f"http://{host}:{port}/"
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def close(self) -> None:
+        self._server.shutdown()
+        self._server.server_close()
+        self._thread.join(timeout=5)
+
+    def _confirm(self, request: http.server.BaseHTTPRequestHandler) -> None:
+        content_length = request.headers.get("Content-Length")
+        try:
+            body_length = int(content_length) if content_length is not None else -1
+        except ValueError:
+            body_length = -1
+        if body_length < 0:
+            self._send_json(request, 411, {"ok": False, "error": "缺少有效 Content-Length"})
+            return
+        if body_length > MAX_REVIEW_CONFIRM_BODY_BYTES:
+            self._send_json(request, 413, {"ok": False, "error": "确认内容超过 10MB"})
+            return
+
+        try:
+            payload = json.loads(request.rfile.read(body_length).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            self._send_json(request, 400, {"ok": False, "error": "确认内容不是合法 JSON"})
+            return
+        if not isinstance(payload, dict) or not isinstance(payload.get("rows"), list) or not payload["rows"]:
+            self._send_json(request, 400, {"ok": False, "error": "确认内容缺少非空 rows 列表"})
+            return
+
+        with self._confirmation_lock:
+            if self.confirmed.is_set():
+                self._send_json(request, 200, {"ok": True})
+                return
+            try:
+                write_json(self._selection_path, payload)
+            except OSError as exc:
+                self._send_json(request, 500, {"ok": False, "error": str(exc)})
+                return
+            self._send_json(request, 200, {"ok": True})
+            self.confirmed.set()
+            threading.Thread(
+                target=self._server.shutdown,
+                name="pe-review-confirm-shutdown",
+                daemon=True,
+            ).start()
+
+    @staticmethod
+    def _send_json(
+        request: http.server.BaseHTTPRequestHandler,
+        status: int,
+        payload: dict[str, Any],
+    ) -> None:
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        request.send_response(status)
+        request.send_header("Content-Type", "application/json; charset=utf-8")
+        request.send_header("Content-Length", str(len(body)))
+        request.end_headers()
+        request.wfile.write(body)
+        request.wfile.flush()
 
 
 def _format_srt_time(value_ms: int) -> str:
@@ -175,6 +284,9 @@ def run_review(
     project: Project,
     *,
     out_path: str | Path | None = None,
+    serve: bool = False,
+    timeout_seconds: int = 1800,
+    open_browser: bool = False,
 ) -> dict[str, Any]:
     if not project.transcript_path.is_file():
         raise RuntimeError(f"字幕文件不存在：{project.transcript_path}")
@@ -213,7 +325,38 @@ def run_review(
         render_review_html(transcript, rows, decisions),
         encoding="utf-8",
     )
-    return {"outputs": {"review_html": str(target)}, "warnings": []}
+    outputs: dict[str, Any] = {"review_html": str(target)}
+    if not serve:
+        if open_browser:
+            webbrowser.open(target.resolve().as_uri())
+        return {"outputs": outputs, "warnings": []}
+
+    if timeout_seconds <= 0:
+        raise ValueError("确认超时时间必须大于 0 秒")
+    confirmation_page = render_review_html(
+        transcript,
+        rows,
+        decisions,
+        confirm_url="/confirm",
+    )
+    server = _ReviewConfirmationServer(confirmation_page, selection_path)
+    server.start()
+    _progress(f"[{project.id}] 确认页面：{server.url}")
+    _progress("在网页里确认后我会自动继续")
+    try:
+        if open_browser:
+            webbrowser.open(server.url)
+        if not server.confirmed.wait(timeout_seconds):
+            timeout_label = f"{timeout_seconds:g}"
+            raise RuntimeError(
+                f"确认超时（{timeout_label}s）：可在页面点“下载 selection.json”后手动覆盖 "
+                f"workspace/{project.id}/selection.json"
+            )
+    finally:
+        server.close()
+
+    outputs.update({"selection": str(selection_path), "confirmed": True})
+    return {"outputs": outputs, "warnings": []}
 
 
 def run_export(
@@ -366,6 +509,14 @@ def _build_parser() -> argparse.ArgumentParser:
     review.add_argument("projects", nargs="*", metavar="PROJECT")
     review.add_argument("--all", action="store_true", help="处理工作区内全部项目")
     review.add_argument("--out", default=None, metavar="PATH", help="单项目 HTML 输出路径")
+    review.add_argument("--serve", action="store_true", help="启动本机确认服务并等待网页确认")
+    review.add_argument(
+        "--timeout",
+        type=int,
+        default=1800,
+        metavar="SECONDS",
+        help="--serve 的确认等待秒数（默认：1800）",
+    )
     review.add_argument("--open", action="store_true", help="生成后在浏览器中打开")
     _add_shared_arguments(review)
 
@@ -537,11 +688,17 @@ def _handle_select(args: argparse.Namespace, workspace: Workspace) -> list[dict[
 def _handle_review(args: argparse.Namespace, workspace: Workspace) -> list[dict[str, Any]]:
     if args.out and args.all:
         raise ValueError("--out 仅适用于显式指定的单个项目，不能与 --all 同时使用")
+    if args.serve and args.all:
+        raise ValueError("--serve 仅适用于显式指定的单个项目，不能与 --all 同时使用")
     project_ids = _project_ids(workspace, args.projects, args.all)
     if not project_ids:
         raise ValueError("请指定 PROJECT，或使用 --all")
     if args.out and len(project_ids) != 1:
         raise ValueError("--out 仅适用于单个项目")
+    if args.serve and len(project_ids) != 1:
+        raise ValueError("--serve 仅适用于单个项目")
+    if args.serve and args.timeout <= 0:
+        raise ValueError("--timeout 必须是大于 0 的秒数")
 
     results: list[dict[str, Any]] = []
     for project_id in project_ids:
@@ -554,12 +711,15 @@ def _handle_review(args: argparse.Namespace, workspace: Workspace) -> list[dict[
             if project is None:
                 raise ValueError(f"项目不存在：{project_id}")
             _progress(f"[{project.id}] 开始生成剪辑确认页")
-            payload = run_review(project, out_path=args.out)
+            payload = run_review(
+                project,
+                out_path=args.out,
+                serve=args.serve,
+                timeout_seconds=args.timeout,
+                open_browser=args.open,
+            )
             result["outputs"] = payload["outputs"]
             result["warnings"] = payload["warnings"]
-            if args.open:
-                review_path = Path(payload["outputs"]["review_html"]).resolve()
-                webbrowser.open(review_path.as_uri())
             _progress(f"[{project.id}] 剪辑确认页生成完成")
         except Exception as exc:  # noqa: BLE001 - 批量任务逐项隔离失败。
             result["error"] = str(exc)

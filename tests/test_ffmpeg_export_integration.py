@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -142,3 +143,61 @@ class FfmpegExportIntegrationTest(unittest.TestCase):
                 output_duration_ms + tolerance_ms,
                 f"Cue end_ms={cue.end_ms} exceeds output duration={output_duration_ms} ms",
             )
+
+    def test_parallel_export_preserves_range_order_and_reports_diagnostics(self) -> None:
+        tmp = Path(self._tmpdir.name)
+        clip_plan: dict = {
+            "ranges": [
+                {"start_ms": 0, "end_ms": 1500},
+                {"start_ms": 2500, "end_ms": 4000},
+                {"start_ms": 5500, "end_ms": 7000},
+                {"start_ms": 8000, "end_ms": 9500},
+            ]
+        }
+        output_video = tmp / "parallel-edited.mp4"
+
+        result = export_video_plan(
+            self._source,
+            clip_plan,
+            output_video,
+            encoder="libx264",
+            max_workers=2,
+        )
+
+        self.assertTrue(output_video.is_file())
+        self.assertAlmostEqual(result["duration_ms"], 6000, delta=250)
+        self.assertEqual(result["encoder"], "libx264")
+        self.assertEqual(result["workers"], 2)
+        self.assertEqual(
+            [Path(path).name for path in result["segments"]],
+            ["segment_001.mp4", "segment_002.mp4", "segment_003.mp4", "segment_004.mp4"],
+        )
+
+    def test_macos_videotoolbox_export_when_opted_in(self) -> None:
+        if sys.platform != "darwin":
+            self.skipTest("只在 macOS 上验证 VideoToolbox")
+
+        from cutpoint_lab.hw_encoder import pick_video_encoder
+
+        ffmpeg = shutil.which("ffmpeg")
+        if not ffmpeg or pick_video_encoder(ffmpeg) != "h264_videotoolbox":
+            self.skipTest("当前 ffmpeg 或设备不支持 VideoToolbox")
+
+        tmp = Path(self._tmpdir.name)
+        output_video = tmp / "videotoolbox-edited.mp4"
+        # 硬件编码是显式 opt-in（encoder="auto" 才探测硬件），默认路径走 libx264。
+        result = export_video_plan(
+            self._source,
+            {"ranges": [{"start_ms": 1000, "end_ms": 4000}]},
+            output_video,
+            encoder="auto",
+        )
+
+        self.assertEqual(result["encoder"], "h264_videotoolbox")
+        subprocess.run(
+            ["ffprobe", "-v", "error", "-show_streams", str(output_video)],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+        )

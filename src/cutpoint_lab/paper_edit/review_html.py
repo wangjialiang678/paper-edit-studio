@@ -13,6 +13,7 @@ def render_review_html(
     decisions: dict[str, dict] | None = None,
     *,
     title: str = "剪辑确认",
+    confirm_url: str | None = None,
 ) -> str:
     """把字幕和选择状态渲染为可离线使用的交互式确认页面。"""
 
@@ -27,7 +28,11 @@ def render_review_html(
         for segment in transcript.segments
     ]
     embedded = json.dumps(
-        {"rows": rows, "source": "review_html"},
+        {
+            "rows": rows,
+            "source": "review_html",
+            "confirm_url": confirm_url,
+        },
         ensure_ascii=False,
         separators=(",", ":"),
     ).replace("</", "<\\/")
@@ -106,6 +111,32 @@ def render_review_html(
     }
 
     .export-button:hover { background: var(--blue-dark); }
+    .export-button:disabled { cursor: default; opacity: 0.65; }
+
+    .actions {
+      display: flex;
+      flex: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .download-button {
+      padding: 8px 11px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .download-button:hover { color: var(--text); border-color: #94a3b8; }
+
+    .confirmation-status {
+      margin-top: 3px;
+      color: #15803d;
+      font-size: 13px;
+    }
 
     main {
       width: min(1060px, calc(100% - 32px));
@@ -165,22 +196,21 @@ def render_review_html(
     }
 
     .tokens {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
+      display: block;
     }
 
     .token {
-      padding: 3px 7px;
-      border: 1px solid transparent;
-      border-radius: 6px;
+      display: inline;
+      padding: 0;
+      border: 0;
+      border-radius: 3px;
       color: inherit;
       background: transparent;
       cursor: pointer;
+      vertical-align: baseline;
     }
 
     .token:hover {
-      border-color: #bfdbfe;
       background: var(--blue-soft);
     }
 
@@ -216,6 +246,8 @@ def render_review_html(
       }
       .reason { grid-column: 3; }
       .export-button { padding: 8px 11px; }
+      .actions { gap: 5px; }
+      .download-button { padding: 7px 8px; }
     }
   </style>
 </head>
@@ -226,8 +258,11 @@ def render_review_html(
         + html.escape(str(title))
         + """</h1>
       <div class="stats" id="stats" aria-live="polite"></div>
+      <div class="confirmation-status" id="confirmation-status" hidden></div>
     </div>
-    <button class="export-button" id="export-button" type="button">导出 selection.json</button>
+    <div class="actions" id="actions">
+      <button class="export-button" id="export-button" type="button">导出 selection.json</button>
+    </div>
   </header>
   <main>
     <p class="hint">勾选句子决定保留或删除；点击词块可删除或恢复该词。</p>
@@ -257,6 +292,10 @@ def render_review_html(
       const rowsElement = document.getElementById("rows");
       const statsElement = document.getElementById("stats");
       const tokenTemplate = document.getElementById("token-template");
+      const exportButton = document.getElementById("export-button");
+      const actionsElement = document.getElementById("actions");
+      const confirmationStatus = document.getElementById("confirmation-status");
+      const confirmUrl = payload.confirm_url;
 
       function formatTimestamp(valueMs) {
         const totalSeconds = Math.max(0, Math.floor(Number(valueMs) / 1000));
@@ -306,6 +345,11 @@ def render_review_html(
         window.alert("保留句至少需要保留一个词，请先恢复词块或取消保留整句。");
       }
 
+      // 与 _join_token_text 一致：相邻 ASCII 字母词块间补一个不可点击空格。
+      function needsAsciiSpace(previousText, currentText) {
+        return /[A-Za-z]$/.test(previousText) && /^[A-Za-z]/.test(currentText);
+      }
+
       function renderRow(row) {
         const element = document.createElement("article");
         element.className = `sentence-row${row.checked ? " checked" : ""}`;
@@ -335,6 +379,9 @@ def render_review_html(
           const tokens = document.createElement("div");
           tokens.className = "tokens";
           row.tokens.forEach((token, index) => {
+            if (index > 0 && needsAsciiSpace(row.tokens[index - 1].text, token.text)) {
+              tokens.appendChild(document.createTextNode(" "));
+            }
             const tokenButton = tokenTemplate.content.firstElementChild.cloneNode(true);
             tokenButton.textContent = token.text;
             tokenButton.classList.toggle("deleted", row.removed.has(index));
@@ -380,7 +427,7 @@ def render_review_html(
       rows.forEach((row) => rowsElement.appendChild(renderRow(row)));
       updateStats();
 
-      document.getElementById("export-button").addEventListener("click", () => {
+      function selectionPayload() {
         const exportRows = rows.map((row) => {
           const output = {
             id: row.id,
@@ -393,7 +440,11 @@ def render_review_html(
           }
           return output;
         });
-        const json = JSON.stringify({ rows: exportRows, source: "review_html" }, null, 2);
+        return { rows: exportRows, source: "review_html" };
+      }
+
+      function downloadSelection() {
+        const json = JSON.stringify(selectionPayload(), null, 2);
         const url = URL.createObjectURL(new Blob([json], { type: "application/json;charset=utf-8" }));
         const link = document.createElement("a");
         link.href = url;
@@ -402,7 +453,39 @@ def render_review_html(
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 0);
-      });
+      }
+
+      if (confirmUrl) {
+        exportButton.textContent = "✓ 确认完成，继续剪辑";
+        const downloadButton = document.createElement("button");
+        downloadButton.className = "download-button";
+        downloadButton.type = "button";
+        downloadButton.textContent = "下载 selection.json";
+        downloadButton.addEventListener("click", downloadSelection);
+        actionsElement.appendChild(downloadButton);
+
+        exportButton.addEventListener("click", async () => {
+          exportButton.disabled = true;
+          try {
+            const response = await fetch(confirmUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(selectionPayload()),
+            });
+            if (response.status !== 200) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+            exportButton.textContent = "✓ 已确认";
+            confirmationStatus.textContent = "已确认，剪辑继续进行中，可关闭本页回到终端";
+            confirmationStatus.hidden = false;
+          } catch (error) {
+            exportButton.disabled = false;
+            window.alert("确认失败，请重试；也可下载 selection.json 后手动回传。");
+          }
+        });
+      } else {
+        exportButton.addEventListener("click", downloadSelection);
+      }
     })();
   </script>
 </body>
