@@ -26,7 +26,7 @@ audience: ai, human
 免安装：`python -m cutpoint_lab <子命令>`（在仓库根目录运行）
 或 `scripts/pe.py <子命令>`；`pip install -e .` 后可用 `pe <子命令>`。
 
-## 五个子命令
+## 核心剪辑命令
 
 ```bash
 # 1) 批量转写：视频 → 词级时间戳字幕（transcript.json）+ 全文 SRT
@@ -101,6 +101,30 @@ python -m cutpoint_lab compose <项目id> 成片文稿.txt --cut waigao-v1 --ai 
 - `compose` 会同时写出对齐报告 `cuts/<方案名>/compose_report.json`（每段 status：`auto`/`ai`/`unmatched` + 相似度 + 命中句 id），`--json` 时在 manifest 里带 stats。
 - 未匹配段落**不会**进入成片顺序——先改文稿或手工在网页里补选，再继续。
 
+## V2 内容规划（content-map / quotes / budget）
+
+内容地图和金句候选是项目级共享产物；时长预算针对某个 Cut，所有 `fit` 结果都只是建议，绝不自动修改 EDL。
+
+```bash
+# 内容地图：--analyze 同步调用 AI 并写 content_map.json；不加时离线读取现档
+python -m cutpoint_lab content-map <项目id> --analyze --json
+python -m cutpoint_lab content-map <项目id> --json
+
+# 金句候选：分析全部 confirmed topic，或只重跑一个主题
+python -m cutpoint_lab quotes <项目id> --analyze --json
+python -m cutpoint_lab quotes <项目id> --analyze --topic t1 --json
+
+# 时长预算：--cut 必填；fit 三策略均只返回删减建议
+python -m cutpoint_lab budget <项目id> --cut default --json
+python -m cutpoint_lab budget <项目id> --cut default --fit strict --json
+python -m cutpoint_lab budget <项目id> --cut default --fit complete --json
+python -m cutpoint_lab budget <项目id> --cut default --fit keep_quotes --json
+```
+
+- `content-map --analyze` 与 `quotes --analyze` 需要 LLM API Key；不带 `--analyze` 的读取和 `budget` 可离线运行。
+- `quotes --topic` 只替换该主题的候选，其他主题候选及其确认状态保留。
+- `budget` 用与导出相同的真实切点管线估算，包含 `cuts`、`trim`、`nudge` 和重复 `order` 的影响。
+
 ## 导出速度
 
 导出对每个保留区间用 ffmpeg 帧精确重编码再拼接（切点是词级毫秒精度，无法用 `-c copy` 无损快切）。已做的提速：
@@ -127,6 +151,9 @@ python -m cutpoint_lab compose <项目id> 成片文稿.txt --cut waigao-v1 --ai 
 | `--all` | select / review / export | 处理工作区内全部项目；review 批量时不能使用 `--out` |
 | `--cut NAME` | select / review / export / run / check / fix / reference / undo | 目标成片方案，默认 `default`；compose 用它命名**新建**方案（必填） |
 | `--ai` | compose | 灰区段落交大模型裁决（高相似段落不花钱，仍走确定性匹配） |
+| `--analyze` | content-map / quotes | 同步运行相应 AI 分析并写项目级 JSON；不加时只读现档 |
+| `--topic ID` | quotes + `--analyze` | 只重跑一个 confirmed topic，保留其他主题候选 |
+| `--fit STRATEGY` | budget | `strict` / `complete` / `keep_quotes`，只输出建议、不修改 EDL |
 | `--json` | 所有 | stdout 输出结构化 manifest（供 agent 解析），进度走 stderr |
 | `--workspace DIR` | 所有 | 项目工作区目录，默认 `workspace` |
 
@@ -144,7 +171,7 @@ python -m cutpoint_lab compose <项目id> 成片文稿.txt --cut waigao-v1 --ai 
   批量逐项隔离失败：某项失败其 `error` 非 null、不影响其他项；**任一失败进程退出码为 1**（全成功为 0，argparse 参数错误为 2）。
 - **修订对照文件**（Markdown 划线）：保留句正常显示、删除句 `~~划线~~` 并在行尾标注 AI 删除理由，文件头有保留/删除句数与时长统计。可读、可 diff、可转 Word——**先审再导出**的信任抓手。
 - **交互确认页**：`review` 总会输出完全自包含的 `review.html`，无需服务即可打开；拖动句首的 `⠿` 可重排，词块按句内文字连排，英文相邻词自动补空格。使用 `--serve` 时，页面还会把确认结果直接写回项目的 `selection.json`。
-- **项目目录** `workspace/<项目id>/`：`transcript.json`（词级字幕）、`review.html`（交互确认），以及每套成片方案一个目录 `cuts/<方案名>/`（`edl.json` 编辑决策、`clip_plan.json` 切点、`compose_report.json` 文稿对齐报告、`exports/edited-*.mp4` + `.srt`）。
+- **项目目录** `workspace/<项目id>/`：`transcript.json`（词级字幕）、`content_map.json`（内容地图）、`quote_candidates.json`（金句候选）、`review.html`（交互确认），以及每套成片方案一个目录 `cuts/<方案名>/`（`edl.json` 编辑决策、`clip_plan.json` 切点、`compose_report.json` 文稿对齐报告、`exports/edited-*.mp4` + `.srt`）。
 
 ### 编辑决策文件（edl.json）：挑段、调序和删词
 

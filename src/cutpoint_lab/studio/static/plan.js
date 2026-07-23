@@ -10,6 +10,8 @@ export function planBody() {
       if (row.trim) item.trim = row.trim;
       if (row.nudge && (row.nudge.start_ms || row.nudge.end_ms)) item.nudge = row.nudge;
       if (row.cuts && row.cuts.length) item.cuts = row.cuts;
+      if (row.role) item.role = row.role;       // 角色（⭐金句/主张/背景…），时长预算的输入
+      if (row.locked) item.locked = true;       // 锁定=重跑 AI 不得无提示替换
       return item;
     }),
     order: state.order.length ? state.order : undefined,
@@ -26,6 +28,7 @@ export async function syncPlan() {
   if (!state.projectId || !hasSelection()) { setRanges([]); return null; }
   const payload = await postJson(withCut(`/api/projects/${state.projectId}/plan`), planBody());
   setRanges(payload.plan.ranges || []);
+  document.dispatchEvent(new CustomEvent("plan-synced")); // budget.js 刷新预算条
   return payload;
 }
 

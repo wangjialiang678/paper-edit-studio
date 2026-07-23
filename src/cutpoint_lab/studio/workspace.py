@@ -118,6 +118,14 @@ class Project:
     def uploads_dir(self) -> Path:
         return self.dir / "uploads"
 
+    @property
+    def content_map_path(self) -> Path:
+        return self.dir / "content_map.json"
+
+    @property
+    def quote_candidates_path(self) -> Path:
+        return self.dir / "quote_candidates.json"
+
     # --- 状态读写 ---
     def read_state(self) -> dict[str, Any]:
         with self._lock:
@@ -146,6 +154,39 @@ class Project:
 
     def transcript_ready(self) -> bool:
         return self.transcript_path.exists()
+
+    # --- V2 项目级规划产物 ---
+    def read_content_map(self) -> dict[str, Any]:
+        with self._lock:
+            if not self.content_map_path.is_file():
+                return {}
+            payload = read_json(self.content_map_path)
+            if not isinstance(payload, dict):
+                raise ValueError("content_map.json 必须是 JSON 对象")
+            return payload
+
+    def write_content_map(self, payload: dict[str, Any]) -> Path:
+        if not isinstance(payload, dict):
+            raise ValueError("content_map 必须是 JSON 对象")
+        with self._lock:
+            write_json(self.content_map_path, payload)
+            return self.content_map_path
+
+    def read_quote_candidates(self) -> dict[str, Any]:
+        with self._lock:
+            if not self.quote_candidates_path.is_file():
+                return {}
+            payload = read_json(self.quote_candidates_path)
+            if not isinstance(payload, dict):
+                raise ValueError("quote_candidates.json 必须是 JSON 对象")
+            return payload
+
+    def write_quote_candidates(self, payload: dict[str, Any]) -> Path:
+        if not isinstance(payload, dict):
+            raise ValueError("quote_candidates 必须是 JSON 对象")
+        with self._lock:
+            write_json(self.quote_candidates_path, payload)
+            return self.quote_candidates_path
 
     # --- Cut / EDL ---
     def cut_dir(self, name: str = DEFAULT_CUT) -> Path:

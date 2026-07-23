@@ -7,6 +7,7 @@ import { syncPlan } from "./plan.js";
 import { updateTransport } from "./player.js";
 import { loadQualityReport } from "./quality.js";
 import { loadCuts } from "./cuts.js";
+import { refreshBudget } from "./budget.js";
 
 export async function showEditor() {
   try {
@@ -32,6 +33,7 @@ export async function showEditor() {
       await syncPlan();
     } catch { /* 无选中句或字幕缺词级时间戳时，成片范围留空即可 */ }
     updateTransport();
+    refreshBudget(); // V2 预算条（旧后端 404 自动隐藏）
     const warning = payload.project.ai_warning;
     setStatus(warning ? warning : `已加载 ${state.rows.length} 句字幕。空格播放成片，点击句子从该处继续。`, warning ? "warn" : "");
     resumeAiPolling();

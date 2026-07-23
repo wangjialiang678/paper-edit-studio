@@ -11,6 +11,13 @@ from .paper_edit.state import (
     build_plan_from_editor_rows,
     build_plan_from_selection,
 )
+from .planning import (
+    analyze_content_map,
+    analyze_quote_candidates,
+    budget_report,
+    fit_budget,
+    merge_topic_candidates,
+)
 from .quality import (
     CorrectionSet,
     align_reference,
@@ -37,6 +44,7 @@ from .studio.config import (
     resolve_transcript_cache_dir,
 )
 from .studio.llm_client import LlmClient, LlmConfig, LlmError
+from .studio.plans import apply_manual_nudges
 from .studio.prompt_store import PromptStore
 from .studio.vocabulary import VocabularyClient, VocabularyError
 from .studio.workspace import Project, Workspace
@@ -65,16 +73,21 @@ __all__ = [
     "VocabularyError",
     "Workspace",
     "align_reference",
+    "analyze_content_map",
+    "analyze_quote_candidates",
     "apply_editor_rows",
+    "apply_manual_nudges",
     "apply_corrections",
     "compose",
     "backfill_cache_entry",
     "build_plan_from_editor_rows",
     "build_plan_from_selection",
+    "budget_report",
     "export_video_plan",
     "extract_audio",
     "empty_report",
     "ffprobe_duration_ms",
+    "fit_budget",
     "load_rms_frames",
     "load_changeset",
     "load_report",
@@ -83,6 +96,7 @@ __all__ = [
     "read_json",
     "preview_corrections",
     "merge_report",
+    "merge_topic_candidates",
     "parse_reference",
     "render_review_html",
     "render_redline_markdown",

@@ -27,6 +27,19 @@ from ..paper_edit.state import (
     build_editor_state,
     build_plan_from_selection,
 )
+from ..planning import (
+    accept_quote,
+    analyze_content_map,
+    analyze_quote_candidates,
+    budget_report,
+    build_export_checklist,
+    fit_budget,
+    merge_topic_candidates,
+    update_brief,
+    update_candidate_status,
+    validate_content_map,
+)
+from ..planning.budget import EDL_ROLES
 from ..quality import (
     CorrectionSet,
     align_reference,
@@ -82,6 +95,10 @@ class ConflictError(ValueError):
     """请求与当前 Cut 状态冲突。"""
 
 
+class NotFoundError(ValueError):
+    """请求的项目内资源不存在。"""
+
+
 class StudioApplication:
     def __init__(
         self,
@@ -128,9 +145,14 @@ class StudioApplication:
         self._frames_cache: dict[str, list[AudioFrame]] = {}
         self._ai_threads: dict[str, threading.Thread] = {}
         self._quality_threads: dict[str, threading.Thread] = {}
+        self._content_map_threads: dict[str, threading.Thread] = {}
+        self._quotes_threads: dict[str, threading.Thread] = {}
         self._export_threads: dict[str, threading.Thread] = {}
         self._lock = threading.Lock()
         self._quality_io_lock = threading.RLock()
+        # EDL、内容地图与金句候选的读改写共用一把进程内锁，避免 Web
+        # 后台任务和手工保存互相覆盖。
+        self._planning_io_lock = self._quality_io_lock
 
     # ---------- 设置与提示词 ----------
     def settings(self) -> dict[str, Any]:
@@ -388,71 +410,71 @@ class StudioApplication:
         if not isinstance(rows, list):
             raise ValueError("rows 必须是数组")
         transcript = self._transcript_with_source(project)
-        current = project.read_edl(cut)
-        edl = dict(current)
-        if "label" in payload:
-            label = payload.get("label")
-            if label is not None and not isinstance(label, str):
-                raise ValueError("label 必须是字符串")
-            if label is None:
-                edl.pop("label", None)
-            else:
-                edl["label"] = label
-        if "brief" in payload:
-            brief = payload.get("brief")
-            if brief is not None and not isinstance(brief, dict):
-                raise ValueError("brief 必须是对象")
-            if brief is None:
-                edl.pop("brief", None)
-            else:
-                edl["brief"] = copy.deepcopy(brief)
-        if rows:
-            edl["rows"] = _full_editor_rows(transcript, rows)
-        elif not isinstance(edl.get("rows"), list):
-            raise ValueError("rows 必须是数组")
-        groups = payload.get("groups")
-        if "order" in payload:
-            order = payload.get("order")
-            if not isinstance(order, list):
-                raise ValueError("order 必须是数组")
-            edl["order"] = [str(segment_id) for segment_id in order]
-        elif groups is not None:
-            edl["order"] = _order_from_groups(groups)
-        elif "order" not in edl:
-            edl["order"] = []
-        if edl["order"]:
-            selected = set(edl["order"])
-            for row in edl["rows"]:
-                if isinstance(row, dict):
-                    row["checked"] = str(row.get("id")) in selected
+        with self._planning_io_lock:
+            current = project.read_edl(cut)
+            edl = dict(current)
+            if "label" in payload:
+                label = payload.get("label")
+                if label is not None and not isinstance(label, str):
+                    raise ValueError("label 必须是字符串")
+                if label is None:
+                    edl.pop("label", None)
+                else:
+                    edl["label"] = label
+            if "brief" in payload:
+                brief = payload.get("brief")
+                if brief is not None and not isinstance(brief, dict):
+                    raise ValueError("brief 必须是对象")
+                if brief is None:
+                    edl.pop("brief", None)
+                else:
+                    edl["brief"] = copy.deepcopy(brief)
+            if rows:
+                edl["rows"] = _full_editor_rows(transcript, rows)
+            elif not isinstance(edl.get("rows"), list):
+                raise ValueError("rows 必须是数组")
+            groups = payload.get("groups")
+            if "order" in payload:
+                order = payload.get("order")
+                if not isinstance(order, list):
+                    raise ValueError("order 必须是数组")
+                edl["order"] = [str(segment_id) for segment_id in order]
+            elif groups is not None:
+                edl["order"] = _order_from_groups(groups)
+            elif "order" not in edl:
+                edl["order"] = []
+            if edl["order"]:
+                selected = set(edl["order"])
+                for row in edl["rows"]:
+                    if isinstance(row, dict):
+                        row["checked"] = str(row.get("id")) in selected
 
-        if groups and "order" not in payload:
-            edited = apply_editor_rows(transcript, edl["rows"])
-            plan = build_ordered_plan(
-                edited,
-                groups,
-                strategy=strategy,
-                frames=self._frames(project, strategy),
-                vad=self._vad(project, strategy),
-            )
-        else:
-            edited, plan = build_plan_from_selection(
-                transcript,
-                edl,
-                strategy=strategy,
-                frames=self._frames(project, strategy),
-                vad=self._vad(project, strategy),
-            )
-        plan["reordered"] = bool(edl.get("order"))
-        # groups 只是旧请求载荷的兼容输入；EDL 与持久化计划都只保留 order。
-        plan.pop("groups", None)
-        apply_manual_nudges(plan, _nudges_from_rows(rows))
-        with self._quality_io_lock:
+            if groups and "order" not in payload:
+                edited = apply_editor_rows(transcript, edl["rows"])
+                plan = build_ordered_plan(
+                    edited,
+                    groups,
+                    strategy=strategy,
+                    frames=self._frames(project, strategy),
+                    vad=self._vad(project, strategy),
+                )
+            else:
+                edited, plan = build_plan_from_selection(
+                    transcript,
+                    edl,
+                    strategy=strategy,
+                    frames=self._frames(project, strategy),
+                    vad=self._vad(project, strategy),
+                )
+            plan["reordered"] = bool(edl.get("order"))
+            # groups 只是旧请求载荷的兼容输入；EDL 与持久化计划都只保留 order。
+            plan.pop("groups", None)
+            apply_manual_nudges(plan, _nudges_from_rows(rows))
             project.write_edl(cut, edl)
-        clip_plan_path = project.cut_clip_plan_path(cut)
-        write_json(clip_plan_path, plan)
-        srt_path = project.cut_dir(cut) / "edited_preview.srt"
-        write_srt(edited, plan, srt_path)
+            clip_plan_path = project.cut_clip_plan_path(cut)
+            write_json(clip_plan_path, plan)
+            srt_path = project.cut_dir(cut) / "edited_preview.srt"
+            write_srt(edited, plan, srt_path)
         return {"ok": True, "plan": plan, "paths": {"clip_plan": str(clip_plan_path), "subtitle": str(srt_path)}}
 
     def list_cuts(self, project: Project) -> dict[str, Any]:
@@ -548,6 +570,481 @@ class StudioApplication:
     def delete_cut(self, project: Project, name: str) -> dict[str, Any]:
         project.delete_cut(name)
         return {"ok": True}
+
+    # ---------- V2 内容规划 ----------
+    def get_content_map(self, project: Project) -> dict[str, Any]:
+        payload = project.read_content_map()
+        if not payload:
+            raise NotFoundError("content_map 不存在")
+        return payload
+
+    def save_content_map(
+        self,
+        project: Project,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        if not project.transcript_ready():
+            raise ValueError("字幕尚未就绪")
+        transcript = load_transcript(project.transcript_path)
+        validated = validate_content_map(
+            payload,
+            transcript.segments,
+            source="human",
+        )
+        with self._planning_io_lock:
+            project.write_content_map(validated)
+        logger.info(
+            "content map saved: project=%s topics=%s source=human",
+            project.id,
+            len(validated["topics"]),
+        )
+        return validated
+
+    def start_content_map_analysis(self, project: Project) -> dict[str, Any]:
+        if not project.transcript_ready():
+            raise ValueError("字幕尚未就绪")
+        if not self.quality_llm.available():
+            raise ValueError("缺少 LLM API Key，无法分析内容地图")
+        started_revision = _file_revision(project.content_map_path)
+
+        def _run() -> None:
+            try:
+                transcript = load_transcript(project.transcript_path)
+                result = analyze_content_map(
+                    transcript.segments,
+                    chat_json_fn=self.quality_llm.chat_json,
+                    assemble_prompt_fn=lambda: self.prompt_store.assemble(
+                        "content_map"
+                    ),
+                    model=self._planning_model(),
+                )
+                warning: str | None = None
+                with self._planning_io_lock:
+                    if _file_revision(project.content_map_path) != started_revision:
+                        warning = "分析期间内容地图已被人工修改，本次 AI 结果未覆盖人工稿"
+                    else:
+                        project.write_content_map(result)
+                done: dict[str, Any] = {
+                    "status": "done",
+                    "completed_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                }
+                if warning is not None:
+                    done["warning"] = warning
+                else:
+                    done["warnings"] = list(result["meta"]["warnings"])
+                project.update_state(content_map_ai=done)
+                logger.info(
+                    "content map AI done: project=%s topics=%s saved=%s",
+                    project.id,
+                    len(result["topics"]),
+                    warning is None,
+                )
+            except Exception as exc:  # noqa: BLE001 - 后台异常必须落到项目状态。
+                logger.error(
+                    "content map AI failed: project=%s error_type=%s",
+                    project.id,
+                    type(exc).__name__,
+                )
+                project.update_state(
+                    content_map_ai={
+                        "status": "error",
+                        "error": _redact_known_secrets(str(exc)),
+                    }
+                )
+
+        thread = threading.Thread(
+            target=_run,
+            daemon=True,
+            name=f"content-map-ai-{project.id}",
+        )
+        with self._lock:
+            existing = self._content_map_threads.get(project.id)
+            if existing and existing.is_alive():
+                raise ConflictError("该项目的内容地图分析任务已在运行")
+            self._content_map_threads[project.id] = thread
+            project.update_state(
+                content_map_ai={
+                    "status": "running",
+                    "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                }
+            )
+            try:
+                thread.start()
+            except Exception:
+                self._content_map_threads.pop(project.id, None)
+                raise
+        return {"ok": True, "status": "running"}
+
+    def create_cut_from_content_topic(
+        self,
+        project: Project,
+        topic_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        content_map = self.get_content_map(project)
+        topic = next(
+            (
+                item
+                for item in content_map.get("topics") or []
+                if isinstance(item, dict)
+                and str(item.get("id") or "") == topic_id
+            ),
+            None,
+        )
+        if topic is None:
+            raise NotFoundError(f"content_map 中不存在 topic：{topic_id}")
+        if topic.get("status") != "confirmed":
+            raise ValueError(f"topic {topic_id} 尚未 confirmed")
+        name = payload.get("name", f"topic-{topic_id}")
+        if not isinstance(name, str):
+            raise ValueError("name 必须是字符串")
+        label = payload.get("label")
+        if label is not None and not isinstance(label, str):
+            raise ValueError("label 必须是字符串")
+        selected = {str(item) for item in topic.get("segment_ids") or []}
+        transcript = load_transcript(project.transcript_path)
+        edl = {
+            "brief": {"claim": str(topic.get("name") or "")},
+            "order": [],
+            "rows": [
+                {
+                    "id": segment.id,
+                    "checked": segment.id in selected,
+                    "text": segment.text,
+                }
+                for segment in transcript.segments
+            ],
+        }
+        try:
+            with self._planning_io_lock:
+                return project.create_cut(name, label, edl)
+        except ValueError as exc:
+            if str(exc).startswith("Cut 已存在："):
+                raise ConflictError(str(exc)) from exc
+            raise
+
+    def get_quote_candidates(self, project: Project) -> dict[str, Any]:
+        payload = project.read_quote_candidates()
+        if not payload:
+            raise NotFoundError("quote_candidates 不存在")
+        return payload
+
+    def start_quote_analysis(
+        self,
+        project: Project,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        topic_id = payload.get("topic_id")
+        if topic_id is not None and not isinstance(topic_id, str):
+            raise ValueError("topic_id 必须是字符串")
+        with self._planning_io_lock:
+            content_map = project.read_content_map()
+            if not content_map:
+                raise ValueError("content_map 不存在，无法分析金句")
+            started_content_map_revision = _file_revision(
+                project.content_map_path
+            )
+            started_revision = _file_revision(project.quote_candidates_path)
+        confirmed = [
+            item
+            for item in content_map.get("topics") or []
+            if isinstance(item, dict)
+            and item.get("status") == "confirmed"
+            and (
+                topic_id is None
+                or str(item.get("id") or "") == topic_id
+            )
+        ]
+        if not confirmed:
+            raise ValueError("content_map 中没有可分析的 confirmed topic")
+        if not project.transcript_ready():
+            raise ValueError("字幕尚未就绪")
+        if not self.quality_llm.available():
+            raise ValueError("缺少 LLM API Key，无法分析金句候选")
+
+        def _run() -> None:
+            try:
+                transcript = load_transcript(project.transcript_path)
+                result = analyze_quote_candidates(
+                    content_map,
+                    transcript.segments,
+                    chat_json_fn=self.quality_llm.chat_json,
+                    assemble_prompt_fn=lambda: self.prompt_store.assemble(
+                        "quote_candidates"
+                    ),
+                    topic_id=topic_id,
+                    model=self._planning_model(),
+                )
+                warning: str | None = None
+                with self._planning_io_lock:
+                    if (
+                        _file_revision(project.content_map_path)
+                        != started_content_map_revision
+                    ):
+                        warning = "分析期间内容地图已被修改，本次 AI 结果未写入"
+                    elif (
+                        _file_revision(project.quote_candidates_path)
+                        != started_revision
+                    ):
+                        warning = "分析期间金句候选已被修改，本次 AI 结果未覆盖现稿"
+                    else:
+                        if topic_id is not None:
+                            previous = project.read_quote_candidates()
+                            result = merge_topic_candidates(
+                                previous,
+                                result,
+                                topic_id,
+                            )
+                        project.write_quote_candidates(result)
+                done: dict[str, Any] = {
+                    "status": "done",
+                    "completed_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                }
+                if warning is not None:
+                    done["warning"] = warning
+                else:
+                    done["warnings"] = list(result["meta"]["warnings"])
+                project.update_state(quotes_ai=done)
+                logger.info(
+                    "quotes AI done: project=%s candidates=%s saved=%s",
+                    project.id,
+                    len(result["candidates"]),
+                    warning is None,
+                )
+            except Exception as exc:  # noqa: BLE001 - 后台异常必须落到项目状态。
+                logger.error(
+                    "quotes AI failed: project=%s error_type=%s",
+                    project.id,
+                    type(exc).__name__,
+                )
+                project.update_state(
+                    quotes_ai={
+                        "status": "error",
+                        "error": _redact_known_secrets(str(exc)),
+                    }
+                )
+
+        thread = threading.Thread(
+            target=_run,
+            daemon=True,
+            name=f"quotes-ai-{project.id}",
+        )
+        with self._lock:
+            existing = self._quotes_threads.get(project.id)
+            if existing and existing.is_alive():
+                raise ConflictError("该项目的金句分析任务已在运行")
+            self._quotes_threads[project.id] = thread
+            project.update_state(
+                quotes_ai={
+                    "status": "running",
+                    "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                }
+            )
+            try:
+                thread.start()
+            except Exception:
+                self._quotes_threads.pop(project.id, None)
+                raise
+        return {"ok": True, "status": "running"}
+
+    def accept_quote_candidate(
+        self,
+        project: Project,
+        candidate_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        cut = payload.get("cut")
+        if not isinstance(cut, str) or not cut:
+            raise ValueError("cut 必须是非空字符串")
+        promote = payload.get("promote", False)
+        if not isinstance(promote, bool):
+            raise ValueError("promote 必须是 JSON boolean")
+        with self._planning_io_lock:
+            document = self.get_quote_candidates(project)
+            candidate = next(
+                (
+                    item
+                    for item in document.get("candidates") or []
+                    if isinstance(item, dict)
+                    and str(item.get("id") or "") == candidate_id
+                ),
+                None,
+            )
+            if candidate is None:
+                raise NotFoundError(f"金句候选不存在：{candidate_id}")
+            try:
+                edl = project.read_edl(cut)
+            except ValueError as exc:
+                if str(exc).startswith("Cut 不存在："):
+                    raise NotFoundError(str(exc)) from exc
+                raise
+            if not edl:
+                raise NotFoundError(f"Cut 没有 EDL：{cut}")
+            updated_edl = accept_quote(edl, candidate, promote=promote)
+            updated_document = update_candidate_status(
+                document,
+                candidate_id,
+                "accepted",
+            )
+            project.write_edl(cut, updated_edl)
+            project.write_quote_candidates(updated_document)
+        selected = {
+            str(item)
+            for item in updated_edl.get("order") or []
+        } or {
+            str(row.get("id"))
+            for row in updated_edl.get("rows") or []
+            if isinstance(row, dict) and bool(row.get("checked"))
+        }
+        quote_count = sum(
+            1
+            for row in updated_edl.get("rows") or []
+            if isinstance(row, dict)
+            and str(row.get("id") or "") in selected
+            and row.get("role") == "quote"
+        )
+        accepted = next(
+            item
+            for item in updated_document["candidates"]
+            if str(item.get("id") or "") == candidate_id
+        )
+        return {
+            "ok": True,
+            "candidate": accepted,
+            "edl": {
+                "cut": cut,
+                "selected_count": len(selected),
+                "quote_count": quote_count,
+                "order": list(updated_edl.get("order") or []),
+            },
+        }
+
+    def reject_quote_candidate(
+        self,
+        project: Project,
+        candidate_id: str,
+    ) -> dict[str, Any]:
+        with self._planning_io_lock:
+            document = self.get_quote_candidates(project)
+            try:
+                updated = update_candidate_status(
+                    document,
+                    candidate_id,
+                    "rejected",
+                )
+            except KeyError as exc:
+                raise NotFoundError(
+                    f"金句候选不存在：{candidate_id}"
+                ) from exc
+            project.write_quote_candidates(updated)
+        candidate = next(
+            item
+            for item in updated["candidates"]
+            if str(item.get("id") or "") == candidate_id
+        )
+        return {"ok": True, "candidate": candidate}
+
+    def duration_budget(
+        self,
+        project: Project,
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        edl = self._read_edl_or_404(project, cut)
+        return budget_report(
+            edl,
+            plan_builder=self._budget_plan_builder(project),
+        )
+
+    def fit_duration_budget(
+        self,
+        project: Project,
+        payload: dict[str, Any],
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        edl = self._read_edl_or_404(project, cut)
+        return fit_budget(
+            edl,
+            strategy=str(payload.get("strategy") or ""),
+            plan_builder=self._budget_plan_builder(project),
+        )
+
+    def save_brief(
+        self,
+        project: Project,
+        payload: dict[str, Any],
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        with self._planning_io_lock:
+            edl = self._read_edl_or_404(project, cut)
+            edl["brief"] = update_brief(edl.get("brief"), payload)
+            project.write_edl(cut, edl)
+        return {"ok": True, "brief": edl["brief"]}
+
+    def export_checklist(
+        self,
+        project: Project,
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        edl = self._read_edl_or_404(project, cut)
+        transcript = load_transcript(project.transcript_path)
+        content_map = project.read_content_map() or None
+        budget = budget_report(
+            edl,
+            plan_builder=self._budget_plan_builder(project),
+        )
+        return build_export_checklist(
+            edl,
+            transcript_segments=transcript.segments,
+            content_map=content_map,
+            budget=budget,
+        )
+
+    @staticmethod
+    def _read_edl_or_404(project: Project, cut: str) -> dict[str, Any]:
+        try:
+            edl = project.read_edl(cut)
+        except ValueError as exc:
+            if str(exc).startswith("Cut 不存在："):
+                raise NotFoundError(str(exc)) from exc
+            raise
+        if not edl:
+            raise NotFoundError(f"Cut 没有 EDL：{cut}")
+        return edl
+
+    def _planning_model(self) -> str:
+        config = getattr(self.quality_llm, "config", None)
+        return str(getattr(config, "model", "") or "")
+
+    def _budget_plan_builder(self, project: Project):
+        transcript = self._transcript_with_source(project)
+
+        def build(candidate_edl: dict[str, Any]) -> dict[str, Any]:
+            rows = candidate_edl.get("rows") or []
+            order = candidate_edl.get("order")
+            selected = (
+                [str(item) for item in order]
+                if isinstance(order, list) and order
+                else [
+                    str(row.get("id"))
+                    for row in rows
+                    if isinstance(row, dict) and bool(row.get("checked"))
+                ]
+            )
+            if not selected:
+                return {"strategy": "token_padding", "ranges": []}
+            _edited, plan = build_plan_from_selection(
+                transcript,
+                candidate_edl,
+                strategy="token_padding",
+            )
+            apply_manual_nudges(plan, _nudges_from_rows(rows))
+            return plan
+
+        return build
 
     # ---------- 字幕质量 ----------
     def corrections_preview(self, project: Project, *, cut: str = "default") -> dict[str, Any]:
@@ -1141,6 +1638,11 @@ class StudioApplication:
                         row["nudge"] = update["nudge"]
                     if "cuts" in update:
                         row["cuts"] = update["cuts"]
+                    role = update.get("role")
+                    if role in EDL_ROLES:
+                        row["role"] = role
+                    if isinstance(update.get("locked"), bool):
+                        row["locked"] = update["locked"]
         for row in rows:
             decision = decisions.get(row["id"])
             if decision:
@@ -1262,6 +1764,13 @@ def _nudges_from_rows(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return nudges
 
 
+def _file_revision(path: Path) -> int | None:
+    try:
+        return path.stat().st_mtime_ns
+    except FileNotFoundError:
+        return None
+
+
 def _order_from_groups(groups: Any) -> list[str]:
     if not isinstance(groups, list):
         raise ValueError("groups 必须是数组")
@@ -1292,10 +1801,21 @@ def _full_editor_rows(
     }
     normalized = []
     for segment in transcript.segments:
-        row = updates.get(segment.id, {"id": segment.id})
-        row["id"] = segment.id
-        row["checked"] = bool(row.get("checked", False))
-        row["text"] = str(row.get("text", segment.text))
+        update = updates.get(segment.id, {})
+        row: dict[str, Any] = {
+            "id": segment.id,
+            "checked": bool(update.get("checked", False)),
+            "text": str(update.get("text", segment.text)),
+        }
+        for field in ("cuts", "trim", "nudge"):
+            if field in update:
+                row[field] = copy.deepcopy(update[field])
+        role = update.get("role")
+        if role in EDL_ROLES:
+            row["role"] = role
+        locked = update.get("locked")
+        if isinstance(locked, bool):
+            row["locked"] = locked
         normalized.append(row)
     return normalized
 
@@ -1375,6 +1895,18 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/projects/{id}/rms"): "_route_rms",
     ("GET", "/api/projects/{id}/rms/{rest...}"): "_route_rms",
     ("GET", "/api/projects/{id}/ai/{mode}"): "_route_ai_suggestion",
+    ("GET", "/api/projects/{id}/content-map"): "_route_content_map",
+    ("PUT", "/api/projects/{id}/content-map"): "_route_save_content_map",
+    ("POST", "/api/projects/{id}/content-map/analyze"): "_route_content_map_analyze",
+    ("POST", "/api/projects/{id}/content-map/topics/{tid}/create-cut"): "_route_content_map_create_cut",
+    ("GET", "/api/projects/{id}/quotes"): "_route_quotes",
+    ("POST", "/api/projects/{id}/quotes/analyze"): "_route_quotes_analyze",
+    ("POST", "/api/projects/{id}/quotes/{qid}/accept"): "_route_quote_accept",
+    ("POST", "/api/projects/{id}/quotes/{qid}/reject"): "_route_quote_reject",
+    ("GET", "/api/projects/{id}/budget"): "_route_budget",
+    ("POST", "/api/projects/{id}/budget/fit"): "_route_budget_fit",
+    ("PUT", "/api/projects/{id}/brief"): "_route_brief",
+    ("GET", "/api/projects/{id}/export-checklist"): "_route_export_checklist",
     ("GET", "/api/projects/{id}/quality/corrections-preview"): "_route_corrections_preview",
     ("GET", "/api/projects/{id}/quality/report"): "_route_quality_report",
     ("GET", "/api/projects/{id}/reference"): "_route_reference",
@@ -1454,6 +1986,8 @@ def _handler_factory(app: StudioApplication):
                 handler_name, params = resolved
                 handler = getattr(self, handler_name)
                 handler(parsed, params)
+            except NotFoundError as exc:
+                self._send_error_json(404, str(exc))
             except ConflictError as exc:
                 self._send_error_json(409, str(exc))
             except ValueError as exc:
@@ -1532,6 +2066,95 @@ def _handler_factory(app: StudioApplication):
 
         def _route_ai_suggestion(self, parsed, params: dict[str, str]) -> None:
             self._send_json(app.ai_suggestion(self._project(params["id"]), params["mode"], cut=self._cut(parsed)))
+
+        def _route_content_map(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(app.get_content_map(self._project(params["id"])))
+
+        def _route_save_content_map(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.save_content_map(
+                    self._project(params["id"]),
+                    self._read_json_body(),
+                )
+            )
+
+        def _route_content_map_analyze(self, _parsed, params: dict[str, str]) -> None:
+            self._read_json_body()
+            self._send_json(
+                app.start_content_map_analysis(self._project(params["id"]))
+            )
+
+        def _route_content_map_create_cut(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.create_cut_from_content_topic(
+                    self._project(params["id"]),
+                    params["tid"],
+                    self._read_json_body(),
+                )
+            )
+
+        def _route_quotes(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(app.get_quote_candidates(self._project(params["id"])))
+
+        def _route_quotes_analyze(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.start_quote_analysis(
+                    self._project(params["id"]),
+                    self._read_json_body(),
+                )
+            )
+
+        def _route_quote_accept(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.accept_quote_candidate(
+                    self._project(params["id"]),
+                    params["qid"],
+                    self._read_json_body(),
+                )
+            )
+
+        def _route_quote_reject(self, _parsed, params: dict[str, str]) -> None:
+            self._read_json_body()
+            self._send_json(
+                app.reject_quote_candidate(
+                    self._project(params["id"]),
+                    params["qid"],
+                )
+            )
+
+        def _route_budget(self, parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.duration_budget(
+                    self._project(params["id"]),
+                    cut=self._cut(parsed),
+                )
+            )
+
+        def _route_budget_fit(self, parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.fit_duration_budget(
+                    self._project(params["id"]),
+                    self._read_json_body(),
+                    cut=self._cut(parsed),
+                )
+            )
+
+        def _route_brief(self, parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.save_brief(
+                    self._project(params["id"]),
+                    self._read_json_body(),
+                    cut=self._cut(parsed),
+                )
+            )
+
+        def _route_export_checklist(self, parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.export_checklist(
+                    self._project(params["id"]),
+                    cut=self._cut(parsed),
+                )
+            )
 
         def _route_corrections_preview(self, parsed, params: dict[str, str]) -> None:
             self._send_json(app.corrections_preview(self._project(params["id"]), cut=self._cut(parsed)))
@@ -1663,7 +2286,7 @@ def _handler_factory(app: StudioApplication):
         def _project(self, project_id: str) -> Project:
             project = app.workspace.get(project_id)
             if project is None:
-                raise ValueError(f"项目不存在：{project_id}")
+                raise NotFoundError(f"项目不存在：{project_id}")
             return project
 
         @staticmethod
@@ -1674,7 +2297,10 @@ def _handler_factory(app: StudioApplication):
             length = int(self.headers.get("Content-Length", "0") or 0)
             if length <= 0:
                 return {}
-            return json.loads(self.rfile.read(length).decode("utf-8"))
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("JSON body 必须是 object")
+            return payload
 
         def _send_file(self, path: Path) -> None:
             if not path.is_file():

@@ -43,6 +43,10 @@
         </div>
       </section>
 
+      <section class="topics-view" id="topicsView" hidden>
+        <div id="topicsBody"></div>
+      </section>
+
       <section class="editor" id="editorView" hidden>
         <div class="stage">
           <div class="player">
@@ -78,11 +82,15 @@
 
         <div class="toolbar">
           <button class="btn" id="aiPanelBtn">🤖 AI 选段</button>
+          <button class="btn" id="topicsBtn" title="长视频先确认主题边界，每个主题一个成片方案">🗺 主题</button>
+          <button class="btn" id="quotesBtn" title="金句候选：AI 挑能单句立住的句子，你裁决置顶/保留/弃用">⭐ 金句</button>
           <button class="btn" id="cutFillersBtn" title="对所有保留句应用检测到的气口建议（呃/嗯/重复）">✂ 一键剪气口</button>
           <button class="btn" id="undoCutFillersBtn" hidden>↩ 撤销剪气口</button>
           <button class="btn" id="qualityBtn" title="低置信/疑似错词/参考字幕差异的质检报告">🔎 质检</button>
           <button class="btn" id="origOrderBtn" hidden>↩ 回看原始顺序</button>
+          <span class="budget-chip idle" id="budgetChip" title="时长预算：设目标，超支时给可删建议（锁定金句永不动）" hidden>⏱</span>
           <span class="toolbar-gap"></span>
+          <span id="exportChecklist"></span>
           <button class="btn accent" id="exportBtn">导出视频</button>
         </div>
 

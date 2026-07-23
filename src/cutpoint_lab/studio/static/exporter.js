@@ -1,10 +1,12 @@
-/* 导出：提交导出任务并轮询结果。 */
+/* 导出：提交导出任务并轮询结果；导出前跑检查清单（只提醒不阻断）。 */
 import { el, state, api, postJson, setStatus, fmtClock, escapeHtml, withCut } from "./shared.js";
 import { planBody } from "./plan.js";
+import { renderChecklist } from "./budget.js";
 
 el.exportBtn.addEventListener("click", async () => {
   el.exportBtn.disabled = true;
   el.exportResult.hidden = true;
+  renderChecklist(el.exportChecklist); // 异步展示，不挡导出
   try {
     await postJson(withCut(`/api/projects/${state.projectId}/export`), planBody());
     setStatus("导出已开始（后台运行）…");

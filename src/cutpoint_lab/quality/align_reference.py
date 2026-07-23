@@ -99,7 +99,7 @@ def _value(item: Any, key: str, default: Any = None) -> Any:
     return getattr(item, key, default)
 
 
-def _normalized(value: str) -> str:
+def normalize_text(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", value).lower()
     return "".join(
         character
@@ -107,6 +107,9 @@ def _normalized(value: str) -> str:
         if not character.isspace()
         and not unicodedata.category(character).startswith("P")
     )
+
+
+_normalized = normalize_text
 
 
 def _overlap_piece(
@@ -235,4 +238,4 @@ def align(
     return issues
 
 
-__all__ = ["SIMILARITY_THRESHOLD", "align", "parse_reference"]
+__all__ = ["SIMILARITY_THRESHOLD", "align", "normalize_text", "parse_reference"]

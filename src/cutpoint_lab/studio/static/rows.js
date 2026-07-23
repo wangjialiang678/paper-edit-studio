@@ -81,11 +81,20 @@ function silenceNode(gap) {
   return div;
 }
 
+const ROLE_LABELS = { claim: "主张", background: "背景", support: "支撑", filler: "冗余" };
+
 function badgesHtml(row) {
   const badges = [];
+  // ⭐ 金句角色：点击切换（role=quote + locked，重跑 AI 不得动）；其余角色只展示
+  if (row.role === "quote") {
+    badges.push('<button class="btn tiny role-star active" title="已锁定为金句（点击取消）">⭐ 金句·锁定</button>');
+  } else {
+    if (row.role && ROLE_LABELS[row.role]) badges.push(`<span class="badge role">${ROLE_LABELS[row.role]}</span>`);
+    if (row.checked) badges.push('<button class="btn tiny role-star" title="设为金句：锁定保留，时长预算优先，重跑 AI 不得替换">☆</button>');
+  }
   if (row.ai_keep === true) badges.push('<span class="badge keep">AI 保留</span>');
   if (row.ai_keep === false) badges.push('<span class="badge drop">AI 删除</span>');
-  if ((row.ai_labels || []).includes("golden_quote")) badges.push('<span class="badge quote">金句</span>');
+  if ((row.ai_labels || []).includes("golden_quote") && row.role !== "quote") badges.push('<span class="badge quote">金句</span>');
   if (row.trim || row.nudge || (row.cuts || []).length) badges.push('<span class="badge trimmed">✂ 已微调</span>');
   if ((row.suggested_cuts || []).length) badges.push(`<span class="badge suggest">气口 ×${row.suggested_cuts.length}</span>`);
   if ((issuesCache[row.id] || []).length) badges.push(`<span class="badge qissue" title="打开🔎质检面板处理">质检 ×${issuesCache[row.id].length}</span>`);
@@ -266,6 +275,23 @@ function offerReplaceEverywhere(editedRow, before, after) {
 function bindBadgeActions(row, div) {
   const trimBtn = div.querySelector(".trim-toggle");
   if (trimBtn) trimBtn.addEventListener("click", (event) => { event.stopPropagation(); toggleTrimPanel(row, div); });
+  const starBtn = div.querySelector(".role-star");
+  if (starBtn) starBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (row.role === "quote") {
+      delete row.role;
+      delete row.locked;
+      setStatus(`「#${row.index}」已取消金句锁定。`);
+    } else {
+      row.role = "quote";
+      row.locked = true;
+      row.checked = true;
+      setStatus(`「#${row.index}」已设为金句并锁定（🔒 重跑 AI 不会动它，时长预算优先保留）。`);
+    }
+    scheduleAutosave();
+    const badges = div.querySelector(".row-badges");
+    if (badges) { badges.innerHTML = badgesHtml(row); bindBadgeActions(row, div); }
+  });
 }
 
 function rowNode(row, meta = {}) {

@@ -26,6 +26,8 @@ export const el = {
   qualityBtn: $("qualityBtn"), qualityPanel: $("qualityPanel"), qualityCloseBtn: $("qualityCloseBtn"),
   qualityBody: $("qualityBody"),
   cutBar: $("cutBar"), origOrderBtn: $("origOrderBtn"),
+  topicsView: $("topicsView"), topicsBody: $("topicsBody"), topicsBtn: $("topicsBtn"),
+  quotesBtn: $("quotesBtn"), budgetChip: $("budgetChip"), exportChecklist: $("exportChecklist"),
 };
 
 export const STAGE_LABELS = [
@@ -49,6 +51,9 @@ export const state = {
   cuts: [],             // 方案列表 [{name,label,...}]
   pollTimer: null, aiPollTimers: {}, exportTimer: null,
   quality: { report: null, aiRunning: false },
+  contentMap: null, contentMapAiRunning: false,   // V2 内容地图（屏 A）
+  quotes: null, quotesAiRunning: false,           // V2 金句候选（屏 B）
+  budget: null,                                    // V2 时长预算（屏 C 预算条）
 };
 
 /* 给项目级 API 路径附加当前方案参数。 */

@@ -3,6 +3,7 @@ import { el, state, api, postJson, escapeHtml, STAGE_LABELS } from "./shared.js"
 import { resetPlayback } from "./player.js";
 import { showEditor } from "./editor.js";
 import { clearFillerBatch } from "./rows.js";
+import { resetBudget } from "./budget.js";
 
 export async function refreshProjects() {
   try {
@@ -79,6 +80,12 @@ export async function selectProject(projectId) {
   state.order = [];
   state.viewOriginal = false;
   state.cutName = "default";
+  state.contentMap = null;
+  state.contentMapAiRunning = false;
+  state.quotes = null;
+  state.quotesAiRunning = false;
+  state.budget = null;
+  resetBudget(); // 重新探测预算后端（换项目/后端升级后恢复）
   resetPlayback();
   clearFillerBatch();
   clearTimers();
@@ -115,6 +122,7 @@ export function showView(name) {
   el.emptyView.hidden = name !== "empty";
   el.pipelineView.hidden = name !== "pipeline";
   el.editorView.hidden = name !== "editor";
+  el.topicsView.hidden = name !== "topics";
 }
 
 function showPipeline(project) {

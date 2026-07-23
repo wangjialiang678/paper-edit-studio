@@ -28,18 +28,24 @@ from cutpoint_lab.engine import (
     VocabularyError,
     Workspace,
     align_reference,
+    analyze_content_map,
+    analyze_quote_candidates,
     apply_corrections,
+    apply_manual_nudges,
     backfill_cache_entry,
     build_plan_from_selection,
+    budget_report,
     compose,
     export_video_plan,
     extract_audio,
     ffprobe_duration_ms,
+    fit_budget,
     load_changeset,
     load_report,
     load_rms_frames,
     load_transcript,
     merge_report,
+    merge_topic_candidates,
     parse_reference,
     preview_corrections,
     read_json,
@@ -624,6 +630,28 @@ def _build_parser() -> argparse.ArgumentParser:
     compose_parser.add_argument("--ai", action="store_true", help="灰区段落使用 AI 裁决")
     _add_shared_arguments(compose_parser)
 
+    content_map = subparsers.add_parser("content-map", help="读取或分析项目内容地图")
+    content_map.add_argument("project", metavar="PROJECT")
+    content_map.add_argument("--analyze", action="store_true", help="同步运行 AI 内容地图分析")
+    _add_shared_arguments(content_map)
+
+    quotes = subparsers.add_parser("quotes", help="读取或分析项目金句候选")
+    quotes.add_argument("project", metavar="PROJECT")
+    quotes.add_argument("--analyze", action="store_true", help="同步运行 AI 金句分析")
+    quotes.add_argument("--topic", default=None, metavar="TOPIC_ID", help="只分析一个已确认主题")
+    _add_shared_arguments(quotes)
+
+    budget = subparsers.add_parser("budget", help="查看时长预算或生成删减建议")
+    budget.add_argument("project", metavar="PROJECT")
+    budget.add_argument("--cut", required=True, help="目标 Cut")
+    budget.add_argument(
+        "--fit",
+        choices=("strict", "complete", "keep_quotes"),
+        default=None,
+        help="生成指定策略的删减建议（不修改 EDL）",
+    )
+    _add_shared_arguments(budget)
+
     cache = subparsers.add_parser("cache", help="管理转写内容指纹缓存")
     cache_commands = cache.add_subparsers(dest="cache_command", required=True)
     cache_backfill = cache_commands.add_parser("backfill", help="登记现有项目的转写缓存")
@@ -934,6 +962,215 @@ def _handle_compose(args: argparse.Namespace, workspace: Workspace) -> list[dict
             },
         }
     )
+    return [result]
+
+
+def _planning_ai(
+    workspace: Workspace,
+    mode: str,
+) -> tuple[Callable[[str, str], dict], Callable[[], str], str]:
+    client = LlmClient(
+        env_store=EnvStore(),
+        api_vault_path=DEFAULT_API_VAULT_PATH,
+    )
+    if not client.available():
+        raise ValueError("缺少 LLM API Key，无法运行 AI 内容规划")
+    prompt_store = PromptStore(
+        DEFAULT_PROMPTS_DIR,
+        workspace.root / "_settings" / "prompts",
+    )
+    return (
+        client.chat_json,
+        lambda: prompt_store.assemble(mode),
+        str(getattr(client.config, "model", "") or ""),
+    )
+
+
+def _handle_content_map(
+    args: argparse.Namespace,
+    workspace: Workspace,
+) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+    if args.analyze:
+        chat_json_fn, assemble_prompt_fn, model = _planning_ai(
+            workspace,
+            "content_map",
+        )
+        transcript = load_transcript(project.transcript_path)
+        document = analyze_content_map(
+            transcript.segments,
+            chat_json_fn=chat_json_fn,
+            assemble_prompt_fn=assemble_prompt_fn,
+            model=model,
+        )
+        project.write_content_map(document)
+    else:
+        document = project.read_content_map()
+        if not document:
+            raise ValueError("content_map 不存在")
+    if not args.json_output:
+        _progress(
+            "内容地图："
+            f"claims={len(document.get('claims') or [])}，"
+            f"backgrounds={len(document.get('backgrounds') or [])}，"
+            f"topics={len(document.get('topics') or [])}"
+        )
+        for topic in document.get("topics") or []:
+            if isinstance(topic, dict):
+                _progress(
+                    f"[{topic.get('id')}] {topic.get('name')} "
+                    f"{topic.get('duration_ms', 0) / 1000:.1f}s "
+                    f"status={topic.get('status')}"
+                )
+    result = _project_result(project)
+    result.update(
+        {
+            "content_map": document,
+            "outputs": {"content_map": str(project.content_map_path)},
+        }
+    )
+    return [result]
+
+
+def _handle_quotes(
+    args: argparse.Namespace,
+    workspace: Workspace,
+) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+    if args.topic is not None and not args.analyze:
+        raise ValueError("--topic 只能与 --analyze 一起使用")
+    if args.analyze:
+        content_map = project.read_content_map()
+        if not content_map:
+            raise ValueError("content_map 不存在，无法分析金句")
+        chat_json_fn, assemble_prompt_fn, model = _planning_ai(
+            workspace,
+            "quote_candidates",
+        )
+        transcript = load_transcript(project.transcript_path)
+        document = analyze_quote_candidates(
+            content_map,
+            transcript.segments,
+            chat_json_fn=chat_json_fn,
+            assemble_prompt_fn=assemble_prompt_fn,
+            topic_id=args.topic,
+            model=model,
+        )
+        if args.topic is not None:
+            previous = project.read_quote_candidates()
+            document = merge_topic_candidates(
+                previous,
+                document,
+                args.topic,
+            )
+        project.write_quote_candidates(document)
+    else:
+        document = project.read_quote_candidates()
+        if not document:
+            raise ValueError("quote_candidates 不存在")
+    if not args.json_output:
+        _progress(f"金句候选：{len(document.get('candidates') or [])} 条")
+        for candidate in document.get("candidates") or []:
+            if isinstance(candidate, dict):
+                _progress(
+                    f"[{candidate.get('id')}] topic={candidate.get('topic_id')} "
+                    f"segment={candidate.get('segment_id')} "
+                    f"type={candidate.get('type')} status={candidate.get('status')}"
+                )
+    result = _project_result(project)
+    result.update(
+        {
+            "quotes": document,
+            "outputs": {
+                "quote_candidates": str(project.quote_candidates_path)
+            },
+        }
+    )
+    return [result]
+
+
+def _budget_plan_builder(project: Project):
+    transcript = load_transcript(project.transcript_path)
+
+    def build(candidate_edl: dict[str, Any]) -> dict[str, Any]:
+        rows = candidate_edl.get("rows") or []
+        order = candidate_edl.get("order")
+        selected = (
+            [str(item) for item in order]
+            if isinstance(order, list) and order
+            else [
+                str(row.get("id"))
+                for row in rows
+                if isinstance(row, dict) and bool(row.get("checked"))
+            ]
+        )
+        if not selected:
+            return {"strategy": "token_padding", "ranges": []}
+        _edited, plan = build_plan_from_selection(
+            transcript,
+            candidate_edl,
+            strategy="token_padding",
+        )
+        nudges = {
+            str(row.get("id")): row["nudge"]
+            for row in rows
+            if isinstance(row, dict)
+            and isinstance(row.get("nudge"), dict)
+            and (
+                row["nudge"].get("start_ms")
+                or row["nudge"].get("end_ms")
+            )
+        }
+        apply_manual_nudges(plan, nudges)
+        return plan
+
+    return build
+
+
+def _handle_budget(
+    args: argparse.Namespace,
+    workspace: Workspace,
+) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+    edl = project.read_edl(args.cut)
+    if not edl:
+        raise ValueError(f"Cut 没有 EDL：{args.cut}")
+    plan_builder = _budget_plan_builder(project)
+    report = budget_report(edl, plan_builder=plan_builder)
+    fitted = (
+        fit_budget(
+            edl,
+            strategy=args.fit,
+            plan_builder=plan_builder,
+        )
+        if args.fit
+        else None
+    )
+    if not args.json_output:
+        target = (
+            "未设置"
+            if report["target_s"] is None
+            else f"{report['target_s']}±{report['tolerance_s']}s"
+        )
+        _progress(
+            f"时长预算：目标={target}，预计={report['estimated_ms'] / 1000:.1f}s"
+        )
+        if fitted is not None:
+            for item in fitted["suggestions"]:
+                _progress(
+                    f"建议删除 [{item['id']}] {item['role']} "
+                    f"-{item['ms'] / 1000:.1f}s：{item['reason']}"
+                )
+    result = _project_result(project)
+    result["budget"] = report
+    if fitted is not None:
+        result["fit"] = fitted
     return [result]
 
 
@@ -1485,6 +1722,12 @@ def main(argv: list[str] | None = None) -> int:
             results = _handle_cuts(args, workspace)
         elif args.command == "compose":
             results = _handle_compose(args, workspace)
+        elif args.command == "content-map":
+            results = _handle_content_map(args, workspace)
+        elif args.command == "quotes":
+            results = _handle_quotes(args, workspace)
+        elif args.command == "budget":
+            results = _handle_budget(args, workspace)
         elif args.command == "cache":
             results = _handle_cache_backfill(args, workspace)
         else:

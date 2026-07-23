@@ -11,6 +11,8 @@ MODE_PROMPT_FILES = {
     "highlight_remix": "highlight-remix.md",
     "quality_review": "quality-review.md",
     "compose_align": "compose-align.md",
+    "content_map": "content-map.md",
+    "quote_candidates": "quote-candidates.md",
 }
 
 # 旧版全文格式（协议下沉前保存的覆盖层）以是否自带输出协议段来识别。

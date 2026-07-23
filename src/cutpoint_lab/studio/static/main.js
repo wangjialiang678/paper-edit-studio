@@ -9,12 +9,18 @@ import "./ai.js";
 import "./settings.js";
 import "./quality.js";
 import "./cuts.js";
+import "./budget.js";
 import { renderRows } from "./rows.js";
+import { openTopicsView } from "./topics.js";
+import { openQuotesDialog } from "./quotes.js";
 
 el.origOrderBtn.addEventListener("click", () => {
   state.viewOriginal = !state.viewOriginal;
   renderRows();
 });
+
+el.topicsBtn.addEventListener("click", openTopicsView);
+el.quotesBtn.addEventListener("click", () => openQuotesDialog(null));
 
 document.addEventListener("keydown", (event) => {
   if (el.editorView.hidden) return;

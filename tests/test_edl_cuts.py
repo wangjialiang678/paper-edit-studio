@@ -205,6 +205,49 @@ class CutApplicationTests(unittest.TestCase):
                 {row["id"] for row in edl["rows"] if row["checked"]}, {"s2", "s3"}
             )
 
+    def test_save_plan_roundtrips_valid_role_and_locked_to_editor_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, project = self._app_and_project(Path(tmp))
+            rows = _rows()
+            rows[0]["role"] = "quote"
+            rows[0]["locked"] = True
+            rows[1]["role"] = "support"
+            rows[1]["locked"] = False
+
+            app.save_plan(
+                project,
+                {"rows": rows, "strategy": "token_padding"},
+            )
+
+            saved = {row["id"]: row for row in project.read_edl("default")["rows"]}
+            self.assertEqual(saved["s1"]["role"], "quote")
+            self.assertIs(saved["s1"]["locked"], True)
+            editor = {row["id"]: row for row in app.editor_state(project)["rows"]}
+            self.assertEqual(editor["s1"]["role"], "quote")
+            self.assertIs(editor["s1"]["locked"], True)
+            self.assertEqual(editor["s2"]["role"], "support")
+            self.assertIs(editor["s2"]["locked"], False)
+
+    def test_save_plan_discards_invalid_role_and_non_boolean_locked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app, project = self._app_and_project(Path(tmp))
+            rows = _rows()
+            rows[0]["role"] = "star"
+            rows[0]["locked"] = 1
+            rows[1]["role"] = "background"
+            rows[1]["locked"] = "true"
+
+            app.save_plan(
+                project,
+                {"rows": rows, "strategy": "token_padding"},
+            )
+
+            saved = {row["id"]: row for row in project.read_edl("default")["rows"]}
+            self.assertNotIn("role", saved["s1"])
+            self.assertNotIn("locked", saved["s1"])
+            self.assertEqual(saved["s2"]["role"], "background")
+            self.assertNotIn("locked", saved["s2"])
+
 
 class CutHttpTests(unittest.TestCase):
     def test_crud_endpoints_and_default_protection(self):

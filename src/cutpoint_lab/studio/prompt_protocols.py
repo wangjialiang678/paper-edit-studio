@@ -11,4 +11,77 @@ MODE_PROTOCOLS = {
     'highlight_remix': '- 成片目标时长：{{TARGET_DURATION}}（未指定时按 30~90 秒设计）。\n\n## 输出格式\n\n只输出一个 JSON object：\n\n```json\n{\n  "mode": "highlight_remix",\n  "golden_quotes": [\n    {"segment_id": "sentence_0012", "quote": "原句文字", "strength": 5, "reason": "反常识+可独立传播"}\n  ],\n  "clips": [\n    {"purpose": "hook", "segment_ids": ["sentence_0012"], "note": "金句前置"},\n    {"purpose": "body", "segment_ids": ["sentence_0003", "sentence_0004", "sentence_0007"], "note": "论证主干"},\n    {"purpose": "echo", "segment_ids": ["sentence_0012"], "note": "结尾重复强调"}\n  ],\n  "title_suggestions": ["可用作视频号标题的两三个候选"]\n}\n```\n\n- `clips` 的顺序就是成片播放顺序（这是本模式与其他模式的核心差异：**允许打乱原文顺序**）。\n- `purpose` 只能是 `hook` / `body` / `echo`；`body` 可以有多条。\n- `strength` 为 1~5 的整数，5 最强。\n- 同一 `segment_id` 允许出现在 hook 和 echo 两处（重复播放），但 body 内不得重复。\n\n## 硬约束\n\n1. 只能引用输入中已有的 `segment_id`，禁止编造。\n2. 禁止输出任何时间戳。\n3. 只输出 JSON，不要有任何其他文字。\n\n{{USER_BRIEF}}\n',
     'quality_review': '\n\n## 输出格式\n\n只输出一个 JSON object：\n\n```json\n{\n  "findings": [\n    {\n      "segment_id": "sentence_0055",\n      "span_text": "超导",\n      "verdict": "auto_fix",\n      "replacement": "超脑",\n      "reason": "上下文讲机构名，已知词表含（超脑）",\n      "confidence": 0.95\n    }\n  ]\n}\n```\n\n- `verdict` 只能是 `auto_fix`（确定是识别错误且给出替换）/ `ask_user`（大概率有问题但需人工决定）/ `ok`（复核后无问题）。\n- `span_text` 必须与输入中『』标注的存疑片段逐字一致；`replacement` 在 auto_fix/ask_user 时提供。\n- `confidence` 为 0~1 的小数，表示你对该判断的把握。\n\n## 硬约束\n\n1. 只能针对输入中标注的存疑片段输出 finding，禁止扩大范围。\n2. 禁止输出任何时间戳；禁止改动句子结构，只做词语级替换建议。\n3. 只输出 JSON，不要有任何其他文字。\n\n{{USER_BRIEF}}\n',
     'compose_align': '\n\n## 输出格式\n\n只输出 JSON：{"matches": [{"paragraph_index": 0, "segment_ids": ["sentence_0012"], "confidence": 0.9, "reason": "改写自该句"}]}；`segment_ids` 只能来自输入清单；找不到就 `segment_ids` 给空数组；只输出 JSON。\n\n{{USER_BRIEF}}\n',
+    "content_map": """
+
+## 输出格式
+
+只输出一个 JSON object：
+
+```json
+{
+  "claims": [
+    {"id": "c1", "text": "主张原文", "segment_ids": ["sentence_0012"], "reason": "为什么值得传播"}
+  ],
+  "backgrounds": [
+    {"id": "b1", "text": "游戏设计营", "segment_ids": ["sentence_0003"], "kind": "background"}
+  ],
+  "topics": [
+    {
+      "id": "t1",
+      "name": "主题名",
+      "summary": "主题摘要",
+      "segment_ids": ["sentence_0012"],
+      "suggested_duration_s": 60,
+      "status": "pending"
+    }
+  ]
+}
+```
+
+- `backgrounds[].kind` 只能是 `background` / `case` / `event`。
+- `topics[].status` 只能是 `pending` / `confirmed`；AI 初稿通常使用 `pending`。
+- 每个 `segment_id` 最多归属一个 topic。
+- 不要输出 `duration_ms`；后端会按字幕时间重新计算。
+
+## 硬约束
+
+1. 只能引用输入中已有的 `segment_id`，禁止编造。
+2. 禁止输出任何时间戳。
+3. 只输出 JSON，不要有任何其他文字。
+
+{{USER_BRIEF}}
+""",
+    "quote_candidates": """
+
+## 输出格式
+
+只输出一个 JSON object：
+
+```json
+{
+  "candidates": [
+    {
+      "id": "q1",
+      "topic_id": "t1",
+      "segment_id": "sentence_0012",
+      "type": "claim",
+      "context": "前后句的一句话摘要",
+      "reason": "单句能立住且适合传播"
+    }
+  ]
+}
+```
+
+- 每个已确认主题返回 3–5 个候选。
+- `type` 只能是 `claim` / `hook` / `background` / `question` / `action`。
+- `segment_id` 必须属于对应 `topic_id` 的句子集合。
+
+## 硬约束
+
+1. 只能引用输入中已有的 `segment_id` 和 `topic_id`，禁止编造。
+2. 禁止输出任何时间戳。
+3. 只输出 JSON，不要有任何其他文字。
+
+{{USER_BRIEF}}
+""",
 }

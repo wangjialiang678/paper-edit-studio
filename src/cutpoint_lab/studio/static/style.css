@@ -42,6 +42,10 @@ button { font: inherit; }
 .upload-bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 
 .project-list { flex: 1; overflow: auto; padding: 0 8px 12px; }
+  display: block; margin: 0 12px 12px; padding: 8px; text-align: center;
+  border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
+  color: var(--muted); text-decoration: none;
+}
 .project-item {
   padding: 10px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 4px;
   border: 1px solid transparent;
@@ -335,3 +339,54 @@ video { width: 100%; flex: 1; min-height: 0; background: #000; border-radius: 10
 .trim-auto { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .trim-auto input { accent-color: var(--accent); }
 .btn.small.accent { color: #fff; }
+
+/* ===== V2：主题确认页（屏 A） ===== */
+.topics-view { padding: 20px 24px; overflow-y: auto; height: 100%; box-sizing: border-box; }
+.topics-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.topics-head h2 { margin: 0 0 4px; }
+.topics-head .meta, .topic-card .meta, .quote-card .meta { color: var(--muted); font-size: 12px; }
+.topics-tip { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; color: var(--muted); font-size: 13px; }
+.topic-card {
+  display: flex; align-items: flex-start; gap: 12px;
+  border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+}
+.topic-card.confirmed { border-color: var(--green); }
+.topic-main { flex: 1; min-width: 0; }
+.topic-name { font-weight: 600; margin-bottom: 4px; }
+.topic-actions { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.topic-status { flex: none; font-size: 12px; color: var(--muted); min-width: 72px; text-align: right; }
+.topic-card.confirmed .topic-status { color: var(--green); }
+.topic-bg { border: 1px dashed var(--line); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--muted); }
+.topic-bg .pill { margin: 0 4px 4px 0; }
+
+/* ===== V2：金句候选（屏 B 对话框） ===== */
+.quotes-dialog .script-dialog-box { max-width: 720px; }
+.quotes-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.quotes-head h4 { margin: 0; }
+.quote-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.quote-card.accepted { border-color: #e2c04e; }
+.quote-text { margin-bottom: 4px; line-height: 1.5; }
+.quote-card .q-actions { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+.quotes-manual { text-align: center; color: var(--muted); font-size: 12px; margin: 12px 0; line-height: 1.7; }
+.quotes-budget { border-top: 1px solid var(--line); padding-top: 8px; margin-bottom: 8px; font-size: 12px; color: var(--muted); }
+
+/* ===== V2：时长预算条 + 检查清单（屏 C） ===== */
+.budget-chip {
+  display: inline-flex; align-items: center; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--line); font-size: 12px; cursor: pointer; user-select: none; white-space: nowrap;
+}
+.budget-chip.idle { color: var(--muted); }
+.budget-chip.ok { color: var(--green); border-color: var(--green); }
+.budget-chip.over { color: var(--warn); border-color: var(--warn); }
+.budget-popover { max-width: 340px; }
+.budget-form { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 13px; }
+.fit-item { font-size: 12px; color: var(--muted); padding: 2px 0; }
+.checklist { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-right: 8px; }
+.check-item { font-size: 12px; color: var(--muted); cursor: help; }
+.check-item.ok { color: var(--green); }
+.check-item.bad { color: var(--warn); }
+
+/* 角色徽标与 ⭐ 金句开关 */
+.badge.role { color: var(--muted); border-color: var(--line); }
+.btn.tiny.role-star { border-color: #e2c04e; color: #e2c04e; }
+.btn.tiny.role-star.active { background: #e2c04e; color: #1a1a22; }

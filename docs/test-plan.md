@@ -31,6 +31,18 @@ tags: [testing, studio, video-editing]
 | 5 | 本地媒体 Range | 浏览器请求 `/media/source` | 返回 206，支持视频拖动和跳播 | smoke |
 | 6 | 端到端导出 | 词级 transcript + source media | 生成剪辑视频和 SRT | integration |
 
+## V2 内容规划与导出检查
+
+| # | 场景 | 输入 | 预期输出 | 类型 |
+|---|---|---|---|---|
+| 1 | 内容地图协议与校验 | transcript + mock AI JSON | 修复可确定 ID、丢弃未知 ID、主题单归属、后端重算时长 | unit |
+| 2 | 长视频内容地图 | 151+ 句 + 分块 mock | 100 句分块、失败重试、一次跨块合并；连续失败生成待人工归类主题 | unit |
+| 3 | 金句候选 | confirmed topics + mock AI JSON | 每主题候选受类型/归属/数量约束，accept 写 `role=quote, locked=true` | unit |
+| 4 | EDL 角色元数据 | 手工表格保存 + 编辑器回读 | 合法 role/bool locked 持久化并回显，非法值丢弃 | integration |
+| 5 | 真实时长预算 | EDL cuts/trim/nudge/repeated order | ranges 求和准确，三种 fit 仅给建议、不改 EDL | unit + integration |
+| 6 | 导出前检查 | content_map + EDL brief/rows + budget | 主题、时长、金句锁定、背景覆盖逐项报告，null 项跳过 | unit |
+| 7 | HTTP 与 CLI | 项目级 JSON + mock AI | 异步状态/400/404/409 正确；CLI analyze 同步、离线读取可用 | integration |
+
 ## 运行命令
 
 ```bash
