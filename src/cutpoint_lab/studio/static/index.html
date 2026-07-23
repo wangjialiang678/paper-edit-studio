@@ -78,6 +78,7 @@
           <button class="btn" id="aiPanelBtn">🤖 AI 选段</button>
           <button class="btn" id="cutFillersBtn" title="对所有保留句应用检测到的气口建议（呃/嗯/重复）">✂ 一键剪气口</button>
           <button class="btn" id="undoCutFillersBtn" hidden>↩ 撤销剪气口</button>
+          <button class="btn" id="qualityBtn" title="低置信/疑似错词/参考字幕差异的质检报告">🔎 质检</button>
           <span class="toolbar-gap"></span>
           <button class="btn accent" id="exportBtn">导出视频</button>
         </div>
@@ -112,6 +113,14 @@
         <button class="btn small" id="settingsCloseBtn">✕</button>
       </div>
       <div class="ai-body" id="settingsBody"><div class="ai-hint">加载中…</div></div>
+    </aside>
+
+    <aside class="ai-panel" id="qualityPanel" hidden>
+      <div class="ai-head">
+        <b>🔎 字幕质检</b>
+        <button class="btn small" id="qualityCloseBtn">✕</button>
+      </div>
+      <div class="ai-body" id="qualityBody"><div class="ai-hint">打开项目后可查看质检报告。</div></div>
     </aside>
   </div>
   <script type="module" src="/static/main.js"></script>

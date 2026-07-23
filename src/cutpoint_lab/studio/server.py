@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import logging
 import mimetypes
@@ -24,10 +25,17 @@ from ..io import load_transcript, load_vad, read_json, write_json
 from ..paper_edit.state import apply_editor_rows, build_editor_state, build_plan_from_editor_rows
 from ..quality import (
     CorrectionSet,
+    align_reference,
     apply_corrections,
     load_changeset,
+    load_report,
+    merge_report,
+    parse_reference,
     preview_corrections,
+    review_quality,
     save_changeset,
+    save_report,
+    scan_confidence,
     undo_changeset,
 )
 from .ai_selector import HARD_CONSTRAINTS, AiSelector, save_suggestion
@@ -96,6 +104,11 @@ class StudioApplication:
                 prompt_store=self.prompt_store,
             )
         )
+        self.quality_llm = getattr(
+            self.selector,
+            "client",
+            LlmClient(env_store=self.env_store, api_vault_path=self.api_vault_path),
+        )
         self.pipeline = PipelineManager(
             CachingAsrRunner(
                 asr_runner or Video2mdAsrRunner(),
@@ -105,8 +118,10 @@ class StudioApplication:
         )
         self._frames_cache: dict[str, list[AudioFrame]] = {}
         self._ai_threads: dict[str, threading.Thread] = {}
+        self._quality_threads: dict[str, threading.Thread] = {}
         self._export_threads: dict[str, threading.Thread] = {}
         self._lock = threading.Lock()
+        self._quality_io_lock = threading.RLock()
 
     # ---------- 设置与提示词 ----------
     def settings(self) -> dict[str, Any]:
@@ -375,10 +390,14 @@ class StudioApplication:
             )
         apply_manual_nudges(plan, _nudges_from_rows(rows))
         if rows:
-            write_json(
-                project.dir / "selection.json",
-                {"rows": _full_editor_rows(transcript, rows), "groups": groups or None},
-            )
+            with self._quality_io_lock:
+                write_json(
+                    project.dir / "selection.json",
+                    {
+                        "rows": _full_editor_rows(transcript, rows),
+                        "groups": groups or None,
+                    },
+                )
         write_json(project.dir / "clip_plan.json", plan)
         srt_path = project.dir / "edited_preview.srt"
         write_srt(edited, plan, srt_path)
@@ -434,6 +453,281 @@ class StudioApplication:
             len(report["skipped"]),
         )
         return {"ok": True, **report, "rows": restored_rows}
+
+    def quality_report(self, project: Project) -> dict[str, Any]:
+        with self._quality_io_lock:
+            return load_report(project.dir)
+
+    def analyze_quality(self, project: Project, payload: dict[str, Any]) -> dict[str, Any]:
+        run_ai = payload.get("ai", False)
+        if not isinstance(run_ai, bool):
+            raise ValueError("ai 必须是 JSON boolean")
+        rows = self._quality_rows(project)
+        issues = scan_confidence(rows)
+        reference = self._reference_path(project)
+        if reference is not None:
+            cues = parse_reference(reference.read_text(encoding="utf-8-sig"))
+            issues.extend(align_reference(rows, cues))
+        with self._quality_io_lock:
+            report = merge_report(load_report(project.dir), issues)
+            if reference is not None:
+                report["meta"]["reference_file"] = reference.name
+            save_report(project.dir, report)
+        logger.info(
+            "quality analyzed: project=%s issues=%s reference=%s ai=%s",
+            project.id,
+            len(report["issues"]),
+            reference.name if reference is not None else None,
+            run_ai,
+        )
+        if run_ai:
+            self._start_quality_ai(project)
+        return report
+
+    def update_quality_issue(
+        self,
+        project: Project,
+        issue_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        status = payload.get("status")
+        if status not in {"resolved", "ignored"}:
+            raise ValueError("status 只能是 resolved 或 ignored")
+        with self._quality_io_lock:
+            report = load_report(project.dir)
+            for issue in report.get("issues") or []:
+                if str(issue.get("id") or "") != issue_id:
+                    continue
+                issue["status"] = status
+                save_report(project.dir, report)
+                return report
+        raise KeyError(issue_id)
+
+    def reference_info(self, project: Project) -> dict[str, Any]:
+        path = self._reference_path(project)
+        return {
+            "exists": path is not None,
+            "filename": path.name if path is not None else None,
+        }
+
+    def save_reference_path(self, project: Project, raw_path: Any) -> dict[str, Any]:
+        source = Path(str(raw_path or "")).expanduser().resolve()
+        if not source.is_file():
+            raise ValueError(f"参考字幕不存在：{source}")
+        target = self._reference_target(project, source.name)
+        shutil.copyfile(source, target)
+        logger.info("reference imported: project=%s filename=%s", project.id, target.name)
+        return {"ok": True, "path": str(target), **self.reference_info(project)}
+
+    def save_reference_upload(
+        self,
+        project: Project,
+        filename: str,
+        body_stream,
+        content_length: int,
+    ) -> dict[str, Any]:
+        target = self._reference_target(project, filename)
+        if content_length <= 0:
+            raise ValueError("上传内容为空")
+        temporary = target.with_name(f".{target.name}.{time.time_ns()}.tmp")
+        remaining = content_length
+        try:
+            with temporary.open("wb") as file_obj:
+                while remaining > 0:
+                    chunk = body_stream.read(min(1024 * 1024, remaining))
+                    if not chunk:
+                        raise ValueError("上传中断")
+                    file_obj.write(chunk)
+                    remaining -= len(chunk)
+            os.replace(temporary, target)
+        finally:
+            temporary.unlink(missing_ok=True)
+        logger.info("reference uploaded: project=%s filename=%s", project.id, target.name)
+        return {"ok": True, "path": str(target), **self.reference_info(project)}
+
+    def _start_quality_ai(self, project: Project) -> None:
+        if not self.quality_llm.available():
+            raise ValueError("缺少 LLM API Key，无法运行 AI 复核")
+
+        def _run() -> None:
+            try:
+                rows = self._quality_rows(project)
+                with self._quality_io_lock:
+                    report = load_report(project.dir)
+                correction_set = CorrectionSet.load(self._corrections_path())
+                corrections_rights = [
+                    str(pair["right"])
+                    for pair in correction_set.pairs
+                    if pair.get("right")
+                ]
+                findings, changeset, new_issues = review_quality(
+                    rows,
+                    report["issues"],
+                    chat_json_fn=self.quality_llm.chat_json,
+                    assemble_prompt_fn=lambda: self.prompt_store.assemble(
+                        "quality_review"
+                    ),
+                    known_terms=self._known_quality_terms(),
+                    corrections_rights=corrections_rights,
+                )
+                changeset_path: Path | None = None
+                applied_segment_ids: set[str] = set()
+                if changeset is not None and changeset.get("changes"):
+                    with self._quality_io_lock:
+                        selection_rows, selection = self._correction_rows(project)
+                        pending_changes = {
+                            str(change.get("segment_id") or ""): change
+                            for change in changeset["changes"]
+                        }
+                        updated_rows = copy.deepcopy(selection_rows)
+                        for row in updated_rows:
+                            segment_id = str(
+                                row.get("id", row.get("segment_id", ""))
+                            )
+                            change = pending_changes.get(segment_id)
+                            if (
+                                change is None
+                                or row.get("text") != change.get("old")
+                            ):
+                                continue
+                            row["text"] = str(change.get("new") or "")
+                            applied_segment_ids.add(segment_id)
+                        applied_changes = [
+                            change
+                            for change in changeset["changes"]
+                            if str(change.get("segment_id") or "")
+                            in applied_segment_ids
+                        ]
+                        if applied_changes:
+                            applied_count = sum(
+                                1
+                                for finding in findings
+                                if finding.get("verdict") == "auto_fix"
+                                and str(finding.get("segment_id") or "")
+                                in applied_segment_ids
+                            )
+                            changeset["changes"] = applied_changes
+                            changeset["label"] = (
+                                f"AI 自动纠错 {applied_count} 处"
+                            )
+                            selection["rows"] = updated_rows
+                            write_json(
+                                project.dir / "selection.json",
+                                selection,
+                            )
+                            changeset_path = save_changeset(
+                                project.dir,
+                                changeset,
+                            )
+                        else:
+                            changeset = None
+
+                skipped_auto_keys = {
+                    (
+                        str(finding.get("segment_id") or ""),
+                        str(finding.get("span_text") or ""),
+                    )
+                    for finding in findings
+                    if finding.get("verdict") == "auto_fix"
+                    and str(finding.get("segment_id") or "")
+                    not in applied_segment_ids
+                }
+                for issue in report["issues"]:
+                    issue_key = (
+                        str(issue.get("segment_id") or ""),
+                        str((issue.get("span") or {}).get("text") or ""),
+                    )
+                    if issue_key in skipped_auto_keys:
+                        issue["status"] = "open"
+
+                reviewed_status = {
+                    (
+                        str(issue.get("segment_id") or ""),
+                        str(issue.get("kind") or ""),
+                        str((issue.get("span") or {}).get("text") or ""),
+                    ): str(issue.get("status") or "open")
+                    for issue in report["issues"]
+                }
+                ok_review_reasons = {
+                    (
+                        str(finding.get("segment_id") or ""),
+                        "low_confidence",
+                        str(finding.get("span_text") or ""),
+                    ): str(finding.get("reason") or "")
+                    for finding in findings
+                    if finding.get("verdict") == "ok"
+                }
+                with self._quality_io_lock:
+                    latest = load_report(project.dir)
+                    for issue in latest.get("issues") or []:
+                        key = (
+                            str(issue.get("segment_id") or ""),
+                            str(issue.get("kind") or ""),
+                            str((issue.get("span") or {}).get("text") or ""),
+                        )
+                        if (
+                            issue.get("status", "open") == "open"
+                            and reviewed_status.get(key) == "resolved"
+                        ):
+                            issue["status"] = "resolved"
+                            ok_reason = ok_review_reasons.get(key)
+                            if ok_reason:
+                                issue["reason"] = (
+                                    f"{str(issue.get('reason') or '')}"
+                                    f"；AI 复核通过：{ok_reason}"
+                                )
+                    refreshed = merge_report(
+                        latest,
+                        [*latest["issues"], *new_issues],
+                    )
+                    refreshed["meta"]["ai_findings"] = findings
+                    if changeset_path is not None and changeset is not None:
+                        refreshed["meta"]["ai_changeset_id"] = changeset["change_id"]
+                    save_report(project.dir, refreshed)
+                done: dict[str, Any] = {
+                    "status": "done",
+                    "finding_count": len(findings),
+                    "completed_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                }
+                if changeset_path is not None and changeset is not None:
+                    done["changeset_id"] = changeset["change_id"]
+                project.update_state(quality_ai=done)
+                logger.info(
+                    "quality AI done: project=%s findings=%s auto_changeset=%s",
+                    project.id,
+                    len(findings),
+                    done.get("changeset_id"),
+                )
+            except Exception as exc:  # noqa: BLE001 - 后台任务异常落回 state。
+                logger.exception("quality AI failed: project=%s", project.id)
+                project.update_state(
+                    quality_ai={
+                        "status": "error",
+                        "error": _redact_known_secrets(str(exc)),
+                    }
+                )
+
+        thread = threading.Thread(
+            target=_run,
+            daemon=True,
+            name=f"quality-ai-{project.id}",
+        )
+        with self._lock:
+            existing = self._quality_threads.get(project.id)
+            if existing and existing.is_alive():
+                raise ValueError("该项目的 AI 质检任务已在运行")
+            self._quality_threads[project.id] = thread
+            project.update_state(
+                quality_ai={
+                    "status": "running",
+                    "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                }
+            )
+            try:
+                thread.start()
+            except Exception:
+                self._quality_threads.pop(project.id, None)
+                raise
 
     # ---------- 导出 ----------
     def start_export(self, project: Project, payload: dict[str, Any]) -> dict[str, Any]:
@@ -556,6 +850,60 @@ class StudioApplication:
     # ---------- 内部 ----------
     def _corrections_path(self) -> Path:
         return self.workspace.root / "_settings" / "corrections.json"
+
+    def _quality_rows(self, project: Project) -> list[dict[str, Any]]:
+        """以 transcript 的时间/token 为底，叠加 selection 的当前文字。"""
+        if not project.transcript_path.is_file():
+            raise ValueError("字幕尚未就绪")
+        transcript = read_json(project.transcript_path)
+        segments = transcript.get("segments")
+        if not isinstance(segments, list):
+            raise ValueError("transcript.json 的 segments 必须是数组")
+        current_text: dict[str, str] = {}
+        selection_path = project.dir / "selection.json"
+        if selection_path.is_file():
+            selection = read_json(selection_path)
+            for row in selection.get("rows") or []:
+                if isinstance(row, dict) and row.get("id") is not None:
+                    current_text[str(row["id"])] = str(row.get("text") or "")
+        rows = copy.deepcopy([row for row in segments if isinstance(row, dict)])
+        for row in rows:
+            segment_id = str(row.get("id", row.get("segment_id", "")))
+            if segment_id in current_text:
+                row["text"] = current_text[segment_id]
+        return rows
+
+    def _reference_path(self, project: Project) -> Path | None:
+        candidates = sorted(
+            (
+                path
+                for path in project.dir.glob("reference.*")
+                if path.is_file() and path.suffix.lower() in {".srt", ".vtt"}
+            ),
+            key=lambda path: path.stat().st_mtime_ns,
+            reverse=True,
+        )
+        return candidates[0] if candidates else None
+
+    @staticmethod
+    def _reference_target(project: Project, filename: str) -> Path:
+        safe_name = Path(filename).name
+        suffix = Path(safe_name).suffix
+        if not safe_name or suffix.lower() not in {".srt", ".vtt"}:
+            raise ValueError("参考字幕只支持 SRT/VTT")
+        return project.dir / f"reference{suffix}"
+
+    def _known_quality_terms(self) -> list[str]:
+        try:
+            vocabulary = self.vocabulary()
+        except (ValueError, VocabularyError) as exc:
+            logger.warning("quality AI: vocabulary unavailable: %s", exc)
+            return []
+        return [
+            str(item["text"])
+            for item in vocabulary.get("items") or []
+            if isinstance(item, dict) and item.get("text")
+        ]
 
     def _correction_rows(
         self,
@@ -788,10 +1136,15 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/projects/{id}/rms/{rest...}"): "_route_rms",
     ("GET", "/api/projects/{id}/ai/{mode}"): "_route_ai_suggestion",
     ("GET", "/api/projects/{id}/quality/corrections-preview"): "_route_corrections_preview",
+    ("GET", "/api/projects/{id}/quality/report"): "_route_quality_report",
+    ("GET", "/api/projects/{id}/reference"): "_route_reference",
     ("GET", "/api/projects/{id}/{rest...}"): "_route_unknown_project_get",
     ("POST", "/api/projects/{id}/ai/suggest"): "_route_ai_suggest",
     ("POST", "/api/projects/{id}/quality/apply-corrections"): "_route_apply_corrections",
     ("POST", "/api/projects/{id}/quality/undo/{change_id}"): "_route_undo_changeset",
+    ("POST", "/api/projects/{id}/quality/analyze"): "_route_quality_analyze",
+    ("POST", "/api/projects/{id}/quality/issues/{issue_id}"): "_route_quality_issue",
+    ("POST", "/api/projects/{id}/reference"): "_route_reference",
     ("POST", "/api/projects/{id}/retranscribe"): "_route_retranscribe",
     ("POST", "/api/projects/{id}/{action}/suggest"): "_route_ai_suggest",
     ("POST", "/api/projects/{id}/{action}"): "_route_project_action",
@@ -941,6 +1294,30 @@ def _handler_factory(app: StudioApplication):
         def _route_corrections_preview(self, _parsed, params: dict[str, str]) -> None:
             self._send_json(app.corrections_preview(self._project(params["id"])))
 
+        def _route_quality_report(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(app.quality_report(self._project(params["id"])))
+
+        def _route_reference(self, parsed, params: dict[str, str]) -> None:
+            project = self._project(params["id"])
+            if self.command == "GET":
+                self._send_json(app.reference_info(project))
+                return
+            query = parse_qs(parsed.query)
+            filename = (query.get("filename") or [""])[0]
+            if filename:
+                length = int(self.headers.get("Content-Length", "0") or 0)
+                self._send_json(
+                    app.save_reference_upload(
+                        project,
+                        filename,
+                        self.rfile,
+                        length,
+                    )
+                )
+                return
+            body = self._read_json_body()
+            self._send_json(app.save_reference_path(project, body.get("path")))
+
         def _route_unknown_project_get(self, _parsed, params: dict[str, str]) -> None:
             self._project(params["id"])
             self._send_error_json(404, "not found")
@@ -958,6 +1335,26 @@ def _handler_factory(app: StudioApplication):
             self._read_json_body()
             project = self._project(params["id"])
             self._send_json(app.undo_dictionary_changeset(project, params["change_id"]))
+
+        def _route_quality_analyze(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.analyze_quality(
+                    self._project(params["id"]),
+                    self._read_json_body(),
+                )
+            )
+
+        def _route_quality_issue(self, _parsed, params: dict[str, str]) -> None:
+            try:
+                report = app.update_quality_issue(
+                    self._project(params["id"]),
+                    params["issue_id"],
+                    self._read_json_body(),
+                )
+            except KeyError:
+                self._send_error_json(404, "quality issue not found")
+                return
+            self._send_json(report)
 
         def _route_retranscribe(self, _parsed, params: dict[str, str]) -> None:
             self._read_json_body()

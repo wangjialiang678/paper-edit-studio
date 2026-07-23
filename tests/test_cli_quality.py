@@ -40,6 +40,62 @@ def _project_payload(source: str, text: str = "WEB CODING 与 web coding") -> di
     }
 
 
+def _quality_project_payload(source: str) -> dict:
+    return {
+        "source_video": source,
+        "duration_ms": 1800,
+        "selected_segment_ids": ["s1", "s2"],
+        "segments": [
+            {
+                "id": "s1",
+                "start_ms": 0,
+                "end_ms": 800,
+                "text": "今天聊超导协作。",
+                "tokens": [
+                    {
+                        "text": "今天聊",
+                        "start_ms": 0,
+                        "end_ms": 220,
+                        "confidence": 0.99,
+                    },
+                    {
+                        "text": "超导",
+                        "start_ms": 240,
+                        "end_ms": 430,
+                        "confidence": 0.42,
+                    },
+                    {
+                        "text": "协作。",
+                        "start_ms": 450,
+                        "end_ms": 780,
+                        "confidence": 0.98,
+                    },
+                ],
+            },
+            {
+                "id": "s2",
+                "start_ms": 900,
+                "end_ms": 1800,
+                "text": "含混词需要人工判断。",
+                "tokens": [
+                    {
+                        "text": "含混词",
+                        "start_ms": 920,
+                        "end_ms": 1250,
+                        "confidence": 0.42,
+                    },
+                    {
+                        "text": "需要人工判断。",
+                        "start_ms": 1280,
+                        "end_ms": 1780,
+                        "confidence": 0.98,
+                    },
+                ],
+            },
+        ],
+    }
+
+
 def _write_wav(path: Path) -> None:
     with wave.open(str(path), "wb") as handle:
         handle.setnchannels(1)
@@ -68,6 +124,38 @@ class _CountingRunner:
                 "vad": {"duration_ms": 1000, "speech_intervals": [], "source": "fake"},
             }
         )
+
+
+class _UnavailableQualityLlmClient:
+    def available(self) -> bool:
+        return False
+
+
+class _FakeQualityLlmClient:
+    def available(self) -> bool:
+        return True
+
+    def chat_json(self, _system: str, _user: str, **_kwargs):
+        return {
+            "findings": [
+                {
+                    "segment_id": "s1",
+                    "span_text": "超导",
+                    "verdict": "auto_fix",
+                    "replacement": "超脑",
+                    "reason": "结合上下文应为同音专名“超脑”",
+                    "confidence": 0.99,
+                },
+                {
+                    "segment_id": "s2",
+                    "span_text": "含混词",
+                    "verdict": "ask_user",
+                    "replacement": "候选术语",
+                    "reason": "上下文不足，需人工确认",
+                    "confidence": 0.62,
+                },
+            ]
+        }
 
 
 class CorrectionsCliTests(unittest.TestCase):
@@ -177,6 +265,205 @@ class CorrectionsCliTests(unittest.TestCase):
             self.assertEqual(manifest["results"][0]["applied"], 0)
             self.assertNotIn("changeset_id", manifest["results"][0])
             self.assertEqual(read_json(selection_path)["rows"][0]["text"], "web coding")
+
+
+class QualityWorkflowCliTests(unittest.TestCase):
+    def _create_quality_project(self, root: Path):
+        workspace_path = root / "workspace"
+        workspace = Workspace(workspace_path)
+        source = root / "source.wav"
+        project = workspace.create_project(
+            "quality-workflow",
+            source_path=source,
+            imported_via="cli",
+        )
+        write_json(project.transcript_path, _quality_project_payload(str(source)))
+        selection_path = project.dir / "selection.json"
+        write_json(
+            selection_path,
+            {
+                "rows": [
+                    {
+                        "id": "s1",
+                        "text": "今天聊超导协作。",
+                        "checked": True,
+                        "cuts": [{"start_token": 0, "end_token": 0}],
+                    },
+                    {
+                        "id": "s2",
+                        "text": "含混词需要人工判断。",
+                        "checked": False,
+                    },
+                ],
+                "groups": [{"purpose": "hook", "segment_ids": ["s1"]}],
+            },
+        )
+        return workspace_path, project, selection_path
+
+    def test_check_writes_complete_quality_report_from_confident_transcript_and_selection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace_path, project, _selection_path = self._create_quality_project(root)
+
+            with patch(
+                "cutpoint_lab.cli.LlmClient",
+                return_value=_UnavailableQualityLlmClient(),
+            ):
+                code, manifest, _ = _run_json(
+                    [
+                        "check",
+                        project.id,
+                        "--workspace",
+                        str(workspace_path),
+                        "--json",
+                    ]
+                )
+
+            self.assertEqual(code, 0)
+            self.assertTrue(manifest["ok"])
+            self.assertEqual(manifest["command"], "check")
+            result = manifest["results"][0]
+            self.assertEqual(result["project_id"], project.id)
+
+            report_path = project.dir / "quality_report.json"
+            self.assertEqual(result["outputs"]["quality_report"], str(report_path))
+            report = read_json(report_path)
+            self.assertEqual(
+                set(report),
+                {"generated_at", "issues", "stats", "meta"},
+            )
+            self.assertTrue(report["generated_at"])
+            self.assertIsInstance(report["meta"], dict)
+            self.assertEqual(report["stats"]["low_confidence"], 2)
+            low_confidence = [
+                issue for issue in report["issues"] if issue["kind"] == "low_confidence"
+            ]
+            self.assertEqual(len(low_confidence), 2)
+            first = next(issue for issue in low_confidence if issue["segment_id"] == "s1")
+            self.assertEqual(first["span"]["text"], "超导")
+            self.assertEqual(first["confidence"], 0.42)
+            self.assertEqual(first["source"], "confidence")
+            self.assertEqual(result["issues"], report["issues"])
+            self.assertEqual(result["stats"], report["stats"])
+
+    def test_reference_registers_external_subtitle_in_project(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace_path, project, _selection_path = self._create_quality_project(root)
+            reference = root / "reviewed.srt"
+            reference.write_text(
+                "1\n00:00:00,000 --> 00:00:00,800\n今天聊超脑协作。\n",
+                encoding="utf-8",
+            )
+
+            code, manifest, _ = _run_json(
+                [
+                    "reference",
+                    project.id,
+                    str(reference),
+                    "--workspace",
+                    str(workspace_path),
+                    "--json",
+                ]
+            )
+
+            self.assertEqual(code, 0)
+            self.assertTrue(manifest["ok"])
+            registered = project.dir / "reference.srt"
+            self.assertTrue(registered.is_file())
+            self.assertEqual(
+                registered.read_text(encoding="utf-8"),
+                reference.read_text(encoding="utf-8"),
+            )
+            self.assertEqual(
+                manifest["results"][0]["outputs"]["reference"],
+                str(registered),
+            )
+
+    def test_fix_auto_applies_high_confidence_and_existing_undo_restores_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace_path, project, selection_path = self._create_quality_project(root)
+
+            with patch(
+                "cutpoint_lab.cli.LlmClient",
+                return_value=_FakeQualityLlmClient(),
+            ):
+                code, manifest, _ = _run_json(
+                    [
+                        "fix",
+                        project.id,
+                        "--auto",
+                        "--yes",
+                        "--workspace",
+                        str(workspace_path),
+                        "--json",
+                    ]
+                )
+
+            self.assertEqual(code, 0)
+            self.assertTrue(manifest["ok"])
+            result = manifest["results"][0]
+            self.assertEqual(result["applied"], 1)
+            self.assertEqual(
+                read_json(selection_path)["rows"][0]["text"],
+                "今天聊超脑协作。",
+            )
+            self.assertEqual(read_json(selection_path)["groups"][0]["purpose"], "hook")
+            self.assertIn("cuts", read_json(selection_path)["rows"][0])
+            self.assertEqual(len(result["ask_user"]), 1)
+            self.assertEqual(result["ask_user"][0]["segment_id"], "s2")
+            self.assertEqual(result["ask_user"][0]["span"]["text"], "含混词")
+            change_id = result["changeset_id"]
+            changeset_path = project.dir / "changesets" / f"{change_id}.json"
+            self.assertEqual(result["outputs"]["changeset"], str(changeset_path))
+            self.assertTrue(changeset_path.is_file())
+
+            undo_code, undone, _ = _run_json(
+                [
+                    "undo",
+                    project.id,
+                    change_id,
+                    "--workspace",
+                    str(workspace_path),
+                    "--json",
+                ]
+            )
+            self.assertEqual(undo_code, 0)
+            self.assertEqual(undone["results"][0]["reverted"], 1)
+            self.assertEqual(
+                read_json(selection_path)["rows"][0]["text"],
+                "今天聊超导协作。",
+            )
+
+    def test_fix_auto_declined_only_previews_without_writing_selection_or_changeset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace_path, project, selection_path = self._create_quality_project(root)
+            original_selection = read_json(selection_path)
+
+            with patch(
+                "cutpoint_lab.cli.LlmClient",
+                return_value=_FakeQualityLlmClient(),
+            ), patch("sys.stdin", io.StringIO("n\n")):
+                code, manifest, _ = _run_json(
+                    [
+                        "fix",
+                        project.id,
+                        "--auto",
+                        "--workspace",
+                        str(workspace_path),
+                        "--json",
+                    ]
+                )
+
+            self.assertEqual(code, 0)
+            result = manifest["results"][0]
+            self.assertEqual(result["applied"], 0)
+            self.assertEqual(len(result["ask_user"]), 1)
+            self.assertNotIn("changeset_id", result)
+            self.assertEqual(read_json(selection_path), original_selection)
+            self.assertFalse((project.dir / "changesets").exists())
 
 
 class CacheCliTests(unittest.TestCase):

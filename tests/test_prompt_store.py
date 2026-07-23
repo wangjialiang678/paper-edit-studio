@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from cutpoint_lab.models import Transcript, TranscriptSegment, TranscriptToken
 from cutpoint_lab.studio.ai_selector import AiSelector, HARD_CONSTRAINTS
 from cutpoint_lab.studio.prompt_protocols import MODE_PROTOCOLS
 from cutpoint_lab.studio.prompt_store import LEGACY_WARNING, PromptStore
@@ -9,6 +10,8 @@ from cutpoint_lab.studio.prompt_store import LEGACY_WARNING, PromptStore
 
 DEFAULT_NAME = "koubo-tighten.md"
 DEFAULT_CONTENT = "DEFAULT 剪辑理念：删掉口水话。"
+QUALITY_DEFAULT_NAME = "quality-review.md"
+QUALITY_DEFAULT_CONTENT = "DEFAULT 质检理念：只纠正有充分上下文证据的错词。"
 
 
 class _FakeClient:
@@ -24,6 +27,10 @@ class PromptStoreTests(unittest.TestCase):
         defaults = root / "prompts"
         defaults.mkdir()
         (defaults / DEFAULT_NAME).write_text(DEFAULT_CONTENT, encoding="utf-8")
+        (defaults / QUALITY_DEFAULT_NAME).write_text(
+            QUALITY_DEFAULT_CONTENT,
+            encoding="utf-8",
+        )
         return PromptStore(defaults, root / "workspace" / "_settings" / "prompts")
 
     def test_default_content_is_editable_part_and_assembles_with_protocol(self):
@@ -105,11 +112,63 @@ class PromptStoreTests(unittest.TestCase):
             self.assertTrue(rendered.endswith(HARD_CONSTRAINTS))
             self.assertNotIn("DEFAULT", rendered)
 
+    def test_quality_review_default_assembles_editorial_content_with_exact_protocol(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self._store(Path(tmp))
+
+            result = store.get("quality_review")
+
+            self.assertEqual(result["mode"], "quality_review")
+            self.assertEqual(result["source"], "default")
+            self.assertEqual(result["content"], QUALITY_DEFAULT_CONTENT)
+            self.assertEqual(result["default_content"], QUALITY_DEFAULT_CONTENT)
+            self.assertEqual(result["protocol"], MODE_PROTOCOLS["quality_review"])
+            self.assertEqual(
+                result["assembled_template"],
+                QUALITY_DEFAULT_CONTENT + MODE_PROTOCOLS["quality_review"],
+            )
+            self.assertEqual(
+                store.assemble("quality_review"),
+                result["assembled_template"],
+            )
+
+    def test_ai_selector_rejects_quality_review_mode(self):
+        transcript = Transcript(
+            source_video="source.mp4",
+            duration_ms=1000,
+            selected_segment_ids=["s1"],
+            segments=[
+                TranscriptSegment(
+                    id="s1",
+                    start_ms=0,
+                    end_ms=1000,
+                    text="测试",
+                    tokens=[
+                        TranscriptToken(
+                            text="测试",
+                            start_ms=0,
+                            end_ms=900,
+                        )
+                    ],
+                )
+            ],
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self._store(Path(tmp))
+            selector = AiSelector(
+                store.prompts_dir,
+                client=_FakeClient(),
+                prompt_store=store,
+            )
+
+            with self.assertRaisesRegex(ValueError, "未知 AI 模式"):
+                selector.suggest(transcript, "quality_review")
+
     def test_real_repo_prompts_assemble_cleanly(self):
         """仓库真实模板：理念区零协议零占位符，拼装后协议齐全。"""
         repo_prompts = Path(__file__).resolve().parents[1] / "prompts"
         store = PromptStore(repo_prompts, None)
-        for mode in MODE_PROTOCOLS:
+        for mode in ("koubo_tighten", "topic_slicing", "highlight_remix"):
             result = store.get(mode)
             self.assertNotIn("## 输出格式", result["content"], mode)
             self.assertNotIn("{{", result["content"], mode)

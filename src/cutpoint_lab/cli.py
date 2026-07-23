@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import http.server
 import json
 import shutil
@@ -20,9 +21,13 @@ from cutpoint_lab.engine import (
     EnvStore,
     LlmClient,
     Project,
+    PromptStore,
     Transcript,
     Video2mdAsrRunner,
+    VocabularyClient,
+    VocabularyError,
     Workspace,
+    align_reference,
     apply_corrections,
     backfill_cache_entry,
     build_plan_from_editor_rows,
@@ -30,15 +35,22 @@ from cutpoint_lab.engine import (
     extract_audio,
     ffprobe_duration_ms,
     load_changeset,
+    load_report,
     load_rms_frames,
     load_transcript,
+    merge_report,
+    parse_reference,
     preview_corrections,
     read_json,
     render_review_html,
     render_redline_markdown,
     resolve_transcript_cache_dir,
+    resolve_secret_key,
+    review_quality,
     save_changeset,
+    save_report,
     save_suggestion,
+    scan_confidence,
     undo_changeset,
     write_json,
     write_srt,
@@ -550,11 +562,22 @@ def _build_parser() -> argparse.ArgumentParser:
     corrections_add.add_argument("--term", action="store_true", help="标记正词为专有名词")
     _add_shared_arguments(corrections_add)
 
-    fix = subparsers.add_parser("fix", help="应用确定性字幕纠错")
+    check = subparsers.add_parser("check", help="分析已有项目的字幕质量")
+    check.add_argument("project", metavar="PROJECT")
+    _add_shared_arguments(check)
+
+    fix = subparsers.add_parser("fix", help="应用字幕纠错")
     fix.add_argument("project", metavar="PROJECT")
-    fix.add_argument("--dict-only", action="store_true", required=True, help="仅应用纠错词典")
+    fix_mode = fix.add_mutually_exclusive_group(required=True)
+    fix_mode.add_argument("--dict-only", action="store_true", help="仅应用纠错词典")
+    fix_mode.add_argument("--auto", action="store_true", help="运行 AI 复核并应用高置信纠错")
     fix.add_argument("--yes", action="store_true", help="不询问直接应用")
     _add_shared_arguments(fix)
+
+    reference = subparsers.add_parser("reference", help="登记外部参考字幕")
+    reference.add_argument("project", metavar="PROJECT")
+    reference.add_argument("subtitle", metavar="SUBTITLE")
+    _add_shared_arguments(reference)
 
     undo = subparsers.add_parser("undo", help="撤销一次字幕修改")
     undo.add_argument("project", metavar="PROJECT")
@@ -868,6 +891,87 @@ def _selection_payload(project: Project) -> tuple[Path, dict[str, Any], list[dic
     return selection_path, {"rows": rows}, rows
 
 
+def _quality_rows(project: Project) -> list[dict[str, Any]]:
+    """以 transcript 的时间/token 为底，叠加 selection 的当前文字。"""
+    if not project.transcript_path.is_file():
+        raise ValueError(f"字幕文件不存在：{project.transcript_path}")
+    transcript_payload = read_json(project.transcript_path)
+    segments = transcript_payload.get("segments")
+    if not isinstance(segments, list):
+        raise ValueError(f"字幕文件缺少 segments：{project.transcript_path}")
+
+    current_text: dict[str, str] = {}
+    selection_path = project.dir / "selection.json"
+    if selection_path.is_file():
+        selection = read_json(selection_path)
+        for row in selection.get("rows") or []:
+            if isinstance(row, dict) and row.get("id") is not None:
+                current_text[str(row["id"])] = str(row.get("text") or "")
+
+    rows = copy.deepcopy([row for row in segments if isinstance(row, dict)])
+    for row in rows:
+        segment_id = str(row.get("id", row.get("segment_id", "")))
+        if segment_id in current_text:
+            row["text"] = current_text[segment_id]
+    return rows
+
+
+def _reference_path(project: Project) -> Path | None:
+    candidates = sorted(
+        (
+            path
+            for path in project.dir.glob("reference.*")
+            if path.is_file() and path.suffix.lower() in {".srt", ".vtt"}
+        ),
+        key=lambda path: path.stat().st_mtime_ns,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
+def _analyze_project(project: Project) -> dict[str, Any]:
+    rows = _quality_rows(project)
+    issues = scan_confidence(rows)
+    reference = _reference_path(project)
+    if reference is not None:
+        cues = parse_reference(reference.read_text(encoding="utf-8-sig"))
+        issues.extend(align_reference(rows, cues))
+    report = merge_report(load_report(project.dir), issues)
+    if reference is not None:
+        report["meta"]["reference_file"] = reference.name
+    save_report(project.dir, report)
+    return report
+
+
+def _print_quality_report(report: dict[str, Any]) -> None:
+    stats = report.get("stats") or {}
+    if stats:
+        _progress("质检统计：" + "，".join(f"{kind}={count}" for kind, count in stats.items()))
+    else:
+        _progress("质检统计：未发现问题")
+    for issue in (report.get("issues") or [])[:20]:
+        span = issue.get("span") or {}
+        _progress(
+            f"[{issue.get('segment_id')}] {issue.get('kind')} "
+            f"「{span.get('text', '')}」：{issue.get('reason', '')}"
+        )
+
+
+def _handle_check(args: argparse.Namespace, workspace: Workspace) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+    report = _analyze_project(project)
+    if not args.json_output:
+        _print_quality_report(report)
+    result = _project_result(project)
+    result.update(report)
+    result["outputs"] = {
+        "quality_report": str(project.dir / "quality_report.json")
+    }
+    return [result]
+
+
 def _project_result(project: Project) -> dict[str, Any]:
     return _new_result(
         project_id=project.id,
@@ -894,6 +998,8 @@ def _handle_fix(args: argparse.Namespace, workspace: Workspace) -> list[dict[str
     project = workspace.get(args.project)
     if project is None:
         raise ValueError(f"项目不存在：{args.project}")
+    if args.auto:
+        return _handle_ai_fix(args, workspace, project)
 
     selection_path, selection, rows = _selection_payload(project)
     correction_set = CorrectionSet.load(_corrections_path(workspace))
@@ -919,6 +1025,192 @@ def _handle_fix(args: argparse.Namespace, workspace: Workspace) -> list[dict[str
         "selection": str(selection_path),
         "changeset": str(changeset_path),
     }
+    return [result]
+
+
+def _print_ai_preview(findings: list[dict[str, Any]]) -> None:
+    for finding in findings:
+        if finding.get("verdict") != "auto_fix":
+            continue
+        _progress(
+            f"[{finding['segment_id']}] {finding['span_text']} => "
+            f"{finding.get('replacement', '')}（{finding.get('confidence')}）"
+        )
+
+
+def _handle_ai_fix(
+    args: argparse.Namespace,
+    workspace: Workspace,
+    project: Project,
+) -> list[dict[str, Any]]:
+    report = _analyze_project(project)
+    quality_rows = _quality_rows(project)
+    client = LlmClient(
+        env_store=EnvStore(),
+        api_vault_path=DEFAULT_API_VAULT_PATH,
+    )
+    if not client.available():
+        raise ValueError("缺少 LLM API Key，无法运行 AI 复核")
+    prompt_store = PromptStore(
+        DEFAULT_PROMPTS_DIR,
+        workspace.root / "_settings" / "prompts",
+    )
+    correction_set = CorrectionSet.load(_corrections_path(workspace))
+    corrections_rights = [
+        str(pair["right"])
+        for pair in correction_set.pairs
+        if pair.get("right")
+    ]
+    findings, changeset, new_issues = review_quality(
+        quality_rows,
+        report["issues"],
+        chat_json_fn=client.chat_json,
+        assemble_prompt_fn=lambda: prompt_store.assemble("quality_review"),
+        known_terms=_cli_known_terms(),
+        corrections_rights=corrections_rights,
+    )
+    _print_ai_preview(findings)
+    ask_user = [
+        issue
+        for issue in new_issues
+        if issue.get("kind") in {"ai_suspect", "term_candidate"}
+    ]
+    for issue in ask_user:
+        suggestion = (
+            f" => {issue['suggestion']}" if issue.get("suggestion") else ""
+        )
+        _progress(
+            f"[{issue['segment_id']}] 待人工确认"
+            f"「{issue['span']['text']}」{suggestion}"
+        )
+
+    auto_findings = [
+        finding for finding in findings if finding.get("verdict") == "auto_fix"
+    ]
+    apply_auto = bool(changeset and auto_findings) and _confirmed(args)
+    _selection_path, _selection, original_rows = _selection_payload(project)
+    result = _project_result(project)
+    result.update(
+        {
+            "applied": 0,
+            "ask_user": ask_user,
+            "rows": original_rows,
+        }
+    )
+    applied_segment_ids: set[str] = set()
+    changeset_path: Path | None = None
+    if apply_auto and changeset is not None:
+        selection_path, selection, selection_rows = _selection_payload(project)
+        pending_changes = {
+            str(change.get("segment_id") or ""): change
+            for change in changeset.get("changes") or []
+            if isinstance(change, dict)
+        }
+        new_rows = copy.deepcopy(selection_rows)
+        for row in new_rows:
+            segment_id = str(row.get("id", row.get("segment_id", "")))
+            change = pending_changes.get(segment_id)
+            if change is None or row.get("text") != change.get("old"):
+                continue
+            row["text"] = str(change.get("new") or "")
+            applied_segment_ids.add(segment_id)
+        applied_changes = [
+            change
+            for change in changeset.get("changes") or []
+            if str(change.get("segment_id") or "") in applied_segment_ids
+        ]
+        if applied_changes:
+            applied_count = sum(
+                1
+                for finding in auto_findings
+                if str(finding.get("segment_id") or "")
+                in applied_segment_ids
+            )
+            changeset["changes"] = applied_changes
+            changeset["label"] = f"AI 自动纠错 {applied_count} 处"
+            selection["rows"] = new_rows
+            write_json(selection_path, selection)
+            changeset_path = save_changeset(project.dir, changeset)
+            result.update(
+                {
+                    "applied": applied_count,
+                    "changeset_id": changeset["change_id"],
+                    "rows": new_rows,
+                    "outputs": {
+                        "selection": str(selection_path),
+                        "changeset": str(changeset_path),
+                        "quality_report": str(
+                            project.dir / "quality_report.json"
+                        ),
+                    },
+                }
+            )
+
+    skipped_auto_keys = {
+        (
+            str(finding.get("segment_id") or ""),
+            str(finding.get("span_text") or ""),
+        )
+        for finding in auto_findings
+        if str(finding.get("segment_id") or "") not in applied_segment_ids
+    }
+    for issue in report["issues"]:
+        key = (
+            str(issue.get("segment_id") or ""),
+            str((issue.get("span") or {}).get("text") or ""),
+        )
+        if key in skipped_auto_keys:
+            issue["status"] = "open"
+
+    combined = merge_report(report, [*report["issues"], *new_issues])
+    combined["meta"]["ai_findings"] = findings
+    if changeset_path is not None and changeset is not None:
+        combined["meta"]["ai_changeset_id"] = changeset["change_id"]
+    save_report(project.dir, combined)
+    return [result]
+
+
+def _cli_known_terms() -> list[str]:
+    env_store = EnvStore()
+    vocabulary_id, _ = env_store.effective("ASR_BASE_VOCABULARY_ID")
+    if not vocabulary_id:
+        return []
+    api_key, _ = resolve_secret_key(
+        "DASHSCOPE_API_KEY",
+        env_store,
+        api_vault_path=DEFAULT_API_VAULT_PATH,
+    )
+    if not api_key:
+        return []
+    try:
+        details = VocabularyClient(api_key).query(vocabulary_id)
+    except (ValueError, VocabularyError):
+        _progress("热词表暂不可用，AI 复核继续使用纠错词典")
+        return []
+    return [
+        str(item["text"])
+        for item in details.get("vocabulary") or []
+        if isinstance(item, dict) and item.get("text")
+    ]
+
+
+def _handle_reference(
+    args: argparse.Namespace,
+    workspace: Workspace,
+) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+    source = Path(args.subtitle).expanduser().resolve()
+    if not source.is_file():
+        raise ValueError(f"参考字幕不存在：{source}")
+    if source.suffix.lower() not in {".srt", ".vtt"}:
+        raise ValueError("参考字幕只支持 SRT/VTT")
+    target = project.dir / f"reference{source.suffix}"
+    shutil.copyfile(source, target)
+    result = _project_result(project)
+    result["filename"] = target.name
+    result["outputs"] = {"reference": str(target)}
     return [result]
 
 
@@ -1017,12 +1309,18 @@ def main(argv: list[str] | None = None) -> int:
             results = _handle_run(args, workspace)
         elif args.command == "corrections":
             results = _handle_corrections(args, workspace)
+        elif args.command == "check":
+            results = _handle_check(args, workspace)
         elif args.command == "fix":
             results = _handle_fix(args, workspace)
+        elif args.command == "reference":
+            results = _handle_reference(args, workspace)
         elif args.command == "undo":
             results = _handle_undo(args, workspace)
-        else:
+        elif args.command == "cache":
             results = _handle_cache_backfill(args, workspace)
+        else:
+            raise ValueError(f"未知命令：{args.command}")
     except Exception as exc:  # noqa: BLE001 - 参数关联错误也输出统一 manifest。
         results = [
             {

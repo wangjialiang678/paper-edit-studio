@@ -48,6 +48,35 @@ python -m cutpoint_lab export <项目id>
 python -m cutpoint_lab run a.mp4 --brief "..." --redline --json
 ```
 
+## 字幕质检与纠错（quality 系列）
+
+```bash
+# 质检报告：低置信片段 +（有参考字幕时）与参考的差异；--json 出完整报告
+python -m cutpoint_lab check <项目id>
+
+# 纠错词典：维护"错词=>正词"映射（全局，跨项目生效）
+python -m cutpoint_lab corrections list
+python -m cutpoint_lab corrections add "web coding=>vibe coding" --term
+
+# 应用词典（确定性替换，先预览、--yes 落盘，可 undo）
+python -m cutpoint_lab fix <项目id> --dict-only --yes
+
+# AI 复核：大模型结合上下文+已知词表判错词——确定的自动纠（--yes 应用，整批可 undo），
+# 拿不准的输出列表留给人工
+python -m cutpoint_lab fix <项目id> --auto --yes
+
+# 撤销任一批量修改（changeset id 见 fix 输出 / 报告 meta）
+python -m cutpoint_lab undo <项目id> <changeset_id>
+
+# 登记外部参考字幕（SRT/VTT，仅作校对参考，不替代转写）
+python -m cutpoint_lab reference <项目id> 参考字幕.srt
+
+# 转写缓存回填：把既有项目的转写按内容指纹登记进缓存（此后同一视频不再重转）
+python -m cutpoint_lab cache backfill
+```
+
+- 转写默认走**内容指纹缓存**（`TRANSCRIPT_CACHE_DIR` 可指向共享同步盘，团队复用）。
+
 ## 导出速度
 
 导出对每个保留区间用 ffmpeg 帧精确重编码再拼接（切点是词级毫秒精度，无法用 `-c copy` 无损快切）。已做的提速：

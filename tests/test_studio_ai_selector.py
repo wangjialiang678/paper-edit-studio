@@ -157,6 +157,46 @@ class RemixSelectorTests(unittest.TestCase):
         self.assertGreater(suggestion.payload["clips_duration_ms"], 0)
 
 
+class ChunkResilienceTests(unittest.TestCase):
+    """单块 LLM 失败：重试一次成功则无痕；两次失败降级默认保留，不毁整次分析。"""
+
+    def test_chunk_retry_once_recovers(self):
+        calls = {"n": 0}
+
+        class FlakyClient:
+            def available(self):
+                return True
+
+            def chat_json(self, _system, _user, **_kwargs):
+                calls["n"] += 1
+                if calls["n"] == 1:
+                    raise LlmError("LLM 输出中找不到 JSON：[0.5]")
+                return {"decisions": [
+                    {"segment_id": f"sentence_{i:04d}", "keep": True, "reason": "ok"} for i in range(1, 5)
+                ]}
+
+        selector = AiSelector(PROMPTS_DIR, client=FlakyClient())
+        suggestion = selector.suggest(_transcript(), "koubo_tighten")
+        self.assertEqual(calls["n"], 2)
+        self.assertFalse(any("失败" in w for w in suggestion.warnings))
+        self.assertEqual(len(suggestion.payload["keep_segment_ids"]), 4)
+
+    def test_chunk_double_failure_degrades_to_keep_all(self):
+        class DeadClient:
+            def available(self):
+                return True
+
+            def chat_json(self, *_args, **_kwargs):
+                raise LlmError("LLM 输出中找不到 JSON：[0.5]")
+
+        selector = AiSelector(PROMPTS_DIR, client=DeadClient())
+        suggestion = selector.suggest(_transcript(), "koubo_tighten")
+        decisions = suggestion.payload["decisions"]
+        self.assertEqual(len(decisions), 4)
+        self.assertTrue(all(d["keep"] for d in decisions))
+        self.assertTrue(any("AI 调用失败" in w for w in suggestion.warnings))
+
+
 class SegmentIdRepairTests(unittest.TestCase):
     """模型简写 segment_id（0055 / 55 / sentence_55）应被确定性还原，歧义与未知仍拒绝。"""
 

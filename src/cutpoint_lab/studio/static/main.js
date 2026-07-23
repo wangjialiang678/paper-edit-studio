@@ -7,6 +7,7 @@ import "./editor.js";
 import "./exporter.js";
 import "./ai.js";
 import "./settings.js";
+import "./quality.js";
 
 document.addEventListener("keydown", (event) => {
   if (el.editorView.hidden) return;

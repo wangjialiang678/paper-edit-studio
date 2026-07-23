@@ -10,8 +10,12 @@ import { el, state, pb, fmtClock, escapeHtml, autoGrow, markActive, setStatus, a
 import { rangeIndexForRow, auditionRange, segmentBaseId } from "./player.js";
 import { scheduleAutosave } from "./plan.js";
 import { toggleTrimPanel, applySuggestedCuts, struckSet, applyStruck } from "./trim.js";
+import { openIssuesBySegment, acceptIssue, ignoreIssue } from "./quality.js";
+
+let issuesCache = {}; // segment_id → open issues（renderRows 时刷新）
 
 export function renderRows() {
+  issuesCache = openIssuesBySegment();
   el.rows.innerHTML = "";
   const silenceAfter = new Map();
   let headSilence = null;
@@ -42,13 +46,19 @@ function badgesHtml(row) {
   if ((row.ai_labels || []).includes("golden_quote")) badges.push('<span class="badge quote">金句</span>');
   if (row.trim || row.nudge || (row.cuts || []).length) badges.push('<span class="badge trimmed">✂ 已微调</span>');
   if ((row.suggested_cuts || []).length) badges.push(`<span class="badge suggest">气口 ×${row.suggested_cuts.length}</span>`);
+  if ((issuesCache[row.id] || []).length) badges.push(`<span class="badge qissue" title="打开🔎质检面板处理">质检 ×${issuesCache[row.id].length}</span>`);
   if (row.has_word_timestamps) badges.push('<button class="btn tiny trim-toggle" title="句内微调：删词/剪气口/拖切点">✂ 微调</button>');
   const reason = row.ai_reason ? `<div class="row-reason">${escapeHtml(row.ai_reason)}</div>` : "";
   return badges.join("") + reason;
 }
 
+function tokenIssues(row) {
+  return (issuesCache[row.id] || []).filter((issue) => issue.span && issue.span.token_start != null);
+}
+
 function hasInlineStruck(row) {
-  return Boolean(row.has_word_timestamps && (row.trim || (row.cuts || []).length) && !row._editText);
+  const struck = row.trim || (row.cuts || []).length;
+  return Boolean(row.has_word_timestamps && (struck || tokenIssues(row).length) && !row._editText);
 }
 
 /* 行文本槽位渲染：textarea 或 划线视图。 */
@@ -63,12 +73,23 @@ function renderRowText(row, slot) {
     for (const span of row.suggested_cuts || []) {
       for (let i = span.start_token; i <= span.end_token; i++) suggested.add(i);
     }
+    const issueByToken = new Map();
+    for (const issue of tokenIssues(row)) {
+      for (let i = issue.span.token_start; i <= (issue.span.token_end ?? issue.span.token_start); i++) {
+        if (!issueByToken.has(i)) issueByToken.set(i, issue);
+      }
+    }
     row.tokens.forEach((token, index) => {
       const tok = document.createElement("span");
-      tok.className = `tok${struck.has(index) ? " cut" : suggested.has(index) ? " suggest" : ""}`;
+      const issue = issueByToken.get(index);
+      const issueClass = issue ? (issue.kind === "ref_mismatch" ? " ref" : " suspect") : "";
+      const extra = struck.has(index) ? " cut" : suggested.has(index) ? " suggest" : issueClass;
+      tok.className = `tok${extra}`;
       tok.textContent = token.text;
+      if (issue && !struck.has(index)) tok.title = `质检：${issue.reason || issue.kind}（点击查看）`;
       tok.addEventListener("click", (event) => {
         event.stopPropagation();
+        if (issue && !struck.has(index)) { showIssuePopover(tok, issue); return; }
         const next = struckSet(row);
         if (next.has(index)) next.delete(index);
         else next.add(index);
@@ -258,8 +279,39 @@ function rowNode(row) {
   return div;
 }
 
+/* 质检高亮词的处置浮层：采纳/忽略/跳过。 */
+function showIssuePopover(anchor, issue) {
+  document.querySelector(".q-popover")?.remove();
+  const pop = document.createElement("div");
+  pop.className = "q-popover";
+  pop.innerHTML = `
+    <div class="q-pop-text">「${escapeHtml(issue.span?.text || "")}」${issue.suggestion ? ` → 「${escapeHtml(issue.suggestion)}」` : ""}</div>
+    <div class="meta">${escapeHtml(issue.reason || "")}</div>
+    <div class="q-actions">
+      ${issue.suggestion ? '<button class="btn small primary" data-act="accept">采纳</button>' : ""}
+      <button class="btn small" data-act="ignore">忽略</button>
+      <button class="btn small" data-act="close">关闭</button>
+    </div>`;
+  document.body.appendChild(pop);
+  const rect = anchor.getBoundingClientRect();
+  pop.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 280)}px`;
+  pop.style.top = `${rect.bottom + window.scrollY + 6}px`;
+  const close = () => { pop.remove(); document.removeEventListener("pointerdown", outside, true); };
+  const outside = (event) => { if (!pop.contains(event.target)) close(); };
+  document.addEventListener("pointerdown", outside, true);
+  pop.querySelector('[data-act="close"]').addEventListener("click", close);
+  pop.querySelector('[data-act="ignore"]').addEventListener("click", () => { ignoreIssue(issue); close(); });
+  pop.querySelector('[data-act="accept"]')?.addEventListener("click", () => { acceptIssue(issue); close(); });
+}
+
+/* 质检报告更新 → 整表重渲染（徽章与高亮跟着变）。 */
+document.addEventListener("quality-report-updated", () => {
+  if (state.rows.length) renderRows();
+});
+
 /* trim.js 通知：某行的删除集合变了 → 局部刷新文本槽与徽章（不动微调面板）。 */
 document.addEventListener("row-struck-changed", (event) => {
+  issuesCache = openIssuesBySegment(); // 采纳/忽略质检项后徽章计数同步
   const row = state.rows.find((item) => item.id === event.detail.id);
   const node = el.rows.querySelector(`.subtitle-row[data-id="${CSS.escape(event.detail.id)}"]`);
   if (!row || !node) return;

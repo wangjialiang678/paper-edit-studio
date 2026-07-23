@@ -5,6 +5,7 @@ import { renderRows } from "./rows.js";
 import { renderAiPanel, resumeAiPolling } from "./ai.js";
 import { syncPlan } from "./plan.js";
 import { updateTransport } from "./player.js";
+import { loadQualityReport } from "./quality.js";
 
 export async function showEditor() {
   try {
@@ -16,6 +17,7 @@ export async function showEditor() {
     showView("editor");
     const mediaUrl = `/media/${state.projectId}/source`;
     if (!el.video.src.endsWith(encodeURI(mediaUrl))) el.video.src = mediaUrl;
+    await loadQualityReport(); // 行内质检高亮依赖报告，先拉再渲染（本地文件，快）
     renderRows();
     renderAiPanel();
     pb.mode = "edited";

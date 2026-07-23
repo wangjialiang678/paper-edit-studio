@@ -176,6 +176,22 @@ video { width: 100%; flex: 1; min-height: 0; background: #000; border-radius: 10
 .row-text.render .tok.cut { text-decoration: line-through; color: var(--muted); opacity: .55; }
 .row-text.render .tok.cut:hover { opacity: .85; outline-color: var(--green); }
 .row-text.render .tok.suggest { text-decoration: underline dotted var(--danger); text-underline-offset: 3px; }
+.row-text.render .tok.suspect { text-decoration: underline wavy var(--warn); text-underline-offset: 3px; }
+.row-text.render .tok.ref { text-decoration: underline var(--accent); text-underline-offset: 3px; }
+.badge.qissue { color: var(--warn); border-color: var(--warn); }
+
+/* 质检浮层与面板条目 */
+.q-popover {
+  position: absolute; z-index: 60; width: 270px; background: var(--bg-2);
+  border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px;
+  font-size: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.45);
+}
+.q-pop-text { line-height: 1.6; margin-bottom: 4px; }
+.q-actions { display: flex; gap: 6px; margin-top: 8px; }
+.q-item { border-top: 1px solid var(--line); padding: 8px 0 6px; }
+.q-item:first-of-type { border-top: 0; }
+.q-jump { color: var(--accent); cursor: pointer; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.q-text { line-height: 1.6; }
 .row-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; padding-top: 4px; max-width: 200px; }
 .badge {
   font-size: 10px; padding: 2px 7px; border-radius: 999px; white-space: nowrap;

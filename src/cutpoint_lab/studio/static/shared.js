@@ -24,6 +24,8 @@ export const el = {
   undoCutFillersBtn: $("undoCutFillersBtn"),
   settingsBtn: $("settingsBtn"), settingsPanel: $("settingsPanel"), settingsCloseBtn: $("settingsCloseBtn"),
   settingsBody: $("settingsBody"),
+  qualityBtn: $("qualityBtn"), qualityPanel: $("qualityPanel"), qualityCloseBtn: $("qualityCloseBtn"),
+  qualityBody: $("qualityBody"),
 };
 
 export const STAGE_LABELS = [
@@ -42,6 +44,7 @@ export const state = {
   aiOverview: { modes: {} }, aiMode: "koubo_tighten", aiData: {},
   orderedGroups: null,
   pollTimer: null, aiPollTimers: {}, exportTimer: null,
+  quality: { report: null, aiRunning: false },
 };
 
 /* 播放引擎：mode 是持久状态——成片=按 plan.ranges 顺序跳播（默认），原片=线性播放。

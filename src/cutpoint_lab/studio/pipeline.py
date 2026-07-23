@@ -7,6 +7,16 @@ from typing import Any, Callable
 from ..export.video import ffprobe_duration_ms
 from ..features import extract_audio
 from ..io import write_json
+from ..quality import (
+    CorrectionSet,
+    apply_corrections,
+    load_report,
+    merge_report,
+    preview_corrections,
+    save_changeset,
+    save_report,
+    scan_confidence,
+)
 from .asr_runner import AsrRunner
 from .workspace import Project
 
@@ -78,6 +88,7 @@ class PipelineManager:
                     project.asr_dir,
                     source_video=str(source),
                 )
+            quality_message = self._postprocess_quality(project, converted["transcript"])
             write_json(project.transcript_path, converted["transcript"])
             write_json(project.vad_path, converted["vad"])
             segment_count = len(converted["transcript"].get("segments") or [])
@@ -101,7 +112,7 @@ class PipelineManager:
                     logger.warning("pipeline %s: auto AI failed: %s", project.id, exc)
                     project.update_state(ai_warning=f"AI 建议失败（已默认全部保留）：{exc}")
 
-            ready_message = (
+            ready_message = quality_message or (
                 "复用已有字幕（内容指纹命中）"
                 if converted.get("cache") == "hit"
                 else "字幕就绪，可以开始剪辑"
@@ -110,3 +121,43 @@ class PipelineManager:
         except Exception as exc:  # noqa: BLE001 - 后台线程需把异常落到 state 供前端展示。
             logger.exception("pipeline %s failed", project.id)
             project.set_stage("error", "处理失败", error=str(exc))
+
+    def _postprocess_quality(
+        self,
+        project: Project,
+        transcript: dict[str, Any],
+    ) -> str | None:
+        """ASR 后做确定性词典纠错与免费置信度扫描；失败不阻塞字幕使用。"""
+        try:
+            segments = transcript.get("segments")
+            if not isinstance(segments, list):
+                raise ValueError("ASR transcript 缺少 segments")
+            message: str | None = None
+            correction_set = CorrectionSet.load(
+                project.dir.parent / "_settings" / "corrections.json"
+            )
+            if correction_set.pairs:
+                preview = preview_corrections(segments, correction_set)
+                replacement_count = sum(int(item["count"]) for item in preview)
+                if replacement_count:
+                    corrected, changeset = apply_corrections(segments, correction_set)
+                    transcript["segments"] = corrected
+                    segments = corrected
+                    save_changeset(project.dir, changeset)
+                    message = f"已按纠错词典替换 {replacement_count} 处"
+                    logger.info(
+                        "pipeline %s: dictionary corrected %s replacements changeset=%s",
+                        project.id,
+                        replacement_count,
+                        changeset["change_id"],
+                    )
+            report = merge_report(
+                load_report(project.dir),
+                scan_confidence(segments),
+            )
+            save_report(project.dir, report)
+            return message
+        except Exception as exc:  # noqa: BLE001 - 质检失败不应让可用字幕整体失败。
+            logger.warning("pipeline %s: quality postprocess failed: %s", project.id, exc)
+            project.update_state(quality_warning=f"字幕质检失败：{exc}")
+            return None

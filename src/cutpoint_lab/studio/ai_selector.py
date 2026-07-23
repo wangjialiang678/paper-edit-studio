@@ -88,7 +88,22 @@ class AiSelector:
         summaries: list[str] = []
         for offset in range(0, len(segments), KOUBO_CHUNK_SIZE):
             chunk = segments[offset : offset + KOUBO_CHUNK_SIZE]
-            raw = self.client.chat_json(system, _digest(chunk))
+            raw = None
+            for attempt in (1, 2):
+                try:
+                    raw = self.client.chat_json(system, _digest(chunk))
+                    break
+                except LlmError as exc:
+                    # 模型偶发吐垃圾/断流：单块重试一次，仍失败降级为该块默认保留，
+                    # 不让一块坏输出毁掉整次分析。
+                    logger.warning("koubo chunk@%s attempt %s failed: %s", offset, attempt, exc)
+                    if attempt == 2:
+                        warnings.append(
+                            f"第 {offset // KOUBO_CHUNK_SIZE + 1} 块 AI 调用失败（{exc}），"
+                            f"该块 {len(chunk)} 句已默认保留"
+                        )
+            if raw is None:
+                continue
             aliases = _alias_map([segment.id for segment in chunk])
             for item in raw.get("decisions") or []:
                 segment_id = _resolve_id(item.get("segment_id"), aliases)

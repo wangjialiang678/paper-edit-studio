@@ -218,12 +218,12 @@ def preview_corrections(
     return preview
 
 
-def _new_changeset(total_replacements: int, changes: list[dict[str, Any]]) -> dict[str, Any]:
+def new_changeset(label: str, changes: list[dict[str, Any]]) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     change_id = f"{now.strftime('%Y%m%dT%H%M%S%fZ')}-{secrets.token_hex(4)}"
     return {
         "change_id": change_id,
-        "label": f"纠错词典 {total_replacements} 处",
+        "label": str(label),
         "changes": changes,
         "applied_at": now.isoformat(timespec="milliseconds"),
     }
@@ -257,7 +257,7 @@ def apply_corrections(
             }
         )
 
-    return new_rows, _new_changeset(total_replacements, changes)
+    return new_rows, new_changeset(f"纠错词典 {total_replacements} 处", changes)
 
 
 def undo_changeset(
