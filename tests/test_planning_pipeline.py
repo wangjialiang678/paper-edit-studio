@@ -122,13 +122,11 @@ class PlanningPipelineTests(unittest.TestCase):
                         ]
                     }
                 ids = re.findall(r"\[(s\d+)\]", user)
+                # 现协议：drop 为纯 id 字符串列表（回归防护：管线解析曾只认 dict、
+                # 把字符串静默跳过导致全保留）
                 return {
-                    "summary": "删去重复铺垫",
                     "drop": [
-                        {
-                            "id": segment_id,
-                            "reason": "测试",
-                        }
+                        segment_id
                         for segment_id in ids
                         if segment_id not in {"s1", "s2"}
                     ],

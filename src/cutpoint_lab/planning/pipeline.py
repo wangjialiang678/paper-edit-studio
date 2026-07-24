@@ -493,9 +493,14 @@ def _build_edl(
     aliases = alias_map(ids)
     drops: dict[str, dict[str, Any]] = {}
     for item in raw.get("drop") or []:
-        if not isinstance(item, dict):
+        # 协议只回纯 id 字符串（通用剪辑方案，无理由）；容忍旧 {id, ...} 对象格式。
+        if isinstance(item, dict):
+            raw_id = item.get("id")
+        elif isinstance(item, str):
+            raw_id, item = item, {}
+        else:
             continue
-        canonical = resolve_id(item.get("id"), aliases)
+        canonical = resolve_id(raw_id, aliases)
         if canonical is None:
             continue
         drops[canonical] = item
