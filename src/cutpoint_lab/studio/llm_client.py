@@ -110,6 +110,12 @@ class LlmClient:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
+        # 思考型模型（glm-5.2 等）默认输出大量 reasoning token（实测占 completion 93%、
+        # 单调用可达 19k token 拖到分钟级）。结构化筛选任务不需要深思考，默认关闭；
+        # STUDIO_LLM_THINKING=on 可恢复。不支持该参数的服务会忽略它。
+        thinking, _ = self.env_store.effective("STUDIO_LLM_THINKING")
+        if (thinking or "off").lower() not in ("on", "true", "1"):
+            payload["enable_thinking"] = False
         try:
             content = self._post_chat(payload, config)
         except LlmError as exc:

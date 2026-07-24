@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 import re
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cutpoint_lab.planning.pipeline import (
     INTENT_PRESETS,
@@ -114,23 +117,20 @@ class PlanningPipelineTests(unittest.TestCase):
                                 "topic_id": "whole",
                                 "segment_id": "s2",
                                 "type": "hook",
-                                "context": "",
                                 "reason": "最强",
                             }
                         ]
                     }
                 ids = re.findall(r"\[(s\d+)\]", user)
                 return {
-                    "topic_name": "AI 教育的关键变化",
-                    "title_suggestions": ["教育正在发生什么", "老师如何使用 AI"],
-                    "decisions": [
+                    "summary": "删去重复铺垫",
+                    "drop": [
                         {
-                            "segment_id": segment_id,
-                            "keep": segment_id in {"s1", "s2"},
+                            "id": segment_id,
                             "reason": "测试",
-                            "labels": [],
                         }
                         for segment_id in ids
+                        if segment_id not in {"s1", "s2"}
                     ],
                 }
 
@@ -144,20 +144,17 @@ class PlanningPipelineTests(unittest.TestCase):
                 "人工成果",
             )
             first_edl = sink.project.read_edl("ai-plan")
-            self.assertEqual(first_edl["label"], "AI 教育的关键变化")
+            self.assertEqual(first_edl["label"], "只保留 AI 教育")
             self.assertEqual(first_edl["order"], ["s2", "s1", "s2"])
             self.assertEqual(
                 first_edl["brief"],
                 {
-                    "claim": "AI 教育的关键变化",
+                    "claim": "只保留 AI 教育",
                     "intent": ["cut_fillers", "hook_first"],
                     "intent_extra": "只保留 AI 教育",
                     "target_duration_s": 240,
                     "tolerance_s": 60,
-                    "title_suggestions": [
-                        "教育正在发生什么",
-                        "老师如何使用 AI",
-                    ],
+                    "title_suggestions": [],
                 },
             )
             self.assertFalse(sink.project.content_map_path.exists())
@@ -205,23 +202,14 @@ class PlanningPipelineTests(unittest.TestCase):
                                 "topic_id": topic_id,
                                 "segment_id": segment_id,
                                 "type": "hook",
-                                "context": "",
                                 "reason": "测试",
                             }
                         ]
                     }
                 ids = re.findall(r"\[(s\d+)\]", user)
                 return {
-                    "title_suggestions": ["标题"],
-                    "decisions": [
-                        {
-                            "segment_id": segment_id,
-                            "keep": True,
-                            "reason": "测试",
-                            "labels": [],
-                        }
-                        for segment_id in ids
-                    ],
+                    "summary": "全部保留",
+                    "drop": [],
                 }
 
             result = _run(
@@ -257,14 +245,115 @@ class PlanningPipelineTests(unittest.TestCase):
                 {event["stage"] for event in events},
                 {"topics", "quotes", "select"},
             )
-            self.assertEqual(
-                [event["topics_done"] for event in events if event["stage"] == "quotes"],
-                [0, 1, 2],
+            done_counts = [event["topics_done"] for event in events]
+            self.assertEqual(done_counts, sorted(done_counts))
+            self.assertTrue(
+                all(
+                    event["topics_done"] == 0
+                    for event in events
+                    if event["stage"] == "quotes"
+                )
             )
-            self.assertEqual(
-                [event["topics_done"] for event in events if event["stage"] == "select"],
-                [0, 1, 2],
-            )
+            self.assertEqual(done_counts[-1], 2)
+            for event in events:
+                match = re.search(r"已完成 (\d+) 个", event["detail"])
+                if match:
+                    self.assertEqual(int(match.group(1)), event["topics_done"])
+
+    def test_parallel_topic_llm_calls_match_serial_results(self):
+        def run_case(workers: int, *, prove_parallel: bool):
+            quote_barrier = threading.Barrier(2) if prove_parallel else None
+            select_barrier = threading.Barrier(2) if prove_parallel else None
+            quote_threads: set[int] = set()
+            select_threads: set[int] = set()
+
+            def chat_json(system: str, user: str) -> dict:
+                if system == "content_map":
+                    return {
+                        "claims": [],
+                        "backgrounds": [],
+                        "topics": [
+                            {
+                                "id": "t1",
+                                "name": "主题一",
+                                "summary": "前半",
+                                "segment_ids": ["s1", "s2"],
+                                "suggested_duration_s": 240,
+                                "status": "pending",
+                            },
+                            {
+                                "id": "t2",
+                                "name": "主题二",
+                                "summary": "后半",
+                                "segment_ids": ["s3", "s4"],
+                                "suggested_duration_s": 240,
+                                "status": "pending",
+                            },
+                        ],
+                    }
+                if system == "quote_candidates":
+                    quote_threads.add(threading.get_ident())
+                    if quote_barrier is not None:
+                        quote_barrier.wait(timeout=2)
+                    topic_id = "t1" if "[t1]" in user else "t2"
+                    segment_id = "s1" if topic_id == "t1" else "s3"
+                    return {
+                        "candidates": [
+                            {
+                                "id": "q1",
+                                "topic_id": topic_id,
+                                "segment_id": segment_id,
+                                "type": "hook",
+                                "reason": "最强",
+                            }
+                        ]
+                    }
+                select_threads.add(threading.get_ident())
+                if select_barrier is not None:
+                    select_barrier.wait(timeout=2)
+                return {
+                    "drop": [
+                        {
+                            "id": re.findall(r"\[(s\d+)\]", user)[-1],
+                            "reason": "重复",
+                        }
+                    ],
+                    "summary": "各删一句",
+                }
+
+            with tempfile.TemporaryDirectory() as tmp:
+                sink = _ProjectSink(Path(tmp))
+                with patch.dict(
+                    os.environ,
+                    {"PE_PLAN_WORKERS": str(workers)},
+                ):
+                    result = _run(sink, chat_json, split_topics=True)
+                edls = {
+                    cut: sink.project.read_edl(cut)
+                    for cut in result["cuts"]
+                }
+                candidates = [
+                    {
+                        key: item[key]
+                        for key in (
+                            "id",
+                            "topic_id",
+                            "segment_id",
+                            "type",
+                            "reason",
+                            "status",
+                        )
+                    }
+                    for item in sink.quotes["candidates"]
+                ]
+                return result["cuts"], edls, candidates, quote_threads, select_threads
+
+        serial = run_case(1, prove_parallel=False)
+        parallel = run_case(2, prove_parallel=True)
+
+        self.assertEqual(parallel[:3], serial[:3])
+        self.assertEqual(len(parallel[3]), 2)
+        self.assertEqual(len(parallel[4]), 2)
 
     def test_quote_failure_degrades_and_selection_failure_skips_only_that_topic(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -299,11 +388,8 @@ class PlanningPipelineTests(unittest.TestCase):
                 if "[s3]" in user:
                     raise RuntimeError("selection unavailable")
                 return {
-                    "decisions": [
-                        {"segment_id": "s1", "keep": True},
-                        {"segment_id": "s2", "keep": True},
-                    ],
-                    "title_suggestions": [],
+                    "drop": [],
+                    "summary": "全部保留",
                 }
 
             result = _run(sink, chat_json, split_topics=True)
@@ -332,7 +418,7 @@ class PlanningPipelineTests(unittest.TestCase):
                 _run(sink, chat_json, split_topics=False)
             self.assertEqual(sink.cut_names(), ["default"])
 
-    def test_selection_prompt_contains_intents_duration_and_title_contract(self):
+    def test_selection_prompt_contains_intents_duration_and_sparse_contract(self):
         with tempfile.TemporaryDirectory() as tmp:
             sink = _ProjectSink(Path(tmp))
             systems: list[str] = []
@@ -342,8 +428,8 @@ class PlanningPipelineTests(unittest.TestCase):
                     return {"candidates": []}
                 systems.append(system)
                 return {
-                    "decisions": [{"segment_id": f"s{i}", "keep": True} for i in range(1, 5)],
-                    "title_suggestions": ["标题"],
+                    "drop": [],
+                    "summary": "全部保留",
                 }
 
             _run(sink, chat_json, split_topics=False)
@@ -354,8 +440,8 @@ class PlanningPipelineTests(unittest.TestCase):
             self.assertIn("只保留 AI 教育", rendered)
             self.assertIn("180–300 秒", rendered)
             self.assertIn("宁紧勿超", rendered)
-            self.assertIn("title_suggestions", rendered)
-            self.assertIn("topic_name", rendered)
+            self.assertNotIn("decisions", rendered)
+            self.assertNotIn("title_suggestions", rendered)
 
 
 if __name__ == "__main__":

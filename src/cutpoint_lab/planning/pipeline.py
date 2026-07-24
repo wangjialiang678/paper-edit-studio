@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import copy
+import logging
 import re
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from ._common import alias_map, now_iso, resolve_id, segment_id, segment_text
+from ._workers import plan_workers
 from .content_map import analyze_content_map
 from .quotes import analyze_quote_candidates, merge_topic_candidates
+
+logger = logging.getLogger(__name__)
 
 INTENT_PRESETS = (
     {
@@ -180,12 +185,19 @@ def generate_plans(
         ]
 
     topics_total = len(topics)
+    workers = min(plan_workers(), topics_total)
+    logger.info(
+        "plan topics start: topics=%s workers=%s split=%s",
+        topics_total,
+        workers,
+        request["split_topics"],
+    )
     quote_document: dict[str, Any] | None = None
     best_by_topic: dict[str, dict[str, Any]] = {}
     _progress(
         progress_fn,
         stage="quotes",
-        detail=f"正在给主题 1/{topics_total} 挑金句…",
+        detail=f"并行给 {topics_total} 个主题挑金句…",
         topics_total=topics_total,
         topics_done=0,
     )
@@ -193,50 +205,69 @@ def generate_plans(
         "status": "draft",
         "topics": topics,
     }
+    quote_results: list[dict[str, Any] | None] = [None for _ in topics]
+    quote_errors: list[Exception | None] = [None for _ in topics]
+
+    def analyze_topic_quotes(
+        topic_index: int,
+        topic: dict[str, Any],
+    ) -> dict[str, Any]:
+        topic_id = str(topic.get("id") or f"t{topic_index + 1}")
+        return analyze_quote_candidates(
+            quote_map,
+            source_segments,
+            chat_json_fn=chat_json_fn,
+            assemble_prompt_fn=lambda: assemble_prompt_fn(
+                "quote_candidates"
+            ),
+            topic_id=topic_id,
+            model=model,
+        )
+
+    # LlmClient.chat_json 的配置读取有锁，请求体与 HTTP 连接均为调用内局部变量；
+    # PromptStore.assemble 只读文件，因此同步 CLI 与异步 Web 入口可安全共享 callable。
+    with ThreadPoolExecutor(
+        max_workers=workers,
+        thread_name_prefix="pe-plan-quotes",
+    ) as executor:
+        future_indexes = {
+            executor.submit(analyze_topic_quotes, index, topic): index
+            for index, topic in enumerate(topics)
+        }
+        for future in as_completed(future_indexes):
+            index = future_indexes[future]
+            try:
+                quote_results[index] = future.result()
+            except Exception as exc:  # noqa: BLE001 - 单主题金句失败按契约降级。
+                quote_errors[index] = exc
+
     for index, topic in enumerate(topics, start=1):
         topic_id = str(topic.get("id") or f"t{index}")
-        try:
-            result = analyze_quote_candidates(
-                quote_map,
-                source_segments,
-                chat_json_fn=chat_json_fn,
-                assemble_prompt_fn=lambda: assemble_prompt_fn(
-                    "quote_candidates"
-                ),
-                topic_id=topic_id,
-                model=model,
-            )
-            quote_document = merge_topic_candidates(
-                quote_document,
-                result,
-                topic_id,
-            )
-            best = next(
-                (
-                    candidate
-                    for candidate in quote_document.get("candidates") or []
-                    if isinstance(candidate, dict)
-                    and str(candidate.get("topic_id") or "") == topic_id
-                ),
-                None,
-            )
-            if best is not None:
-                best_by_topic[topic_id] = best
-        except Exception as exc:  # noqa: BLE001 - 单主题金句失败按契约降级。
+        result = quote_results[index - 1]
+        error = quote_errors[index - 1]
+        if error is not None:
             warnings.append(
-                f"主题「{_topic_label(topic, index)}」金句分析失败：{exc}"
+                f"主题「{_topic_label(topic, index)}」金句分析失败：{error}"
             )
-        _progress(
-            progress_fn,
-            stage="quotes",
-            detail=(
-                f"已完成主题 {index}/{topics_total} 的金句分析"
-                if index == topics_total
-                else f"正在给主题 {index + 1}/{topics_total} 挑金句…"
-            ),
-            topics_total=topics_total,
-            topics_done=index,
+            continue
+        if result is None:
+            continue
+        quote_document = merge_topic_candidates(
+            quote_document,
+            result,
+            topic_id,
         )
+        best = next(
+            (
+                candidate
+                for candidate in quote_document.get("candidates") or []
+                if isinstance(candidate, dict)
+                and str(candidate.get("topic_id") or "") == topic_id
+            ),
+            None,
+        )
+        if best is not None:
+            best_by_topic[topic_id] = best
 
     if quote_document is None:
         quote_document = {
@@ -248,48 +279,95 @@ def generate_plans(
                 "warnings": list(warnings),
             },
         }
+    _progress(
+        progress_fn,
+        stage="quotes",
+        detail="金句分析完成，准备并行筛句…",
+        topics_total=topics_total,
+        topics_done=0,
+    )
     write_quote_candidates_fn(copy.deepcopy(quote_document))
 
     cuts: list[str] = []
     _progress(
         progress_fn,
         stage="select",
-        detail=f"正在筛选主题 1/{topics_total} 的句子…",
+        detail=f"并行处理 {topics_total} 个主题：已完成 0 个…",
         topics_total=topics_total,
         topics_done=0,
     )
+    selection_specs = []
     for index, topic in enumerate(topics, start=1):
-        topic_id = str(topic.get("id") or f"t{index}")
         topic_segments = [
             by_id[str(raw_id)]
             for raw_id in topic.get("segment_ids") or []
             if str(raw_id) in by_id
         ]
-        label = _topic_label(topic, index)
+        selection_specs.append(
+            (index, topic, topic_segments, _topic_label(topic, index))
+        )
+
+    def select_topic(spec):
+        index, topic, topic_segments, label = spec
+        topic_id = str(topic.get("id") or f"t{index}")
+        raw = _select_topic(
+            topic,
+            topic_segments,
+            request=request,
+            chat_json_fn=chat_json_fn,
+            assemble_prompt_fn=assemble_prompt_fn,
+        )
+        effective_label = label or _intent_summary(
+            request["intent"],
+            request["intent_extra"],
+        )
+        best = best_by_topic.get(topic_id)
+        edl = _build_edl(
+            topic_segments,
+            raw,
+            best=best,
+            label=effective_label,
+            request=request,
+        )
+        return topic_id, effective_label, edl, best
+
+    selection_results = [None for _ in topics]
+    selection_errors: list[Exception | None] = [None for _ in topics]
+    completed = 0
+    with ThreadPoolExecutor(
+        max_workers=workers,
+        thread_name_prefix="pe-plan-select",
+    ) as executor:
+        future_indexes = {
+            executor.submit(select_topic, spec): index
+            for index, spec in enumerate(selection_specs)
+        }
+        for future in as_completed(future_indexes):
+            index = future_indexes[future]
+            try:
+                selection_results[index] = future.result()
+            except Exception as exc:  # noqa: BLE001 - 单主题筛选失败按契约降级。
+                selection_errors[index] = exc
+            completed += 1
+            _progress(
+                progress_fn,
+                stage="select",
+                detail=(
+                    f"并行处理 {topics_total} 个主题："
+                    f"已完成 {completed} 个…"
+                ),
+                topics_total=topics_total,
+                topics_done=completed,
+            )
+
+    for result_index, spec in enumerate(selection_specs):
+        index, _topic, _topic_segments, label = spec
+        error = selection_errors[result_index]
+        if error is not None:
+            warnings.append(f"主题「{label}」筛选失败，已跳过：{error}")
+            continue
         try:
-            raw = _select_topic(
-                topic,
-                topic_segments,
-                request=request,
-                chat_json_fn=chat_json_fn,
-                assemble_prompt_fn=assemble_prompt_fn,
-            )
-            label = (
-                str(raw.get("topic_name") or "").strip()
-                if not request["split_topics"]
-                else label
-            ) or label or _intent_summary(
-                request["intent"],
-                request["intent_extra"],
-            )
-            best = best_by_topic.get(topic_id)
-            edl = _build_edl(
-                topic_segments,
-                raw,
-                best=best,
-                label=label,
-                request=request,
-            )
+            topic_id, label, edl, best = selection_results[result_index]
             base_name = (
                 _topic_cut_name(topic_id, index)
                 if request["split_topics"]
@@ -312,19 +390,8 @@ def generate_plans(
                     ):
                         candidate["status"] = "accepted"
                         break
-        except Exception as exc:  # noqa: BLE001 - 单主题筛选失败跳过，其他主题继续。
+        except Exception as exc:  # noqa: BLE001 - 单主题落盘失败跳过，其他主题继续。
             warnings.append(f"主题「{label}」筛选失败，已跳过：{exc}")
-        _progress(
-            progress_fn,
-            stage="select",
-            detail=(
-                f"已完成主题 {index}/{topics_total} 的句子筛选"
-                if index == topics_total
-                else f"正在筛选主题 {index + 1}/{topics_total} 的句子…"
-            ),
-            topics_total=topics_total,
-            topics_done=index,
-        )
 
     write_quote_candidates_fn(copy.deepcopy(quote_document))
     if not cuts:
@@ -332,6 +399,12 @@ def generate_plans(
             "全部主题的句子筛选均失败",
             warnings=warnings,
         )
+    logger.info(
+        "plan topics done: topics=%s cuts=%s warnings=%s",
+        topics_total,
+        len(cuts),
+        len(warnings),
+    )
     return {
         "cuts": cuts,
         "warnings": warnings,
@@ -377,8 +450,6 @@ def _select_topic(
         f"主题：{topic_name or '整片'}\n"
         + "\n".join(intent_lines)
         + f"\n- 保留句总时长应落在 {min_s}–{max_s} 秒区间，宁紧勿超。"
-        "\n- 除逐句 decisions 外，再返回 title_suggestions（1–2 条）"
-        "和 topic_name（整片模式下概括模型识别到的大主题名）。"
     )
     system = str(assemble_prompt_fn("koubo_tighten"))
     system = system.replace("{{USER_BRIEF}}", extra)
@@ -401,8 +472,8 @@ def _select_topic(
             raw = chat_json_fn(system, user)
             if not isinstance(raw, dict):
                 raise ValueError("句子筛选 AI 返回值必须是 JSON object")
-            if not isinstance(raw.get("decisions"), list):
-                raise ValueError("句子筛选 AI 返回值缺少 decisions 数组")
+            if not isinstance(raw.get("drop"), list):
+                raise ValueError("句子筛选 AI 返回值缺少 drop 数组")
             return raw
         except Exception as exc:  # noqa: BLE001 - 每主题最多重试一次。
             last_error = exc
@@ -420,21 +491,15 @@ def _build_edl(
 ) -> dict[str, Any]:
     ids = [segment_id(segment) for segment in segments]
     aliases = alias_map(ids)
-    decisions: dict[str, dict[str, Any]] = {}
-    for item in raw.get("decisions") or []:
+    drops: dict[str, dict[str, Any]] = {}
+    for item in raw.get("drop") or []:
         if not isinstance(item, dict):
             continue
-        canonical = resolve_id(item.get("segment_id"), aliases)
+        canonical = resolve_id(item.get("id"), aliases)
         if canonical is None:
             continue
-        decisions[canonical] = item
-    kept = {
-        item
-        for item in ids
-        if item not in decisions
-        or not isinstance(decisions[item].get("keep"), bool)
-        or decisions[item]["keep"]
-    }
+        drops[canonical] = item
+    kept = {item for item in ids if item not in drops}
     best_segment_id = (
         str(best.get("segment_id") or "")
         if isinstance(best, dict)
@@ -454,21 +519,14 @@ def _build_edl(
             "checked": item_id in kept,
             "text": segment_text(segment),
         }
-        decision = decisions.get(item_id)
-        if decision is not None and decision.get("reason"):
-            row["reason"] = str(decision["reason"])
+        drop = drops.get(item_id)
+        if drop is not None and drop.get("reason"):
+            row["reason"] = str(drop["reason"])[:15]
         if item_id == best_segment_id:
             row["role"] = "quote"
             row["locked"] = True
         rows.append(row)
 
-    suggestions: list[str] = []
-    for item in raw.get("title_suggestions") or []:
-        text = str(item).strip()
-        if text and text not in suggestions:
-            suggestions.append(text)
-        if len(suggestions) == 2:
-            break
     minimum = request["duration_min_s"]
     maximum = request["duration_max_s"]
     return {
@@ -481,7 +539,7 @@ def _build_edl(
             "intent_extra": request["intent_extra"],
             "target_duration_s": _clean_number((minimum + maximum) / 2),
             "tolerance_s": _clean_number((maximum - minimum) / 2),
-            "title_suggestions": suggestions,
+            "title_suggestions": [],
         },
         "source": "ai_plan_pipeline",
     }

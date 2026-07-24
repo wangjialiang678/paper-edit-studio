@@ -92,19 +92,14 @@ class CliPlanningTests(unittest.TestCase):
                                 "topic_id": "whole",
                                 "segment_id": "s2",
                                 "type": "hook",
-                                "context": "",
                                 "reason": "最强",
                             }
                         ]
                     }
                 ids = re.findall(r"\[(s\d+)\]", user)
                 return {
-                    "topic_name": "CLI 模型主题",
-                    "title_suggestions": ["CLI 标题"],
-                    "decisions": [
-                        {"segment_id": item, "keep": True}
-                        for item in ids
-                    ],
+                    "summary": "全部保留",
+                    "drop": [],
                 }
 
             with patch(
@@ -143,10 +138,10 @@ class CliPlanningTests(unittest.TestCase):
             self.assertEqual(first["results"][0]["cuts"], ["ai-plan"])
             self.assertEqual(second["results"][0]["cuts"], ["ai-plan-2"])
             self.assertIn("挑金句", first_stderr)
-            self.assertIn("筛选", first_stderr)
+            self.assertIn("并行处理", first_stderr)
             self.assertEqual(project.read_edl("default"), before_default)
             edl = project.read_edl("ai-plan")
-            self.assertEqual(edl["label"], "CLI 模型主题")
+            self.assertEqual(edl["label"], "只保留 AI 教育")
             self.assertEqual(edl["brief"]["target_duration_s"], 240)
             self.assertEqual(edl["brief"]["tolerance_s"], 60)
             self.assertEqual(
@@ -191,18 +186,13 @@ class CliPlanningTests(unittest.TestCase):
                                 "topic_id": topic_id,
                                 "segment_id": segment_id,
                                 "type": "hook",
-                                "context": "",
                                 "reason": "强",
                             }
                         ]
                     }
-                ids = re.findall(r"\[(s\d+)\]", user)
                 return {
-                    "title_suggestions": [],
-                    "decisions": [
-                        {"segment_id": item, "keep": True}
-                        for item in ids
-                    ],
+                    "summary": "全部保留",
+                    "drop": [],
                 }
 
             with patch(

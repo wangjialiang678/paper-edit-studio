@@ -122,6 +122,9 @@ python -m cutpoint_lab plan <项目id> --no-split --json
 
 `--json` 的单项目结果包含实际生成的方案名 `cuts`、每份 `edl.json` 的 `outputs.edls`、规划产物路径和降级 warnings。进度写 stderr；全部主题筛选失败时退出码为 1。
 
+内容地图分块、主题金句与主题筛句默认最多 4 路并行；可用正整数环境变量
+`PE_PLAN_WORKERS` 调整（设为 `1` 可退回串行）。CLI 与网页版共用这套并行实现。
+
 ## V2 内容规划（content-map / quotes / budget）
 
 内容地图和金句候选是项目级共享产物；时长预算针对某个 Cut，所有 `fit` 结果都只是建议，绝不自动修改 EDL。

@@ -68,9 +68,8 @@ class FakeSelectorClient:
     def chat_json(self, system, user, **_kwargs):
         return {
             "summary": "测试",
-            "decisions": [
-                {"segment_id": "sentence_0001", "keep": True, "reason": "观点", "labels": ["insight"]},
-                {"segment_id": "sentence_0002", "keep": False, "reason": "口水", "labels": ["filler"]},
+            "drop": [
+                {"id": "sentence_0002", "reason": "口水"},
             ],
         }
 

@@ -119,14 +119,18 @@ def analyze_quote_candidates(
             warnings.append(f"candidate id 重复：{item_id}，已改为 {repaired}")
             item_id = repaired
         candidate_ids.add(item_id)
+        reason = str(item.get("reason") or "")
+        if len(reason) > 20:
+            warnings.append(
+                f"candidate {item_id} 的 reason 超过 20 字，已截断"
+            )
         candidates.append(
             {
                 "id": item_id,
                 "topic_id": candidate_topic,
                 "segment_id": canonical,
                 "type": candidate_type,
-                "context": str(item.get("context") or ""),
-                "reason": str(item.get("reason") or ""),
+                "reason": reason[:20],
                 "status": "pending",
             }
         )

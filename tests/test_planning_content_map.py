@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
 import re
+import threading
 import unittest
+from unittest.mock import patch
 
 from cutpoint_lab.planning.content_map import (
     analyze_content_map,
@@ -185,6 +188,44 @@ class ContentMapPlanningTests(unittest.TestCase):
         self.assertEqual([item["id"] for item in result["topics"]], ["t1", "t2"])
         self.assertIn("id 重复", "\n".join(result["meta"]["warnings"]))
 
+    def test_ai_caps_claims_and_topic_summary_length(self):
+        result = analyze_content_map(
+            _segments(6),
+            chat_json_fn=lambda *_args: {
+                "claims": [
+                    {
+                        "id": f"c{index}",
+                        "text": f"主张 {index}",
+                        "segment_ids": [f"sentence_{index:04d}"],
+                        "reason": "可传播",
+                    }
+                    for index in range(1, 7)
+                ],
+                "backgrounds": [],
+                "topics": [
+                    {
+                        "id": "t1",
+                        "name": "主题",
+                        "summary": "这是一段超过三十个汉字的主题摘要用于验证模型越界时后端仍会收紧结果长度",
+                        "segment_ids": [
+                            f"sentence_{index:04d}"
+                            for index in range(1, 7)
+                        ],
+                        "suggested_duration_s": 6,
+                        "status": "pending",
+                    }
+                ],
+            },
+            assemble_prompt_fn=lambda: "protocol",
+            now_fn=lambda: "now",
+        )
+
+        self.assertEqual(len(result["claims"]), 5)
+        self.assertLessEqual(len(result["topics"][0]["summary"]), 30)
+        warnings = "\n".join(result["meta"]["warnings"])
+        self.assertIn("claims", warnings)
+        self.assertIn("summary", warnings)
+
     def test_long_video_chunks_retries_once_and_runs_one_merge_call(self):
         calls: list[str] = []
         first_failed = False
@@ -238,6 +279,55 @@ class ContentMapPlanningTests(unittest.TestCase):
         self.assertEqual(result["topics"][0]["id"], "merged")
         self.assertEqual(len(result["topics"][0]["segment_ids"]), 151)
         self.assertEqual(result["topics"][0]["duration_ms"], 151_000)
+
+    def test_long_video_runs_chunk_calls_in_parallel_before_merge(self):
+        barrier = threading.Barrier(2)
+        chunk_threads: set[int] = set()
+
+        def chat_json(_system: str, user: str) -> dict:
+            ids = list(dict.fromkeys(re.findall(r"sentence_\d{4}", user)))
+            if "分块主题摘要" in user:
+                return {
+                    "topics": [
+                        {
+                            "id": "merged",
+                            "name": "合并主题",
+                            "summary": "跨块归纳",
+                            "segment_ids": ids,
+                            "suggested_duration_s": 90,
+                            "status": "pending",
+                        }
+                    ]
+                }
+            chunk_threads.add(threading.get_ident())
+            barrier.wait(timeout=2)
+            return {
+                "claims": [],
+                "backgrounds": [],
+                "topics": [
+                    {
+                        "id": f"chunk-{ids[0]}",
+                        "name": "块主题",
+                        "summary": "摘要",
+                        "segment_ids": ids,
+                        "suggested_duration_s": 30,
+                        "status": "pending",
+                    }
+                ],
+            }
+
+        with patch.dict(os.environ, {"PE_PLAN_WORKERS": "2"}):
+            result = analyze_content_map(
+                _segments(200),
+                chat_json_fn=chat_json,
+                assemble_prompt_fn=lambda: "protocol",
+                model="mock",
+                now_fn=lambda: "now",
+            )
+
+        self.assertEqual(len(chunk_threads), 2)
+        self.assertEqual(result["topics"][0]["id"], "merged")
+        self.assertEqual(len(result["topics"][0]["segment_ids"]), 200)
 
     def test_long_video_double_failures_degrade_to_pending_chunk_topics(self):
         calls = 0

@@ -73,7 +73,15 @@ class AiSelector:
 
     def _suggest_koubo(self, system: str, transcript: Transcript) -> tuple[dict[str, Any], list[str]]:
         segments = transcript.segments
-        decisions: dict[str, dict[str, Any]] = {}
+        decisions = {
+            segment.id: {
+                "segment_id": segment.id,
+                "keep": True,
+                "reason": "",
+                "labels": [],
+            }
+            for segment in segments
+        }
         warnings: list[str] = []
         summaries: list[str] = []
         for offset in range(0, len(segments), KOUBO_CHUNK_SIZE):
@@ -82,6 +90,11 @@ class AiSelector:
             for attempt in (1, 2):
                 try:
                     raw = self.client.chat_json(system, _digest(chunk))
+                    if not isinstance(raw, dict) or not isinstance(
+                        raw.get("drop"),
+                        list,
+                    ):
+                        raise LlmError("口播筛选 AI 返回值缺少 drop 数组")
                     break
                 except LlmError as exc:
                     # 模型偶发吐垃圾/断流：单块重试一次，仍失败降级为该块默认保留，
@@ -95,29 +108,26 @@ class AiSelector:
             if raw is None:
                 continue
             aliases = _alias_map([segment.id for segment in chunk])
-            for item in raw.get("decisions") or []:
-                segment_id = _resolve_id(item.get("segment_id"), aliases)
-                if segment_id is None:
-                    warnings.append(f"忽略未知/越界 segment_id：{item.get('segment_id')}")
+            for item in raw["drop"]:
+                if not isinstance(item, dict):
                     continue
+                segment_id = _resolve_id(item.get("id"), aliases)
+                if segment_id is None:
+                    warnings.append(f"忽略未知/越界 segment_id：{item.get('id')}")
+                    continue
+                reason = str(item.get("reason") or "")
+                if len(reason) > 15:
+                    warnings.append(
+                        f"{segment_id} 的删除理由超过 15 字，已截断"
+                    )
                 decisions[segment_id] = {
                     "segment_id": segment_id,
-                    "keep": bool(item.get("keep", True)),
-                    "reason": str(item.get("reason") or ""),
-                    "labels": [str(label) for label in (item.get("labels") or [])],
+                    "keep": False,
+                    "reason": reason[:15],
+                    "labels": [],
                 }
             if raw.get("summary"):
                 summaries.append(str(raw["summary"]))
-        missing = [segment.id for segment in segments if segment.id not in decisions]
-        for segment_id in missing:
-            decisions[segment_id] = {
-                "segment_id": segment_id,
-                "keep": True,
-                "reason": "AI 未覆盖，默认保留",
-                "labels": ["uncovered"],
-            }
-        if missing:
-            warnings.append(f"{len(missing)} 句未被 AI 覆盖，已默认保留")
         ordered = [decisions[segment.id] for segment in segments]
         payload = {
             "summary": " / ".join(summaries),

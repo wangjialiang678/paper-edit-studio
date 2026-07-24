@@ -47,26 +47,15 @@ class _PlanningClient:
                         "topic_id": topic_id,
                         "segment_id": segment_id,
                         "type": "hook" if index == 1 else "claim",
-                        "context": "上下文",
                         "reason": "主张完整",
                     }
                     for index, segment_id in enumerate(segment_ids[:3], 1)
                 ]
             }
-        if '"decisions"' in system:
-            segment_ids = re.findall(r"\[(s\d+)\]", user)
+        if '"drop"' in system:
             return {
-                "topic_name": "整片模型主题",
-                "title_suggestions": ["模型标题"],
-                "decisions": [
-                    {
-                        "segment_id": segment_id,
-                        "keep": True,
-                        "reason": "保留",
-                        "labels": [],
-                    }
-                    for segment_id in segment_ids
-                ],
+                "summary": "全部保留",
+                "drop": [],
             }
         return {
             "claims": [
@@ -302,7 +291,7 @@ class PlanningApiTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     project.read_edl("ai-plan")["label"],
-                    "整片模型主题",
+                    "只保留 AI 教育",
                 )
             finally:
                 server.shutdown()
@@ -317,7 +306,7 @@ class PlanningApiTests(unittest.TestCase):
             original_chat_json = selector.client.chat_json
 
             def blocking_chat_json(system: str, user: str, **kwargs):
-                if '"decisions"' in system and "[s3]" in user:
+                if '"drop"' in system and "[s3]" in user:
                     entered.set()
                     if not release.wait(2):
                         raise AssertionError("测试未释放第二主题筛选")
@@ -340,7 +329,8 @@ class PlanningApiTests(unittest.TestCase):
             self.assertEqual(running["stage"], "select")
             self.assertEqual(running["topics_total"], 1)
             self.assertEqual(running["topics_done"], 0)
-            self.assertIn("1/1", running["detail"])
+            self.assertIn("并行处理 1 个主题", running["detail"])
+            self.assertIn("已完成 0 个", running["detail"])
             release.set()
             done = _wait_state(project, "plan_ai")
             self.assertEqual(done["status"], "done", done)

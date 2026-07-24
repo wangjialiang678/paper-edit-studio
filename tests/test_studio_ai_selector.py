@@ -57,15 +57,14 @@ class ExtractJsonTests(unittest.TestCase):
 
 
 class KouboSelectorTests(unittest.TestCase):
-    def test_decisions_normalized_and_missing_filled(self):
+    def test_drop_is_inverted_to_decisions_and_unknown_ids_are_ignored(self):
         client = FakeClient(
             [
                 {
                     "summary": "整体去水",
-                    "decisions": [
-                        {"segment_id": "sentence_0001", "keep": False, "reason": "寒暄", "labels": ["smalltalk"]},
-                        {"segment_id": "sentence_0002", "keep": True, "reason": "观点", "labels": ["insight"]},
-                        {"segment_id": "sentence_9999", "keep": True, "reason": "编造", "labels": []},
+                    "drop": [
+                        {"id": "sentence_0001", "reason": "寒暄"},
+                        {"id": "sentence_9999", "reason": "编造"},
                     ],
                 }
             ]
@@ -75,7 +74,9 @@ class KouboSelectorTests(unittest.TestCase):
         decisions = {item["segment_id"]: item for item in suggestion.payload["decisions"]}
         self.assertEqual(len(decisions), 4)
         self.assertFalse(decisions["sentence_0001"]["keep"])
-        self.assertTrue(decisions["sentence_0003"]["keep"])  # 未覆盖默认保留
+        self.assertEqual(decisions["sentence_0001"]["reason"], "寒暄")
+        self.assertTrue(decisions["sentence_0002"]["keep"])
+        self.assertEqual(decisions["sentence_0002"]["reason"], "")
         self.assertNotIn("sentence_9999", decisions)
         self.assertIn("sentence_0002", suggestion.payload["keep_segment_ids"])
         self.assertTrue(any("9999" in warning for warning in suggestion.warnings))
@@ -84,8 +85,43 @@ class KouboSelectorTests(unittest.TestCase):
         self.assertIn("硬约束", system)
         self.assertIn("[sentence_0001]", user)
 
+    def test_empty_drop_keeps_all_and_all_drop_removes_all(self):
+        empty = AiSelector(PROMPTS_DIR, client=FakeClient([{"drop": []}])).suggest(
+            _transcript(),
+            "koubo_tighten",
+        )
+        self.assertEqual(
+            empty.payload["keep_segment_ids"],
+            [f"sentence_{index:04d}" for index in range(1, 5)],
+        )
+        self.assertTrue(all(item["keep"] for item in empty.payload["decisions"]))
+        self.assertTrue(
+            all(item["reason"] == "" for item in empty.payload["decisions"])
+        )
+
+        dropped = AiSelector(
+            PROMPTS_DIR,
+            client=FakeClient(
+                [
+                    {
+                        "drop": [
+                            {
+                                "id": f"sentence_{index:04d}",
+                                "reason": "删除",
+                            }
+                            for index in range(1, 5)
+                        ]
+                    }
+                ]
+            ),
+        ).suggest(_transcript(), "koubo_tighten")
+        self.assertEqual(dropped.payload["keep_segment_ids"], [])
+        self.assertTrue(
+            all(not item["keep"] for item in dropped.payload["decisions"])
+        )
+
     def test_brief_rendered_into_system(self):
-        client = FakeClient([{"decisions": []}])
+        client = FakeClient([{"drop": []}])
         selector = AiSelector(PROMPTS_DIR, client=client)
         selector.suggest(_transcript(), "koubo_tighten", brief="只保留 AI 教育相关")
         system, _ = client.calls[0]
@@ -116,9 +152,7 @@ class ChunkResilienceTests(unittest.TestCase):
                 calls["n"] += 1
                 if calls["n"] == 1:
                     raise LlmError("LLM 输出中找不到 JSON：[0.5]")
-                return {"decisions": [
-                    {"segment_id": f"sentence_{i:04d}", "keep": True, "reason": "ok"} for i in range(1, 5)
-                ]}
+                return {"drop": []}
 
         selector = AiSelector(PROMPTS_DIR, client=FlakyClient())
         suggestion = selector.suggest(_transcript(), "koubo_tighten")
@@ -175,16 +209,15 @@ class SegmentIdRepairTests(unittest.TestCase):
                 return True
 
             def chat_json(self, _system, _user, **_kwargs):
-                return {"decisions": [
-                    {"segment_id": "0001", "keep": True, "reason": "简写形式"},
-                    {"segment_id": "sentence_0002", "keep": False, "reason": "全称"},
+                return {"drop": [
+                    {"id": "0002", "reason": "简写形式"},
                 ]}
 
         selector = AiSelector(PROMPTS_DIR, client=ShorthandClient())
         suggestion = selector.suggest(_transcript(), "koubo_tighten")
         by_id = {d["segment_id"]: d for d in suggestion.payload["decisions"]}
         self.assertTrue(by_id["sentence_0001"]["keep"])
-        self.assertNotIn("uncovered", by_id["sentence_0001"]["labels"])
+        self.assertEqual(by_id["sentence_0001"]["labels"], [])
         self.assertFalse(any("未知" in w or "未覆盖" in w for w in suggestion.warnings))
 
 

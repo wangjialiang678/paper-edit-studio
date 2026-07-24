@@ -42,6 +42,8 @@ tags: [testing, studio, video-editing]
 | 5 | 真实时长预算 | EDL cuts/trim/nudge/repeated order | ranges 求和准确，三种 fit 仅给建议、不改 EDL | unit + integration |
 | 6 | 导出前检查 | content_map + EDL brief/rows + budget | 主题、时长、金句锁定、背景覆盖逐项报告，null 项跳过 | unit |
 | 7 | HTTP 与 CLI | 项目级 JSON + mock AI | 异步状态/400/404/409 正确；CLI analyze 同步、离线读取可用 | integration |
+| 8 | 稀疏筛句协议 | 空/全量/未知/简写 drop id | drop 取反生成完整选择；保留句无理由、删除句有短理由 | unit |
+| 9 | AI 管线并行 | 串行/并行 mock、乱序完成、单主题异常 | 结果等价且顺序确定；进度单调；单主题失败降级 | unit + integration |
 
 ## 运行命令
 

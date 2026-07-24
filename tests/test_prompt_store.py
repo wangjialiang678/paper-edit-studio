@@ -19,7 +19,7 @@ class _FakeClient:
         return True
 
     def chat_json(self, *_args, **_kwargs):
-        return {"decisions": []}
+        return {"drop": []}
 
 
 class PromptStoreTests(unittest.TestCase):

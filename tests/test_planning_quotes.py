@@ -88,6 +88,7 @@ class QuotePlanningTests(unittest.TestCase):
         self.assertNotIn("[s7]", calls[0][1])
         self.assertEqual(len(result["candidates"]), 5)
         self.assertEqual(result["candidates"][0]["segment_id"], "s1")
+        self.assertNotIn("context", result["candidates"][0])
         self.assertTrue(all(item["status"] == "pending" for item in result["candidates"]))
         self.assertEqual(result["meta"]["source"], "ai")
         self.assertTrue(result["meta"]["warnings"])

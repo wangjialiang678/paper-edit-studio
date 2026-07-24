@@ -79,24 +79,10 @@ class FakeLlmClient:
     def chat_json(self, system, user, **kwargs):
         return {
             "summary": "保留观点和方法，删除重复句。",
-            "decisions": [
+            "drop": [
                 {
-                    "segment_id": "sentence_0001",
-                    "keep": True,
-                    "reason": "开场核心观点",
-                    "labels": ["hook", "insight"],
-                },
-                {
-                    "segment_id": "sentence_0002",
-                    "keep": False,
+                    "id": "sentence_0002",
                     "reason": "与上一句重复",
-                    "labels": ["repeat"],
-                },
-                {
-                    "segment_id": "sentence_0003",
-                    "keep": True,
-                    "reason": "包含可执行方法",
-                    "labels": ["method"],
                 },
             ],
         }

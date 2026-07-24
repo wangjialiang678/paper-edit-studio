@@ -52,6 +52,23 @@ class PlanningStorageProtocolTests(unittest.TestCase):
         self.assertIn('"candidates"', MODE_PROTOCOLS["quote_candidates"])
         self.assertIn('"segment_id"', quotes["assembled_template"])
 
+    def test_ai_output_protocols_are_sparse_and_bounded(self):
+        koubo = MODE_PROTOCOLS["koubo_tighten"]
+        content_map = MODE_PROTOCOLS["content_map"]
+        quotes = MODE_PROTOCOLS["quote_candidates"]
+
+        self.assertIn('"drop"', koubo)
+        self.assertNotIn('"decisions"', koubo)
+        self.assertNotIn('"keep"', koubo)
+        self.assertIn("15", koubo)
+        self.assertIn("未出现在 `drop`", koubo)
+
+        self.assertNotIn('"context"', quotes)
+        self.assertIn("20", quotes)
+
+        self.assertIn("最多 5", content_map)
+        self.assertIn("30", content_map)
+
 
 if __name__ == "__main__":
     unittest.main()

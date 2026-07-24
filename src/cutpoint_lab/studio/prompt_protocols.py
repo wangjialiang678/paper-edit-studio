@@ -13,27 +13,22 @@ MODE_PROTOCOLS = {
 
 ```json
 {
-  "mode": "koubo_tighten",
-  "summary": "一两句话说明整体取舍思路",
-  "decisions": [
+  "drop": [
     {
-      "segment_id": "sentence_0001",
-      "keep": true,
-      "reason": "开场即抛出核心观点",
-      "labels": ["hook"]
+      "id": "sentence_0001",
+      "reason": "≤15字短理由"
     }
-  ]
+  ],
+  "summary": "一句话说明整体取舍"
 }
 ```
 
-- `decisions` 必须覆盖输入的每一个 `segment_id`，不得遗漏、不得新增。
-- `labels` 可选值：`hook` / `insight` / `golden_quote` / `case` / `method` /
-  `transition` / `filler` / `repeat` / `smalltalk` / `broken` / `asr_suspect`。
-- `reason` 用一句话说清依据，人工复核时要能看懂。
+- 只列需要删除的句子；未出现在 `drop` 里的句子即保留。
+- `drop[].reason` 不超过 15 个字；保留句不输出理由，也不要重复保留句 id。
 
 ## 硬约束
 
-1. 只能引用输入中已有的 `segment_id`，禁止编造。
+1. `drop[].id` 只能引用输入中已有的 `segment_id`，禁止编造。
 2. 禁止输出任何时间戳。
 3. 只输出 JSON，不要有任何其他文字。
 
@@ -134,6 +129,7 @@ MODE_PROTOCOLS = {
 
 - `backgrounds[].kind` 只能是 `background` / `case` / `event`。
 - `topics[].status` 只能是 `pending` / `confirmed`；AI 初稿通常使用 `pending`。
+- `claims` 最多 5 条；`topics[].summary` 不超过 30 个字。
 - 每个 `segment_id` 最多归属一个 topic。
 - 不要输出 `duration_ms`；后端会按字幕时间重新计算。
 
@@ -159,7 +155,6 @@ MODE_PROTOCOLS = {
       "topic_id": "t1",
       "segment_id": "sentence_0012",
       "type": "claim",
-      "context": "前后句的一句话摘要",
       "reason": "单句能立住且适合传播"
     }
   ]
@@ -169,6 +164,7 @@ MODE_PROTOCOLS = {
 - 每个已确认主题返回 3–5 个候选，并按强度从高到低排列。
 - `type` 只能是 `claim` / `hook` / `background` / `question` / `action`。
 - `segment_id` 必须属于对应 `topic_id` 的句子集合。
+- `reason` 不超过 20 个字。
 
 ## 硬约束
 

@@ -17,6 +17,8 @@ const KIND_LABELS = {
 
 let aiPollTimer = null;
 
+/* 一键校对（2026-07-24 拍板）：点开即自动跑 AI 复核——确定的错词自动改（整批可撤销）、
+   术语大小写自动统一，人名/专名等拿不准的留在面板里让用户直接改；每项目自动跑一次，之后点开只看结果。 */
 el.qualityBtn.addEventListener("click", () => {
   const opening = el.qualityPanel.hidden;
   el.qualityPanel.hidden = !opening;
@@ -24,6 +26,10 @@ el.qualityBtn.addEventListener("click", () => {
     el.aiPanel.hidden = true;
     el.settingsPanel.hidden = true;
     renderQualityPanel();
+    if (!state.quality.autoReviewed && !state.quality.aiRunning) {
+      state.quality.autoReviewed = true;
+      runAnalyze(true);
+    }
   }
 });
 el.qualityCloseBtn.addEventListener("click", () => { el.qualityPanel.hidden = true; });
@@ -36,8 +42,9 @@ export async function loadQualityReport() {
   } catch {
     state.quality.report = null;
   }
-  // 校对 chip 上的待处理计数（行内只标有建议的，全量在面板里）
-  const open = (state.quality.report?.issues || []).filter((issue) => issue.status === "open").length;
+  // 校对 chip 上的待处理计数（滤掉英文低置信误警噪音）
+  const open = (state.quality.report?.issues || [])
+    .filter((issue) => issue.status === "open" && !isNoiseIssue(issue)).length;
   if (el.qualityCount) {
     el.qualityCount.textContent = open ? String(open) : "";
     el.qualityCount.hidden = !open;
@@ -45,10 +52,18 @@ export async function loadQualityReport() {
   if (!el.qualityPanel.hidden) renderQualityPanel();
 }
 
+/* 噪音判定：纯 ASCII（英文/数字）的低置信且无修改建议 = fun-asr 英文置信度天然低的误警，
+   不计数、不进面板、不上行内高亮（2026-07-24 拍板 suggest-only 的面板侧配套）。 */
+export function isNoiseIssue(issue) {
+  return issue.kind === "low_confidence"
+    && !issue.suggestion
+    && /^[\x00-\x7F\s]+$/.test(issue.span?.text || "");
+}
+
 export function openIssuesBySegment() {
   const map = {};
   for (const issue of state.quality.report?.issues || []) {
-    if (issue.status !== "open") continue;
+    if (issue.status !== "open" || isNoiseIssue(issue)) continue;
     (map[issue.segment_id] = map[issue.segment_id] || []).push(issue);
   }
   return map;
@@ -153,7 +168,7 @@ export function renderQualityPanel() {
     return;
   }
   const report = state.quality.report;
-  const issues = (report?.issues || []).filter((issue) => issue.status === "open");
+  const issues = (report?.issues || []).filter((issue) => issue.status === "open" && !isNoiseIssue(issue));
   const groups = {};
   for (const issue of issues) (groups[issue.kind] = groups[issue.kind] || []).push(issue);
   const meta = report?.meta || {};

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from ._common import (
@@ -13,9 +14,12 @@ from ._common import (
     segment_id,
     segment_text,
 )
+from ._workers import plan_workers
 
 CONTENT_MAP_CHUNK_SIZE = 100
 CONTENT_MAP_SPLIT_THRESHOLD = 150
+CONTENT_MAP_MAX_CLAIMS = 5
+CONTENT_MAP_MAX_SUMMARY_CHARS = 30
 TOPIC_STATUSES = {"pending", "confirmed"}
 MAP_STATUSES = {"draft", "confirmed"}
 BACKGROUND_KINDS = {"background", "case", "event"}
@@ -144,6 +148,15 @@ def _normalize(
     raw_claims = payload.get("claims") or []
     if strict and not isinstance(raw_claims, list):
         raise ValueError("claims 必须是数组")
+    if (
+        not strict
+        and isinstance(raw_claims, list)
+        and len(raw_claims) > CONTENT_MAP_MAX_CLAIMS
+    ):
+        warnings.append(
+            f"claims 超过 {CONTENT_MAP_MAX_CLAIMS} 条，已截断"
+        )
+        raw_claims = raw_claims[:CONTENT_MAP_MAX_CLAIMS]
     for index, raw in enumerate(raw_claims if isinstance(raw_claims, list) else [], start=1):
         if not isinstance(raw, dict):
             if strict:
@@ -283,13 +296,19 @@ def _normalize(
             if strict:
                 raise ValueError(f"{owner}.status 只能是 pending 或 confirmed")
             topic_status = "pending"
+        summary = _text(raw, "summary", owner, strict=strict)
+        if not strict and len(summary) > CONTENT_MAP_MAX_SUMMARY_CHARS:
+            warnings.append(
+                f"{owner}.summary 超过 {CONTENT_MAP_MAX_SUMMARY_CHARS} 字，已截断"
+            )
+            summary = summary[:CONTENT_MAP_MAX_SUMMARY_CHARS]
         result_topics.append(
             {
                 "id": item_id,
                 "name": _text(raw, "name", owner, strict=strict)
                 or _text(raw, "title", owner, strict=False)
                 or f"主题 {index}",
-                "summary": _text(raw, "summary", owner, strict=strict),
+                "summary": summary,
                 "segment_ids": unique_ids,
                 "duration_ms": sum(durations.get(item, 0) for item in unique_ids),
                 "suggested_duration_s": _number(
@@ -368,12 +387,30 @@ def analyze_content_map(
     source_segments = list(segments or [])
     system = _system(assemble_prompt_fn)
     warnings: list[str] = []
+    generated_at = now_iso(now_fn)
     if len(source_segments) <= CONTENT_MAP_SPLIT_THRESHOLD:
         raw = _chat_with_retry(chat_json_fn, system, _digest(source_segments))
     else:
-        chunks: list[dict[str, Any]] = []
-        for offset in range(0, len(source_segments), CONTENT_MAP_CHUNK_SIZE):
-            chunk = source_segments[offset : offset + CONTENT_MAP_CHUNK_SIZE]
+        chunk_specs = [
+            (
+                index,
+                offset,
+                source_segments[offset : offset + CONTENT_MAP_CHUNK_SIZE],
+            )
+            for index, offset in enumerate(
+                range(0, len(source_segments), CONTENT_MAP_CHUNK_SIZE)
+            )
+        ]
+        workers = min(plan_workers(), len(chunk_specs))
+        logger.info(
+            "content map chunks start: chunks=%s workers=%s",
+            len(chunk_specs),
+            workers,
+        )
+
+        def analyze_chunk(spec):
+            index, offset, chunk = spec
+            warning = ""
             try:
                 chunk_raw = _chat_with_retry(
                     chat_json_fn,
@@ -386,20 +423,41 @@ def analyze_content_map(
                     offset,
                     type(exc).__name__,
                 )
-                warnings.append(
-                    f"第 {offset // CONTENT_MAP_CHUNK_SIZE + 1} 块 AI 调用失败，已保留为待人工归类主题"
-                )
                 chunk_raw = _fallback_chunk(offset, chunk)
-            chunks.append(
+                warning = (
+                    f"第 {offset // CONTENT_MAP_CHUNK_SIZE + 1} 块 AI 调用失败，"
+                    "已保留为待人工归类主题"
+                )
+            return (
+                index,
                 _normalize(
                     chunk_raw,
                     chunk,
                     source="ai",
                     model=model,
                     strict=False,
-                    generated_at=now_iso(now_fn),
-                )
+                    generated_at=generated_at,
+                ),
+                warning,
             )
+
+        ordered_chunks: list[dict[str, Any] | None] = [None for _ in chunk_specs]
+        ordered_warnings = ["" for _ in chunk_specs]
+        with ThreadPoolExecutor(
+            max_workers=workers,
+            thread_name_prefix="pe-content-map",
+        ) as executor:
+            futures = [
+                executor.submit(analyze_chunk, spec)
+                for spec in chunk_specs
+            ]
+            for future in as_completed(futures):
+                index, document, warning = future.result()
+                ordered_chunks[index] = document
+                ordered_warnings[index] = warning
+        warnings.extend(item for item in ordered_warnings if item)
+        chunks = [item for item in ordered_chunks if item is not None]
+        logger.info("content map chunks done: chunks=%s", len(chunks))
         merge_user = (
             "以下是分块主题摘要。请跨块合并同一主题，并返回 content_map 协议中的 "
             "topics 数组；segment_ids 只能取输入中已有值：\n"
@@ -449,7 +507,7 @@ def analyze_content_map(
         source="ai",
         model=model,
         strict=False,
-        generated_at=now_iso(now_fn),
+        generated_at=generated_at,
         inherited_warnings=warnings,
     )
 
