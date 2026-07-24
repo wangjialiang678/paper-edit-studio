@@ -17,15 +17,20 @@ export async function loadCuts() {
   renderCutBar();
 }
 
+/* 方案显示名：default 内部名不变，界面显示「默认方案」。 */
+function cutLabel(cut) {
+  if (cut.name === "default") return cut.label && cut.label !== "default" ? cut.label : "默认方案";
+  return cut.label || cut.name;
+}
+
 export function renderCutBar() {
   if (!state.projectId) { el.cutBar.innerHTML = ""; return; }
   const pills = state.cuts.map((cut) => `
-    <button class="cut-pill ${cut.name === state.cutName ? "active" : ""}" data-cut="${escapeHtml(cut.name)}" title="${escapeHtml(cut.label || cut.name)}">
-      ${escapeHtml(cut.label || cut.name)}${cut.has_export ? " ⬇" : ""}
+    <button class="cut-pill ${cut.name === state.cutName ? "active" : ""}" data-cut="${escapeHtml(cut.name)}" title="${escapeHtml(cutLabel(cut))}（右键：改名/删除）">
+      ${escapeHtml(cutLabel(cut))}${cut.has_export ? " ⬇" : ""}
     </button>`).join("");
   el.cutBar.innerHTML = `${pills}
-    <button class="cut-pill cut-new" id="cutNewMenuBtn" title="新方案：AI 智能剪辑 / 粘贴剪辑稿 / 复制当前方案">＋ 新方案 ▾</button>
-    <button class="cut-pill cut-more" id="cutMenuBtn" title="当前方案：改名 / 删除">⋯</button>`;
+    <button class="cut-pill cut-new" id="cutNewMenuBtn" title="新方案：AI 智能剪辑 / 粘贴剪辑稿 / 复制当前方案">＋ 新方案 ▾</button>`;
   el.cutBar.querySelectorAll(".cut-pill[data-cut]").forEach((pill) => {
     pill.addEventListener("click", async () => {
       if (pill.dataset.cut === state.cutName) return;
@@ -34,19 +39,24 @@ export function renderCutBar() {
       state.viewOriginal = false;
       await showEditor();
       // 切方案后自动从这个方案的开头试听，马上感受剪出来的效果
+      const label = cutLabel(state.cuts.find((c) => c.name === pill.dataset.cut) || { name: pill.dataset.cut });
       if (pb.ranges.length) {
         pb.audition = null;
         pb.rangeIndex = 0;
         el.video.currentTime = pb.ranges[0].start_ms / 1000;
         el.video.play();
-        setStatus(`已切换到方案「${pill.dataset.cut}」，正在从头试听成片。`);
+        setStatus(`已切换到方案「${label}」，正在从头试听成片。`);
       } else {
-        setStatus(`已切换到方案「${pill.dataset.cut}」（还没有保留句，勾选或跑 AI 智能剪辑后可试听）。`);
+        setStatus(`已切换到方案「${label}」（还没有保留句，勾选或跑 AI 智能剪辑后可试听）。`);
       }
+    });
+    // 右键 = 该方案的上下文菜单（改名/删除），比行尾 ⋯ 更顺手（2026-07-24 用户反馈）
+    pill.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      openCutContextMenu(pill.dataset.cut, event.clientX, event.clientY);
     });
   });
   $("cutNewMenuBtn").addEventListener("click", openNewPlanMenu);
-  $("cutMenuBtn").addEventListener("click", openCutMenu);
 }
 
 /* ＋ 新方案：三种来源归一处（AI 智能剪辑 / 粘贴剪辑稿 / 复制当前方案）。 */
@@ -89,22 +99,23 @@ function openNewPlanMenu() {
   });
 }
 
-/* 当前方案的 ⋯ 菜单：复制（保住手工精修成果、派生变体）/ 改名 / 删除。 */
-function openCutMenu() {
+/* 方案右键菜单：作用于被右键的那个方案（不必先切换过去）。默认方案禁改名/删除。 */
+function openCutContextMenu(cutName, x, y) {
   document.querySelector(".cut-menu")?.remove();
   const menu = document.createElement("div");
   menu.className = "q-popover cut-menu";
-  const isDefault = state.cutName === "default";
+  const cut = state.cuts.find((c) => c.name === cutName) || { name: cutName };
+  const isDefault = cutName === "default";
   menu.innerHTML = `
-    <div class="q-pop-text">方案「${escapeHtml(state.cutName)}」</div>
+    <div class="q-pop-text">方案「${escapeHtml(cutLabel(cut))}」</div>
     <div class="q-actions" style="flex-direction:column;align-items:stretch">
-      <button class="btn small" data-act="rename" ${isDefault ? "disabled title=\"默认方案不改名\"" : ""}>✏ 改名</button>
-      <button class="btn small" data-act="delete" ${isDefault ? "disabled title=\"默认方案不可删除\"" : ""}>🗑 删除此方案</button>
+      <button class="btn small" data-act="rename" ${isDefault ? "disabled title=\"默认方案不改名\"" : ""}>✏ 更名</button>
+      <button class="btn small" data-act="copy" title="带着该方案的全部手工调整派生一个变体">⧉ 复制一份</button>
+      <button class="btn small" data-act="delete" ${isDefault ? "disabled title=\"默认方案不可删除\"" : ""}>🗑 删除</button>
     </div>`;
   document.body.appendChild(menu);
-  const rect = $("cutMenuBtn").getBoundingClientRect();
-  menu.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 260)}px`;
-  menu.style.top = `${rect.bottom + window.scrollY + 6}px`;
+  menu.style.left = `${Math.min(x + window.scrollX, window.innerWidth - 220)}px`;
+  menu.style.top = `${y + window.scrollY + 4}px`;
   const close = () => { menu.remove(); document.removeEventListener("pointerdown", outside, true); };
   const outside = (event) => { if (!menu.contains(event.target)) close(); };
   document.addEventListener("pointerdown", outside, true);
@@ -112,27 +123,45 @@ function openCutMenu() {
   menu.querySelector('[data-act="rename"]').addEventListener("click", async () => {
     if (isDefault) return;
     close();
-    const label = prompt("方案显示名：", state.cuts.find((c) => c.name === state.cutName)?.label || state.cutName);
+    const label = prompt("方案显示名：", cut.label || cutName);
     if (label === null || !label.trim()) return;
     try {
-      await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/plan?cut=${encodeURIComponent(state.cutName)}`, { rows: [], label: label.trim() });
+      await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/plan?cut=${encodeURIComponent(cutName)}`, { rows: [], label: label.trim() });
       await loadCuts();
-      setStatus(`方案已改名为「${label.trim()}」。`);
+      setStatus(`方案已更名为「${label.trim()}」。`);
     } catch (error) {
-      setStatus(`改名失败：${error.message}`, "error");
+      setStatus(`更名失败：${error.message}`, "error");
+    }
+  });
+  menu.querySelector('[data-act="copy"]').addEventListener("click", async () => {
+    close();
+    const name = prompt("新方案名（小写字母数字-）：", `${cutName}-v2`.slice(0, 32));
+    if (!name) return;
+    try {
+      await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/cuts`,
+        { name: name.trim(), label: name.trim(), from: `copy:${cutName}` });
+      state.cutName = name.trim();
+      state.order = [];
+      await loadCuts();
+      await showEditor();
+      setStatus(`已复制出方案「${name.trim()}」并切换（原方案的手工调整都带过来了）。`);
+    } catch (error) {
+      setStatus(`复制方案失败：${error.message}`, "error");
     }
   });
   menu.querySelector('[data-act="delete"]').addEventListener("click", async () => {
     if (isDefault) return;
     close();
-    if (!confirm(`删除方案「${state.cutName}」？其勾选/微调/导出都会删除（其他方案不受影响）。`)) return;
+    if (!confirm(`删除方案「${cutLabel(cut)}」？其勾选/微调/导出都会删除（其他方案不受影响）。`)) return;
     try {
-      await api(`/api/projects/${encodeURIComponent(state.projectId)}/cuts/${encodeURIComponent(state.cutName)}`, { method: "DELETE" });
-      state.cutName = "default";
-      state.order = [];
+      await api(`/api/projects/${encodeURIComponent(state.projectId)}/cuts/${encodeURIComponent(cutName)}`, { method: "DELETE" });
+      if (state.cutName === cutName) {
+        state.cutName = "default";
+        state.order = [];
+        await showEditor();
+      }
       await loadCuts();
-      await showEditor();
-      setStatus("方案已删除，回到默认方案。");
+      setStatus(`方案「${cutLabel(cut)}」已删除。`);
     } catch (error) {
       setStatus(`删除失败：${error.message}`, "error");
     }

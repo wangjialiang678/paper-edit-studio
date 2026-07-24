@@ -100,9 +100,8 @@ class PlanningPipelineTests(unittest.TestCase):
                 "keep_data",
             },
         )
-        self.assertTrue(by_key["cut_fillers"]["default"])
-        self.assertTrue(by_key["hook_first"]["default"])
-        self.assertFalse(by_key["keep_data"]["default"])
+        # 2026-07-24 拍板：六个意图默认全选（保留干货/案例/数据结论、删寒暄）。
+        self.assertTrue(all(item["default"] for item in INTENT_PRESETS))
         self.assertTrue(all(item["brief"] for item in INTENT_PRESETS))
 
     def test_whole_video_always_creates_new_ai_plan_without_overwriting_default(self):

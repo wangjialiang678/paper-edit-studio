@@ -9,7 +9,7 @@
    你的判断永远优先：字幕表格里任意句子点 ⭐ 也能设为金句（rows.js），确认后 AI 不得再动。 */
 import { state, api, postJson, escapeHtml, fmtClock, setStatus } from "./shared.js";
 import { showEditor } from "./editor.js";
-import { refreshBudget } from "./budget.js";
+import { refreshBudget, fmtMinutes } from "./budget.js";
 import { promoteQuote, renderRows } from "./rows.js";
 import { flushPlanNow } from "./plan.js";
 
@@ -76,7 +76,10 @@ function renderQuotesDialog() {
     const row = rowFor(c.segment_id);
     return sum + (row ? Math.max(0, row.end_ms - row.start_ms) : 0);
   }, 0);
-  const target = state.budget?.target_s;
+  const budget = state.budget;
+  const targetLabel = budget?.target_s != null
+    ? `${fmtMinutes(Math.max(0, budget.target_s - (budget.tolerance_s || 0)))}–${fmtMinutes(budget.target_s + (budget.tolerance_s || 0))} 分钟`
+    : null;
 
   const cards = candidates.map((c) => {
     const row = rowFor(c.segment_id);
@@ -122,7 +125,7 @@ function renderQuotesDialog() {
           <div class="ai-hint" style="margin-top:6px">或者直接关掉这里，在下面的字幕表格里给任意句子点 ⭐ 手动设金句。</div>
         </div>`)}
     <div class="quotes-manual">——— 不满意 AI 挑的？———<br>字幕表格里任意句子点 ⭐ 即设为金句（你的判断永远优先，确认后 AI 不得再动）。</div>
-    <div class="quotes-budget">${accepted.length ? `已选金句 ${accepted.length} 句 · 合计 ${(acceptedMs / 1000).toFixed(0)}s` : "尚未采纳金句"}${target ? ` / 目标成片 ${target}s（金句先占预算，其余给主张和支撑句）` : ""}</div>
+    <div class="quotes-budget">${accepted.length ? `已选金句 ${accepted.length} 句 · 合计 ${fmtClock(acceptedMs)}` : "尚未采纳金句"}${targetLabel ? ` / 目标成片 ${targetLabel}（金句先占预算，其余给主张和支撑句）` : ""}</div>
     <div class="prompt-actions">
       <button class="btn primary" id="quotesDoneBtn">${currentTopicId ? "完成，进入选段 →" : "完成"}</button>
     </div>

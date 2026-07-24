@@ -15,10 +15,10 @@ import { loadCuts, openScriptDialog } from "./cuts.js";
 const INTENTS = [
   { key: "cut_fillers", label: "删口癖 / 废话 / 重复", def: true },
   { key: "hook_first", label: "开头放钩子金句", def: true },
-  { key: "keep_insights", label: "保留干货观点", def: false },
-  { key: "keep_stories", label: "保留案例 / 故事", def: false },
-  { key: "cut_smalltalk", label: "删寒暄 / 闲聊", def: false },
-  { key: "keep_data", label: "保留数据 / 结论", def: false },
+  { key: "keep_insights", label: "保留干货观点", def: true },
+  { key: "keep_stories", label: "保留案例 / 故事", def: true },
+  { key: "cut_smalltalk", label: "删寒暄 / 闲聊", def: true },
+  { key: "keep_data", label: "保留数据 / 结论", def: true },
 ];
 
 const PROMPT_STAGES = [

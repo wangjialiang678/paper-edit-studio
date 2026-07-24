@@ -39,25 +39,25 @@ INTENT_PRESETS = (
         "key": "keep_insights",
         "label": "保留干货观点",
         "brief": "优先保留有信息增量的观点、判断和方法",
-        "default": False,
+        "default": True,
     },
     {
         "key": "keep_stories",
         "label": "保留案例 / 故事",
         "brief": "保留能支撑观点的案例、故事和关键过程",
-        "default": False,
+        "default": True,
     },
     {
         "key": "cut_smalltalk",
         "label": "删寒暄 / 开场闲聊",
         "brief": "删掉寒暄、客套和与主题无关的开场闲聊",
-        "default": False,
+        "default": True,
     },
     {
         "key": "keep_data",
         "label": "保留数据 / 结论",
         "brief": "优先保留具体数据、对比和明确结论",
-        "default": False,
+        "default": True,
     },
 )
 
@@ -76,7 +76,10 @@ class CutNameConflict(RuntimeError):
 
 
 def validate_plan_request(payload: dict[str, Any]) -> dict[str, Any]:
-    raw_intent = payload.get("intent", ["cut_fillers", "hook_first"])
+    raw_intent = payload.get(
+        "intent",
+        [str(item["key"]) for item in INTENT_PRESETS if item["default"]],
+    )
     if not isinstance(raw_intent, list):
         raise ValueError("intent 必须是 key 数组")
     intent: list[str] = []
