@@ -177,7 +177,9 @@ class SelectFlowTests(unittest.TestCase):
             _assert_nonempty_file(self, redline_path)
             redline = redline_path.read_text(encoding="utf-8")
             self.assertIn("- 原始 3 句 / 保留 2 句 / 删除 1 句", redline)
-            self.assertIn("~~这句只是重复。~~ · 与上一句重复", redline)
+            # 协议不再返回删除理由（只回剪辑方案本身），划线后无理由后缀
+            self.assertIn("~~这句只是重复。~~", redline)
+            self.assertNotIn("· 与上一句重复", redline)
             self.assertNotIn("~~先讲核心观点。~~", redline)
 
 

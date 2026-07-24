@@ -109,21 +109,21 @@ class AiSelector:
                 continue
             aliases = _alias_map([segment.id for segment in chunk])
             for item in raw["drop"]:
-                if not isinstance(item, dict):
+                # 协议只要纯 id 字符串（剪辑方案本身，无理由）；容忍旧格式 {id, reason}。
+                if isinstance(item, dict):
+                    raw_id = item.get("id")
+                elif isinstance(item, str):
+                    raw_id = item
+                else:
                     continue
-                segment_id = _resolve_id(item.get("id"), aliases)
+                segment_id = _resolve_id(raw_id, aliases)
                 if segment_id is None:
-                    warnings.append(f"忽略未知/越界 segment_id：{item.get('id')}")
+                    warnings.append(f"忽略未知/越界 segment_id：{raw_id}")
                     continue
-                reason = str(item.get("reason") or "")
-                if len(reason) > 15:
-                    warnings.append(
-                        f"{segment_id} 的删除理由超过 15 字，已截断"
-                    )
                 decisions[segment_id] = {
                     "segment_id": segment_id,
                     "keep": False,
-                    "reason": reason[:15],
+                    "reason": "",
                     "labels": [],
                 }
             if raw.get("summary"):

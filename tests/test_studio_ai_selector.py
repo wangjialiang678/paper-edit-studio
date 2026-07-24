@@ -58,13 +58,14 @@ class ExtractJsonTests(unittest.TestCase):
 
 class KouboSelectorTests(unittest.TestCase):
     def test_drop_is_inverted_to_decisions_and_unknown_ids_are_ignored(self):
+        # 协议只返回纯 id 列表（剪辑方案本身，无理由）；旧格式 {id, reason} 仍被容忍但理由丢弃。
         client = FakeClient(
             [
                 {
                     "summary": "整体去水",
                     "drop": [
-                        {"id": "sentence_0001", "reason": "寒暄"},
-                        {"id": "sentence_9999", "reason": "编造"},
+                        "sentence_0001",
+                        {"id": "sentence_9999", "reason": "旧格式编造"},
                     ],
                 }
             ]
@@ -74,7 +75,7 @@ class KouboSelectorTests(unittest.TestCase):
         decisions = {item["segment_id"]: item for item in suggestion.payload["decisions"]}
         self.assertEqual(len(decisions), 4)
         self.assertFalse(decisions["sentence_0001"]["keep"])
-        self.assertEqual(decisions["sentence_0001"]["reason"], "寒暄")
+        self.assertEqual(decisions["sentence_0001"]["reason"], "")
         self.assertTrue(decisions["sentence_0002"]["keep"])
         self.assertEqual(decisions["sentence_0002"]["reason"], "")
         self.assertNotIn("sentence_9999", decisions)

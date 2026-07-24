@@ -60,7 +60,9 @@ class PlanningStorageProtocolTests(unittest.TestCase):
         self.assertIn('"drop"', koubo)
         self.assertNotIn('"decisions"', koubo)
         self.assertNotIn('"keep"', koubo)
-        self.assertIn("15", koubo)
+        # 只返回剪辑方案本身：纯 id 列表，无理由/总结字段（2026-07-24 拍板）
+        self.assertNotIn('"reason"', koubo)
+        self.assertNotIn('"summary"', koubo)
         self.assertIn("未出现在 `drop`", koubo)
 
         self.assertNotIn('"context"', quotes)

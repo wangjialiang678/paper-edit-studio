@@ -134,10 +134,8 @@ function badgesHtml(row) {
   // 「气口 ×N」「疑似错字 ×N」徽标已撤（2026-07-24 用户拍板）：全局动作
   // （✂ 剪气口 / 🔎 字幕校对）已覆盖，行内波浪线标可改词，逐行徽标是重复噪音。
   if (row.has_word_timestamps) badges.push('<button class="btn tiny trim-toggle" title="句内微调：删词/剪气口/拖切点">✂ 微调</button>');
-  // AI 理由不再每句常驻（视觉噪音）：只有被删的句子显示一行短理由，说明"为什么剪掉"
-  const reason = !row.checked && row.ai_reason
-    ? `<div class="row-reason">${escapeHtml(row.ai_reason)}</div>` : "";
-  return badges.join("") + reason;
+  // AI 理由不再展示（2026-07-24 用户拍板：只看剪辑方案本身，不看理由；协议也已不再返回理由）
+  return badges.join("");
 }
 
 /* 行内只标「有修改建议」的（2026-07-24 拍板 suggest-only）：
