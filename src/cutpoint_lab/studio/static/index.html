@@ -8,8 +8,21 @@
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">✂️ Paper Edit Studio</div>
+    <!-- 图标窄栏：项目列表收成抽屉，不再常驻（2026-07-24 工作区架构拍板） -->
+    <nav class="rail" id="rail">
+      <div class="rail-logo" title="Paper Edit Studio">✂️</div>
+      <button class="rail-btn" id="railProjectsBtn" title="项目列表">📁<span class="rail-badge" id="railProjectCount" hidden></span></button>
+      <button class="rail-btn" id="railImportBtn" title="导入新视频">＋</button>
+      <span class="rail-spacer"></span>
+      <button class="rail-btn" id="settingsBtn" title="设置（API Key / 热词表）">⚙️</button>
+    </nav>
+
+    <!-- 项目抽屉（覆盖层）：原侧栏内容整体搬入，选完项目自动收回 -->
+    <aside class="drawer" id="projectDrawer" hidden>
+      <div class="drawer-head">
+        <b>项目</b>
+        <button class="btn small" id="drawerCloseBtn">✕</button>
+      </div>
       <div class="import-zone" id="importZone">
         <input type="file" id="fileInput" accept="video/*,audio/*" hidden>
         <div class="import-hint">拖入视频，或</div>
@@ -25,13 +38,21 @@
         </div>
       </div>
       <div class="project-list" id="projectList"></div>
-      <button class="sidebar-link" id="settingsBtn">⚙️ 设置（API Key / 热词表）</button>
     </aside>
+    <div class="drawer-mask" id="drawerMask" hidden></div>
 
     <main class="main">
+      <!-- 全局顶栏：只有项目身份 + 固定帮助入口 -->
+      <header class="appbar" id="appbar">
+        <span class="appbar-name" id="appbarName">Paper Edit Studio</span>
+        <span class="appbar-meta" id="appbarMeta"></span>
+        <span class="appbar-gap"></span>
+        <button class="help-btn" id="helpBtn" title="怎么用？">?</button>
+      </header>
+
       <section class="empty-view" id="emptyView">
-        <h2>从左侧导入一段视频开始</h2>
-        <p>导入后自动完成：提取音频 → 语音识别 → 词级时间戳字幕 → AI 保留建议。</p>
+        <h2>导入一段视频开始</h2>
+        <p>点左上角 📁 或 ＋，拖入视频文件。<br>导入后自动完成：提取音频 → 语音识别 → 词级时间戳字幕 → AI 初剪建议。</p>
       </section>
 
       <section class="pipeline-view" id="pipelineView" hidden>
@@ -47,69 +68,68 @@
         <div id="topicsBody"></div>
       </section>
 
+      <!-- 编辑器 = 两个平级工作区（flex 方向一换即上下布局，保持解耦） -->
       <section class="editor" id="editorView" hidden>
-        <div class="stage">
-          <div class="player">
-            <video id="video" preload="metadata"></video>
-            <div class="transport">
-              <button class="btn icon" id="playBtn" title="播放/暂停（空格）">▶</button>
-              <div class="progress" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
-              <span class="time" id="timeLabel">00:00 / 00:00</span>
-              <div class="mode-toggle" id="modeToggle" title="切换播放内容（M）">
-                <button class="mode-btn active" data-mode="edited">成片</button>
-                <button class="mode-btn" data-mode="source">原片</button>
+        <div class="zones">
+          <!-- 工作区①：预览 -->
+          <div class="zone z-video">
+            <div class="zone-head">
+              <span class="zone-stat">成片 <b id="statDuration">00:00</b> · <b id="statKept">0</b> 句</span>
+            </div>
+            <div class="z-video-body">
+              <video id="video" preload="metadata"></video>
+              <div class="transport">
+                <button class="btn icon" id="playBtn" title="播放/暂停（空格）">▶</button>
+                <div class="progress" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+                <span class="time" id="timeLabel">00:00 / 00:00</span>
+                <div class="mode-toggle" id="modeToggle" title="切换播放内容（M）">
+                  <button class="mode-btn active" data-mode="edited">成片</button>
+                  <button class="mode-btn" data-mode="source">原片</button>
+                </div>
+              </div>
+              <div class="status" id="statusBox">加载中…</div>
+              <div class="export-result" id="exportResult" hidden></div>
+            </div>
+          </div>
+
+          <!-- 工作区②：剪辑方案（切换/生成/精修/导出 同一闭环） -->
+          <div class="zone z-plan">
+            <div class="zone-head">
+              <div class="cut-bar" id="cutBar"></div>
+              <button class="btn primary" id="aiPanelBtn" title="AI 通读字幕出剪辑方案：分主题 → 挑金句 → 按目标时长筛句子">🤖 AI 智能剪辑</button>
+              <button class="btn accent" id="exportBtn">⬇ 导出本方案</button>
+            </div>
+            <div class="chiprow">
+              <button class="chip" id="quotesBtn" title="金句候选：AI 挑能单句立住的句子，你裁决置顶/保留/弃用">⭐ 金句</button>
+              <button class="chip" id="cutFillersBtn" title="对所有保留句应用检测到的气口建议（呃/嗯/重复）">✂ 剪气口</button>
+              <button class="chip" id="undoCutFillersBtn" hidden>↩ 撤销剪气口</button>
+              <button class="chip" id="qualityBtn" title="检查字幕里的错别字/识别错词/与参考字幕的差异">🔎 字幕校对<span class="chip-n" id="qualityCount" hidden></span></button>
+              <span class="budget-chip idle" id="budgetChip" title="时长：设目标，超支时给可删建议（锁定金句永不动）" hidden>⏱</span>
+              <button class="chip" id="origOrderBtn" hidden>↩ 原序</button>
+              <button class="chip" id="topicsBtn" title="查看/调整 AI 划分的看点（主题边界）">🗺 看点</button>
+              <span class="chip-hint">拖 ⠿ 调序 · 点词删词 · 点 ⭐ 设金句</span>
+            </div>
+            <!-- 单一通知槽：只放动作回执，最多一条 -->
+            <div class="notice-slot">
+              <div class="replace-bar" id="replaceBar" hidden></div>
+              <div class="ordered-banner" id="orderedBanner" hidden>
+                <span id="orderedBannerText">🎬 自定义成片顺序已启用：列表按输出顺序显示</span>
+                <button class="btn small" id="exitOrderedBtn">恢复原始顺序</button>
               </div>
             </div>
-          </div>
-          <div class="stage-side">
-            <div class="stat-block">
-              <div class="stat"><b id="statDuration">00:00</b><span>成片时长</span></div>
-              <div class="stat"><b id="statKept">0</b><span>保留句子</span></div>
-            </div>
-            <div class="status" id="statusBox">加载中…</div>
-            <div class="export-result" id="exportResult" hidden></div>
+            <div class="plan-empty" id="planEmpty" hidden></div>
+            <div class="rows" id="rows"></div>
           </div>
         </div>
-
-        <div class="journey" id="journeyStrip" hidden></div>
-
-        <div class="topic-hint-banner" id="topicHintBanner" hidden></div>
-
-        <div class="adv-tray" id="advTray" hidden>
-          <div class="cut-bar" id="cutBar" hidden></div>
-          <button class="btn small" id="topicsBtn" title="长视频先梳理看点，每个看点各剪一条短视频">🗺 看点梳理</button>
-        </div>
-
-        <div class="replace-bar" id="replaceBar" hidden></div>
-
-        <div class="ordered-banner" id="orderedBanner" hidden>
-          <span id="orderedBannerText">🎬 自定义成片顺序已启用：列表按输出顺序显示</span>
-          <button class="btn small" id="exitOrderedBtn">恢复原始顺序</button>
-        </div>
-
-        <div class="toolbar">
-          <button class="btn" id="aiPanelBtn" title="AI 一次完成分主题→挑金句→筛句子，产出可切换的剪辑方案">🤖 AI 出方案</button>
-          <button class="btn" id="quotesBtn" title="金句候选：AI 挑能单句立住的句子，你裁决置顶/保留/弃用">⭐ 金句</button>
-          <button class="btn" id="cutFillersBtn" title="对所有保留句应用检测到的气口建议（呃/嗯/重复）">✂ 剪气口</button>
-          <button class="btn" id="undoCutFillersBtn" hidden>↩ 撤销剪气口</button>
-          <button class="btn" id="qualityBtn" title="检查字幕里的错别字/识别错词/与参考字幕的差异">🔎 字幕校对</button>
-          <button class="btn" id="origOrderBtn" hidden>↩ 回看原始顺序</button>
-          <span class="budget-chip idle" id="budgetChip" title="时长：设目标，超支时给可删建议（锁定金句永不动）" hidden>⏱</span>
-          <button class="btn" id="moreBtn" title="多版本剪法 / 套用已有剪辑稿 / 按看点分条">⋯ 更多剪法</button>
-          <span class="toolbar-gap"></span>
-          <span id="exportChecklist"></span>
-          <button class="btn accent" id="exportBtn">导出视频</button>
-        </div>
-
-        <div class="rows" id="rows"></div>
       </section>
     </main>
 
+    <!-- 工作区③：AI 智能剪辑（独立工作区，可隐藏；含 📝 提示词定制） -->
     <aside class="ai-panel" id="aiPanel" hidden>
       <div class="ai-head">
-        <b>🤖 AI 出剪辑方案</b>
+        <b>🤖 AI 智能剪辑</b>
         <span class="ai-head-actions">
-          <button class="btn small" id="aiPromptBtn" title="查看/编辑 AI 的剪辑理念（分主题/挑金句/筛句子）">📝 提示词</button>
+          <button class="btn small" id="aiPromptBtn" title="定制 AI 的剪辑理念（分主题/挑金句/筛句子，出厂默认可恢复）">📝 提示词</button>
           <button class="btn small" id="aiCloseBtn">✕</button>
         </span>
       </div>
@@ -126,10 +146,10 @@
 
     <aside class="ai-panel" id="qualityPanel" hidden>
       <div class="ai-head">
-        <b>🔎 字幕质检</b>
+        <b>🔎 字幕校对</b>
         <button class="btn small" id="qualityCloseBtn">✕</button>
       </div>
-      <div class="ai-body" id="qualityBody"><div class="ai-hint">打开项目后可查看质检报告。</div></div>
+      <div class="ai-body" id="qualityBody"><div class="ai-hint">打开项目后可查看校对报告。</div></div>
     </aside>
   </div>
   <script type="module" src="/static/main.js"></script>

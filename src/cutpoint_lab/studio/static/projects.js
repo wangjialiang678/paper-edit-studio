@@ -1,13 +1,34 @@
 /* 项目列表、导入（文件/路径）、流水线进度视图。 */
-import { el, state, api, postJson, escapeHtml, STAGE_LABELS } from "./shared.js";
+import { el, state, api, postJson, escapeHtml, fmtClock, STAGE_LABELS } from "./shared.js";
 import { resetPlayback } from "./player.js";
 import { showEditor } from "./editor.js";
 import { clearFillerBatch } from "./rows.js";
 import { resetBudget } from "./budget.js";
 
+/* 项目抽屉（覆盖层）：选完项目自动收回，平时不占空间。 */
+export function openDrawer() {
+  el.projectDrawer.hidden = false;
+  el.drawerMask.hidden = false;
+}
+export function closeDrawer() {
+  el.projectDrawer.hidden = true;
+  el.drawerMask.hidden = true;
+}
+
+/* 顶栏项目身份（全局层唯一信息） */
+export function updateAppbar() {
+  const project = state.project;
+  el.appbarName.textContent = project?.name || project?.id || "Paper Edit Studio";
+  el.appbarMeta.textContent = project
+    ? `${fmtClock(project.duration_ms || state.sourceDurationMs || 0)} · ${state.rows.length || "…"} 句`
+    : "";
+}
+
 export async function refreshProjects() {
   try {
     const { projects } = await api("/api/projects");
+    el.railProjectCount.textContent = String(projects.length);
+    el.railProjectCount.hidden = !projects.length;
     el.projectList.innerHTML = "";
     for (const project of projects) {
       const item = document.createElement("div");
@@ -85,13 +106,12 @@ export async function selectProject(projectId) {
   state.quotes = null;
   state.quotesAiRunning = false;
   state.budget = null;
-  state.moreOpen = false;
-  state.topicHintDismissed = false;
   resetBudget(); // 重新探测预算后端（换项目/后端升级后恢复）
   resetPlayback();
   clearFillerBatch();
   clearTimers();
   el.exportResult.hidden = true;
+  closeDrawer(); // 选完项目抽屉自动收回
   await refreshProjects();
   await pollProjectOnce();
 }
@@ -107,6 +127,7 @@ async function pollProjectOnce() {
   try {
     const project = await api(`/api/projects/${state.projectId}`);
     state.project = project;
+    updateAppbar();
     if (project.stage === "ready" && project.transcript_ready) {
       showEditor();
       return;

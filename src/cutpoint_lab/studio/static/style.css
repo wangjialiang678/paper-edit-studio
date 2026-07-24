@@ -443,3 +443,77 @@ video { width: 100%; flex: 1; min-height: 0; background: #000; border-radius: 10
 }
 .alt-divider::before, .alt-divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .alt-path-text { color: var(--ink); opacity: .85; font-size: 13px; margin-bottom: 8px; text-align: center; }
+
+/* ===== 2026-07-24 工作区架构（拍板版）===== */
+/* 图标窄栏 */
+.rail { width: 52px; flex: none; background: var(--bg-2); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 6px; }
+.rail-logo { font-size: 18px; margin-bottom: 10px; }
+.rail-btn { width: 38px; height: 38px; border-radius: 9px; border: 1px solid transparent;
+  background: transparent; color: var(--muted); font-size: 16px; cursor: pointer; position: relative;
+  display: flex; align-items: center; justify-content: center; text-decoration: none; }
+.rail-btn:hover { background: var(--bg-3); color: var(--ink); }
+.rail-badge { position: absolute; top: 1px; right: 1px; background: var(--accent); color: #fff;
+  font-size: 9px; border-radius: 8px; padding: 0 4px; }
+.rail-spacer { flex: 1; }
+
+/* 项目抽屉 */
+.drawer { position: fixed; left: 52px; top: 0; bottom: 0; width: 300px; z-index: 60;
+  background: var(--bg-2); border-right: 1px solid var(--line); display: flex; flex-direction: column;
+  box-shadow: 12px 0 40px rgba(0,0,0,.45); }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; }
+.drawer .import-zone { margin: 0 12px 12px; }
+.drawer-mask { position: fixed; inset: 0; left: 52px; z-index: 55; background: rgba(0,0,0,.35); }
+
+/* 极简顶栏 */
+.appbar { height: 42px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px;
+  border-bottom: 1px solid var(--line); background: var(--bg-2); }
+.appbar-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+.appbar-meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.appbar-gap { flex: 1; }
+.help-btn { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line);
+  background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
+.help-btn:hover { color: var(--ink); border-color: var(--accent); }
+
+/* 工作区容器：zone 平级，flex 方向一换即上下布局 */
+.editor { flex: 1; min-height: 0; display: flex; }
+.zones { flex: 1; display: flex; min-height: 0; min-width: 0; }
+.zone { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.zone-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  border-bottom: 1px solid var(--line); background: var(--bg-2); flex-wrap: wrap; }
+.zone-stat { color: var(--muted); font-size: 12px; }
+.zone-stat b { color: var(--ink); font-size: 13px; }
+
+.z-video { width: 37%; min-width: 330px; flex: none; border-right: 1px solid var(--line); }
+.z-video-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 12px; min-height: 0; overflow-y: auto; }
+.z-video-body video { flex: 1; min-height: 180px; }
+
+.z-plan { flex: 1; }
+.z-plan .cut-bar { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; background: transparent;
+  display: flex; align-items: center; gap: 6px; overflow-x: auto; flex-wrap: nowrap; }
+.chiprow { display: flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line);
+  background: var(--bg-2); color: var(--ink); border-radius: 999px; padding: 4px 11px;
+  font-size: 12px; cursor: pointer; }
+.chip:hover { border-color: var(--accent); }
+.chip-n { color: var(--warn); }
+.chip-hint { margin-left: auto; color: var(--muted); font-size: 11px; }
+.notice-slot { flex: none; }
+.notice-slot .ordered-banner, .notice-slot .replace-bar { margin: 8px 14px 0; }
+
+/* 空态即引导（剪辑方案区没有内容时，区域本身就是引导） */
+.plan-empty { flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; text-align: center; padding: 30px; }
+.plan-empty h3 { font-weight: 600; font-size: 16px; }
+.plan-empty p { color: var(--muted); font-size: 13px; line-height: 1.8; max-width: 460px; }
+.plan-empty .cta { display: flex; gap: 10px; }
+.plan-empty .cta-main { background: var(--accent); border: 0; color: #fff; border-radius: 10px;
+  padding: 12px 26px; font-size: 14px; cursor: pointer; }
+.plan-empty .cta-alt { background: transparent; border: 1px solid var(--line); color: var(--ink);
+  border-radius: 10px; padding: 12px 20px; font-size: 14px; cursor: pointer; }
+.plan-empty .cta-skip { color: var(--muted); font-size: 12px; cursor: pointer; text-decoration: underline; }
+
+/* ＋新方案 菜单 / 帮助弹层 复用 q-popover */
+.newplan-menu button { display: block; width: 100%; text-align: left; }
+.help-pop { max-width: 360px; font-size: 13px; line-height: 1.8; }

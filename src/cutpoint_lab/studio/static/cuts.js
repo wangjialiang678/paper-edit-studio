@@ -17,31 +17,22 @@ export async function loadCuts() {
   renderCutBar();
 }
 
-/* 高级托盘（剪辑方案条 + 看点梳理）默认收起；多于一个方案时自动展开，好让多版本用户看得见。 */
-export function applyAdvTray() {
-  if (!el.advTray) return;
-  el.advTray.hidden = !(state.moreOpen || state.cuts.length > 1);
-}
-
 export function renderCutBar() {
-  if (!state.projectId) { el.cutBar.hidden = true; return; }
-  el.cutBar.hidden = false;
+  if (!state.projectId) { el.cutBar.innerHTML = ""; return; }
   const pills = state.cuts.map((cut) => `
-    <button class="cut-pill ${cut.name === state.cutName ? "active" : ""}" data-cut="${escapeHtml(cut.name)}">
+    <button class="cut-pill ${cut.name === state.cutName ? "active" : ""}" data-cut="${escapeHtml(cut.name)}" title="${escapeHtml(cut.label || cut.name)}">
       ${escapeHtml(cut.label || cut.name)}${cut.has_export ? " ⬇" : ""}
     </button>`).join("");
-  el.cutBar.innerHTML = `
-    <span class="cut-label">剪辑方案：</span>${pills}
-    <button class="btn small" id="cutMenuBtn" title="当前方案：复制一份试另一种剪法 / 改名 / 删除">⋯</button>
-    <button class="btn small" id="cutScriptBtn" title="你已经有一份排好的剪辑稿（哪些话、什么顺序），直接粘进来自动对回视频">📄 套用已有剪辑稿</button>`;
-  el.cutBar.querySelectorAll(".cut-pill").forEach((pill) => {
+  el.cutBar.innerHTML = `${pills}
+    <button class="cut-pill cut-new" id="cutNewMenuBtn" title="新方案：AI 智能剪辑 / 粘贴剪辑稿 / 复制当前方案">＋ 新方案 ▾</button>
+    <button class="cut-pill cut-more" id="cutMenuBtn" title="当前方案：改名 / 删除">⋯</button>`;
+  el.cutBar.querySelectorAll(".cut-pill[data-cut]").forEach((pill) => {
     pill.addEventListener("click", async () => {
       if (pill.dataset.cut === state.cutName) return;
       state.cutName = pill.dataset.cut;
       state.order = [];
       state.viewOriginal = false;
       await showEditor();
-      renderCutBar();
       // 切方案后自动从这个方案的开头试听，马上感受剪出来的效果
       if (pb.ranges.length) {
         pb.audition = null;
@@ -50,36 +41,36 @@ export function renderCutBar() {
         el.video.play();
         setStatus(`已切换到方案「${pill.dataset.cut}」，正在从头试听成片。`);
       } else {
-        setStatus(`已切换到方案「${pill.dataset.cut}」（还没有保留句，勾选或跑 AI 选段后可试听）。`);
+        setStatus(`已切换到方案「${pill.dataset.cut}」（还没有保留句，勾选或跑 AI 智能剪辑后可试听）。`);
       }
     });
   });
+  $("cutNewMenuBtn").addEventListener("click", openNewPlanMenu);
   $("cutMenuBtn").addEventListener("click", openCutMenu);
-  $("cutScriptBtn").addEventListener("click", openScriptDialog);
-  applyAdvTray();
 }
 
-/* 当前方案的 ⋯ 菜单：复制（保住手工精修成果、派生变体）/ 改名 / 删除。 */
-function openCutMenu() {
-  document.querySelector(".cut-menu")?.remove();
+/* ＋ 新方案：三种来源归一处（AI 智能剪辑 / 粘贴剪辑稿 / 复制当前方案）。 */
+function openNewPlanMenu() {
+  document.querySelector(".newplan-pop")?.remove();
   const menu = document.createElement("div");
-  menu.className = "q-popover cut-menu";
-  const isDefault = state.cutName === "default";
+  menu.className = "q-popover newplan-pop newplan-menu";
   menu.innerHTML = `
-    <div class="q-pop-text">方案「${escapeHtml(state.cutName)}」</div>
-    <div class="q-actions" style="flex-direction:column;align-items:stretch">
-      <button class="btn small" data-act="copy" title="在当前方案的基础上（含你的手工微调）派生一个变体，互不影响">⧉ 复制一份试另一种剪法</button>
-      <button class="btn small" data-act="rename" ${isDefault ? "disabled title=\"默认方案不改名\"" : ""}>✏ 改名</button>
-      <button class="btn small" data-act="delete" ${isDefault ? "disabled title=\"默认方案不可删除\"" : ""}>🗑 删除此方案</button>
-    </div>`;
+    <button class="btn small" data-act="ai">🤖 AI 智能剪辑（分主题 · 挑金句 · 筛句子）</button>
+    <button class="btn small" data-act="script">📄 粘贴我的剪辑稿（对回视频）</button>
+    <button class="btn small" data-act="copy" title="带着当前方案的全部手工调整派生一个变体">⧉ 复制当前方案</button>`;
   document.body.appendChild(menu);
-  const rect = $("cutMenuBtn").getBoundingClientRect();
-  menu.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 260)}px`;
+  const rect = $("cutNewMenuBtn").getBoundingClientRect();
+  menu.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 320)}px`;
   menu.style.top = `${rect.bottom + window.scrollY + 6}px`;
   const close = () => { menu.remove(); document.removeEventListener("pointerdown", outside, true); };
   const outside = (event) => { if (!menu.contains(event.target)) close(); };
   document.addEventListener("pointerdown", outside, true);
-
+  menu.querySelector('[data-act="ai"]').addEventListener("click", () => {
+    close();
+    el.aiPanel.hidden = true;
+    el.aiPanelBtn.click();
+  });
+  menu.querySelector('[data-act="script"]').addEventListener("click", () => { close(); openScriptDialog(); });
   menu.querySelector('[data-act="copy"]').addEventListener("click", async () => {
     close();
     const name = prompt("新方案名（小写字母数字-）：", `${state.cutName}-v2`.slice(0, 32));
@@ -96,6 +87,28 @@ function openCutMenu() {
       setStatus(`复制方案失败：${error.message}`, "error");
     }
   });
+}
+
+/* 当前方案的 ⋯ 菜单：复制（保住手工精修成果、派生变体）/ 改名 / 删除。 */
+function openCutMenu() {
+  document.querySelector(".cut-menu")?.remove();
+  const menu = document.createElement("div");
+  menu.className = "q-popover cut-menu";
+  const isDefault = state.cutName === "default";
+  menu.innerHTML = `
+    <div class="q-pop-text">方案「${escapeHtml(state.cutName)}」</div>
+    <div class="q-actions" style="flex-direction:column;align-items:stretch">
+      <button class="btn small" data-act="rename" ${isDefault ? "disabled title=\"默认方案不改名\"" : ""}>✏ 改名</button>
+      <button class="btn small" data-act="delete" ${isDefault ? "disabled title=\"默认方案不可删除\"" : ""}>🗑 删除此方案</button>
+    </div>`;
+  document.body.appendChild(menu);
+  const rect = $("cutMenuBtn").getBoundingClientRect();
+  menu.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 260)}px`;
+  menu.style.top = `${rect.bottom + window.scrollY + 6}px`;
+  const close = () => { menu.remove(); document.removeEventListener("pointerdown", outside, true); };
+  const outside = (event) => { if (!menu.contains(event.target)) close(); };
+  document.addEventListener("pointerdown", outside, true);
+
   menu.querySelector('[data-act="rename"]').addEventListener("click", async () => {
     if (isDefault) return;
     close();

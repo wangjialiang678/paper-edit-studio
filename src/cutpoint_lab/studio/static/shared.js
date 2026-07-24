@@ -5,9 +5,15 @@
 export const $ = (id) => document.getElementById(id);
 
 export const el = {
-  sidebar: $("sidebar"), importZone: $("importZone"), fileInput: $("fileInput"),
+  importZone: $("importZone"), fileInput: $("fileInput"),
   pickFileBtn: $("pickFileBtn"), pathInput: $("pathInput"), importPathBtn: $("importPathBtn"),
   uploadProgress: $("uploadProgress"), uploadBar: $("uploadBar"), uploadPct: $("uploadPct"),
+  projectList: $("projectList"),
+  rail: $("rail"), railProjectsBtn: $("railProjectsBtn"), railImportBtn: $("railImportBtn"),
+  railProjectCount: $("railProjectCount"),
+  projectDrawer: $("projectDrawer"), drawerMask: $("drawerMask"), drawerCloseBtn: $("drawerCloseBtn"),
+  appbarName: $("appbarName"), appbarMeta: $("appbarMeta"), helpBtn: $("helpBtn"),
+  planEmpty: $("planEmpty"), qualityCount: $("qualityCount"),
   emptyView: $("emptyView"), pipelineView: $("pipelineView"), pipelineTitle: $("pipelineTitle"),
   stageList: $("stageList"), pipelineError: $("pipelineError"), pipelineErrorText: $("pipelineErrorText"),
   retryBtn: $("retryBtn"),
@@ -27,9 +33,7 @@ export const el = {
   qualityBody: $("qualityBody"),
   cutBar: $("cutBar"), origOrderBtn: $("origOrderBtn"),
   topicsView: $("topicsView"), topicsBody: $("topicsBody"), topicsBtn: $("topicsBtn"),
-  quotesBtn: $("quotesBtn"), budgetChip: $("budgetChip"), exportChecklist: $("exportChecklist"),
-  journeyStrip: $("journeyStrip"), topicHintBanner: $("topicHintBanner"),
-  advTray: $("advTray"), moreBtn: $("moreBtn"),
+  quotesBtn: $("quotesBtn"), budgetChip: $("budgetChip"),
 };
 
 export const STAGE_LABELS = [
@@ -56,7 +60,7 @@ export const state = {
   contentMap: null, contentMapAiRunning: false,   // V2 内容地图（屏 A）
   quotes: null, quotesAiRunning: false,           // V2 金句候选（屏 B）
   budget: null,                                    // V2 时长预算（屏 C 预算条）
-  moreOpen: false, topicHintDismissed: false,     // 高级功能托盘 / 长视频看点提示
+  planEmptyDismissed: false,                       // 空态引导被「直接手工剪」跳过
   planAiRunning: false, planAiStartMs: 0,         // AI 出剪辑方案（管线）运行状态
 };
 

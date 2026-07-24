@@ -36,6 +36,12 @@ export async function loadQualityReport() {
   } catch {
     state.quality.report = null;
   }
+  // 校对 chip 上的待处理计数（行内只标有建议的，全量在面板里）
+  const open = (state.quality.report?.issues || []).filter((issue) => issue.status === "open").length;
+  if (el.qualityCount) {
+    el.qualityCount.textContent = open ? String(open) : "";
+    el.qualityCount.hidden = !open;
+  }
   if (!el.qualityPanel.hidden) renderQualityPanel();
 }
 

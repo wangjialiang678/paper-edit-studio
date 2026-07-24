@@ -29,6 +29,8 @@ function outputPositions() {
 export function renderRows() {
   issuesCache = openIssuesBySegment();
   el.rows.innerHTML = "";
+  if (renderPlanEmptyState()) return; // 空态即引导：没有剪辑方案时区域本身解释做什么
+  el.rows.hidden = false;
   const orderedView = orderActive() && !state.viewOriginal;
   el.origOrderBtn.hidden = !orderActive();
   el.origOrderBtn.textContent = state.viewOriginal ? "▶ 回到输出顺序" : "↩ 回看原始顺序";
@@ -74,6 +76,40 @@ export function renderRows() {
   refreshStats();
 }
 
+/* 空态判定：只有 default 一个方案、AI 初剪还没落、无自定义顺序 = 全新项目。
+   引导写在空态里，布局不增删元素（2026-07-24 拍板：反对时有时无的引导 chrome）。 */
+function renderPlanEmptyState() {
+  const pristine = state.cuts.length <= 1
+    && !state.rows.some((row) => row.ai_keep === true || row.ai_keep === false)
+    && !orderActive()
+    && !state.planEmptyDismissed;
+  el.planEmpty.hidden = !pristine;
+  el.rows.hidden = pristine;
+  if (!pristine) return false;
+  el.planEmpty.innerHTML = `
+    <h3>这条视频还没有剪辑方案</h3>
+    <p>让 AI 通读字幕出方案（分主题 → 挑金句放开头 → 按目标时长筛句子），<br>或把你在别处（Codex / GPT…）排好的剪辑稿粘进来。<br>出了方案后在这张表里逐句精修。</p>
+    <div class="cta">
+      <button class="cta-main" id="emptyAiBtn">🤖 AI 智能剪辑</button>
+      <button class="cta-alt" id="emptyScriptBtn">📄 粘贴我的剪辑稿</button>
+    </div>
+    <span class="cta-skip" id="emptySkipBtn">不用 AI，直接手工剪 →</span>`;
+  el.planEmpty.querySelector("#emptyAiBtn").addEventListener("click", () => {
+    el.aiPanel.hidden = true;
+    el.aiPanelBtn.click();
+  });
+  el.planEmpty.querySelector("#emptyScriptBtn").addEventListener("click", async () => {
+    const cutsModule = await import("./cuts.js");
+    cutsModule.openScriptDialog();
+  });
+  el.planEmpty.querySelector("#emptySkipBtn").addEventListener("click", () => {
+    state.planEmptyDismissed = true;
+    renderRows();
+  });
+  refreshStats();
+  return true;
+}
+
 function silenceNode(gap) {
   const div = document.createElement("div");
   div.className = "silence-row";
@@ -102,8 +138,14 @@ function badgesHtml(row) {
   return badges.join("") + reason;
 }
 
+/* 行内只标「有修改建议」的（2026-07-24 拍板 suggest-only）：
+   高亮的黄金法则——能点、点了有用才配高亮；纯低置信（尤其英文词，fun-asr 置信度天然低）
+   不再画波浪线，只进 🔎 字幕校对面板统计。 */
 function tokenIssues(row) {
-  return (issuesCache[row.id] || []).filter((issue) => issue.span && issue.span.token_start != null);
+  return (issuesCache[row.id] || []).filter((issue) =>
+    issue.span && issue.span.token_start != null
+    && issue.suggestion
+    && !/^[\x00-\x7F]+$/.test(issue.span.text || "")); // 纯 ASCII（英文/数字）豁免
 }
 
 function hasInlineStruck(row) {
@@ -437,7 +479,6 @@ function showIssuePopover(anchor, issue) {
     <div class="q-actions">
       ${issue.suggestion ? '<button class="btn small primary" data-act="accept">采纳</button>' : ""}
       <button class="btn small" data-act="ignore">忽略</button>
-      <button class="btn small" data-act="close">关闭</button>
     </div>`;
   document.body.appendChild(pop);
   const rect = anchor.getBoundingClientRect();
@@ -446,7 +487,6 @@ function showIssuePopover(anchor, issue) {
   const close = () => { pop.remove(); document.removeEventListener("pointerdown", outside, true); };
   const outside = (event) => { if (!pop.contains(event.target)) close(); };
   document.addEventListener("pointerdown", outside, true);
-  pop.querySelector('[data-act="close"]').addEventListener("click", close);
   pop.querySelector('[data-act="ignore"]').addEventListener("click", () => { ignoreIssue(issue); close(); });
   pop.querySelector('[data-act="accept"]')?.addEventListener("click", () => { acceptIssue(issue); close(); });
 }
