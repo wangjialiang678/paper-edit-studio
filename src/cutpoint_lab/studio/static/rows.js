@@ -527,8 +527,10 @@ export function refreshStats() {
 // ---------- 一键剪气口 + 整批撤销 ----------
 let lastFillerBatch = null; // { snapshots: Map(id → {trim, cuts, text}) }
 
-export function applyAllSuggestedCuts() {
-  const snapshots = new Map();
+export function applyAllSuggestedCuts(options = {}) {
+  // extend=true：并入上一批（AI 深扫补剪与规则剪除共享同一次「撤销剪气口」）。
+  const extend = Boolean(options.extend) && lastFillerBatch !== null;
+  const snapshots = extend ? lastFillerBatch.snapshots : new Map();
   let rowsTouched = 0;
   let spans = 0;
   for (const row of state.rows) {
@@ -539,16 +541,22 @@ export function applyAllSuggestedCuts() {
       text: row.text,
     };
     const applied = applySuggestedCuts(row);
-    if (applied) { rowsTouched += 1; spans += applied; snapshots.set(row.id, before); }
+    if (applied) {
+      rowsTouched += 1;
+      spans += applied;
+      if (!snapshots.has(row.id)) snapshots.set(row.id, before);
+    }
   }
   if (rowsTouched) {
     lastFillerBatch = { snapshots };
     renderRows();
     el.undoCutFillersBtn.hidden = false;
-    setStatus(`一键剪气口：${rowsTouched} 句共剪除 ${spans} 处——被剪词在句中以删除线显示，点它可单独恢复，或点「撤销剪气口」整批还原。`);
-  } else {
+    const prefix = options.statusPrefix || "一键剪气口";
+    setStatus(`${prefix}：${rowsTouched} 句共剪除 ${spans} 处——被剪词在句中以删除线显示，点它可单独恢复，或点「撤销剪气口」整批还原。`);
+  } else if (!options.quietWhenEmpty) {
     setStatus("没有可应用的气口建议。");
   }
+  return spans;
 }
 
 export function undoFillerBatch() {

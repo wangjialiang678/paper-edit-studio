@@ -7,6 +7,7 @@ from .prompt_protocols import MODE_PROTOCOLS
 
 MODE_PROMPT_FILES = {
     "koubo_tighten": "koubo-tighten.md",
+    "filler_sweep": "filler-sweep.md",
     "quality_review": "quality-review.md",
     "compose_align": "compose-align.md",
     "content_map": "content-map.md",

@@ -3,11 +3,19 @@ from __future__ import annotations
 import copy
 import logging
 import re
+import unicodedata
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
-from ._common import alias_map, now_iso, resolve_id, segment_id, segment_text
+from ._common import (
+    alias_map,
+    now_iso,
+    resolve_id,
+    segment_duration_ms,
+    segment_id,
+    segment_text,
+)
 from ._workers import plan_workers
 from .content_map import analyze_content_map
 from .quotes import analyze_quote_candidates, merge_topic_candidates
@@ -445,11 +453,17 @@ def _select_topic(
     min_s = _format_number(request["duration_min_s"])
     max_s = _format_number(request["duration_max_s"])
     topic_name = str(topic.get("name") or "")
+    char_budget_line = _topic_char_budget_line(
+        segments,
+        duration_min_s=request["duration_min_s"],
+        duration_max_s=request["duration_max_s"],
+    )
     extra = (
         "\n\n## 本主题出片要求\n\n"
         f"主题：{topic_name or '整片'}\n"
         + "\n".join(intent_lines)
         + f"\n- 保留句总时长应落在 {min_s}–{max_s} 秒区间，宁紧勿超。"
+        + char_budget_line
     )
     system = str(assemble_prompt_fn("koubo_tighten"))
     system = system.replace("{{USER_BRIEF}}", extra)
@@ -479,6 +493,41 @@ def _select_topic(
             last_error = exc
     assert last_error is not None
     raise last_error
+
+
+def _topic_char_budget_line(
+    segments: list[Any],
+    *,
+    duration_min_s: int | float,
+    duration_max_s: int | float,
+) -> str:
+    duration_ms = sum(segment_duration_ms(segment) for segment in segments)
+    character_count = sum(
+        _effective_character_count(segment_text(segment))
+        for segment in segments
+    )
+    if duration_ms <= 0 or character_count <= 0:
+        return ""
+    characters_per_second = character_count / (duration_ms / 1000)
+    minimum = _round_to_tens(float(duration_min_s) * characters_per_second)
+    maximum = _round_to_tens(float(duration_max_s) * characters_per_second)
+    return (
+        "\n- 按本片语速换算，保留句总字数应落在约 "
+        f"{minimum}–{maximum} 字。"
+    )
+
+
+def _effective_character_count(text: str) -> int:
+    return sum(
+        1
+        for character in text
+        if not character.isspace()
+        and not unicodedata.category(character).startswith("P")
+    )
+
+
+def _round_to_tens(value: float) -> int:
+    return int(value / 10 + 0.5) * 10
 
 
 def _build_edl(

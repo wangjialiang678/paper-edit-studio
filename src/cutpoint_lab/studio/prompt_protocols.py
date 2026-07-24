@@ -28,6 +28,35 @@ MODE_PROTOCOLS = {
 
 {{USER_BRIEF}}
 """,
+    "filler_sweep": """
+
+## 输出格式
+
+只输出一个 JSON object：
+
+```json
+{
+  "cuts": [
+    {
+      "segment_id": "sentence_0012",
+      "span_text": "呃就是说"
+    }
+  ]
+}
+```
+
+- `span_text` 必须与该句文本中的片段**逐字一致**（含标点原样照抄）。
+- 同一句可以有多个片段，分开列出；没有可删的就返回空数组。
+
+## 硬约束
+
+1. 只能引用输入中已有的 `segment_id`，禁止编造。
+2. `span_text` 不得覆盖整句（整句该删的句子不归你管）。
+3. 禁止输出任何时间戳。
+4. 只输出 JSON，不要有任何其他文字。
+
+{{USER_BRIEF}}
+""",
     "quality_review": """
 
 ## 输出格式

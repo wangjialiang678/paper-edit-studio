@@ -11,6 +11,7 @@ from unittest.mock import patch
 from cutpoint_lab.planning.pipeline import (
     INTENT_PRESETS,
     PlanPipelineError,
+    _select_topic,
     generate_plans,
 )
 from cutpoint_lab.studio.workspace import Workspace
@@ -440,6 +441,63 @@ class PlanningPipelineTests(unittest.TestCase):
             self.assertIn("宁紧勿超", rendered)
             self.assertNotIn("decisions", rendered)
             self.assertNotIn("title_suggestions", rendered)
+
+    def test_selection_prompt_contains_topic_char_budget_from_speaking_rate(self):
+        systems: list[str] = []
+        segments = [
+            {
+                "id": "s1",
+                "start_ms": 0,
+                "end_ms": 4000,
+                "text": f"{'一' * 20}，",
+            },
+            {
+                "id": "s2",
+                "start_ms": 4000,
+                "end_ms": 10000,
+                "text": f"{'二' * 14}。",
+            },
+        ]
+
+        _select_topic(
+            {"id": "whole", "name": "整片"},
+            segments,
+            request={
+                "intent": ["cut_fillers"],
+                "intent_extra": "",
+                "duration_min_s": 300,
+                "duration_max_s": 500,
+            },
+            chat_json_fn=lambda system, _user: (
+                systems.append(system) or {"drop": []}
+            ),
+            assemble_prompt_fn=lambda _mode: "{{USER_BRIEF}}",
+        )
+
+        self.assertIn(
+            "- 按本片语速换算，保留句总字数应落在约 1020–1700 字。",
+            systems[0],
+        )
+
+    def test_selection_prompt_skips_char_budget_when_topic_duration_is_zero(self):
+        systems: list[str] = []
+
+        _select_topic(
+            {"id": "whole", "name": "整片"},
+            [{"id": "s1", "start_ms": 0, "end_ms": 0, "text": "有效文字。"}],
+            request={
+                "intent": ["cut_fillers"],
+                "intent_extra": "",
+                "duration_min_s": 180,
+                "duration_max_s": 300,
+            },
+            chat_json_fn=lambda system, _user: (
+                systems.append(system) or {"drop": []}
+            ),
+            assemble_prompt_fn=lambda _mode: "{{USER_BRIEF}}",
+        )
+
+        self.assertNotIn("按本片语速换算", systems[0])
 
 
 if __name__ == "__main__":

@@ -78,6 +78,7 @@ from .llm_client import DEFAULT_BASE_URL as DEFAULT_LLM_BASE_URL, LlmClient, Llm
 from .pipeline import PipelineManager
 from .plans import apply_manual_nudges, build_ordered_plan, silence_gaps
 from .prompt_store import PromptStore
+from .span_match import join_tokens, match_span
 from .vocabulary import VocabularyClient, VocabularyError, VocabularyHttpError
 from .workspace import Project, Workspace
 
@@ -96,6 +97,7 @@ STUDIO_STRATEGIES = [
 ]
 FRAME_STRATEGIES = {"rms_snap", "anchored_rms", "visual_waveform", "hybrid_valley"}
 AI_MODES = ["koubo_tighten"]
+FILLER_SWEEP_MODE = "filler_sweep"
 RETIRED_AI_MODES = {"topic_slicing", "highlight_remix"}
 
 
@@ -157,6 +159,7 @@ class StudioApplication:
         self._frames_cache: dict[str, list[AudioFrame]] = {}
         self._ai_threads: dict[str, threading.Thread] = {}
         self._quality_threads: dict[str, threading.Thread] = {}
+        self._filler_sweep_threads: dict[str, threading.Thread] = {}
         self._content_map_threads: dict[str, threading.Thread] = {}
         self._quotes_threads: dict[str, threading.Thread] = {}
         self._plan_threads: dict[str, threading.Thread] = {}
@@ -1555,6 +1558,118 @@ class StudioApplication:
                 self._quality_threads.pop(quality_key, None)
                 raise
 
+    # ---------- AI 句内气口复核 ----------
+    def start_filler_sweep(
+        self,
+        project: Project,
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        project.read_edl(cut)
+        if not project.transcript_ready():
+            raise ValueError("字幕尚未就绪")
+        if not self.quality_llm.available():
+            raise ValueError("缺少 LLM API Key，无法运行 AI 气口复核")
+
+        sweep_key = f"{project.id}:{cut}"
+        with self._lock:
+            existing = self._filler_sweep_threads.get(sweep_key)
+            if existing and existing.is_alive():
+                raise ValueError("该 Cut 的 AI 气口复核任务已在运行")
+
+        def _run() -> None:
+            try:
+                rows = self._filler_sweep_rows(project, cut=cut)
+                system = self.prompt_store.assemble(FILLER_SWEEP_MODE)
+                system = system.replace("{{USER_BRIEF}}", "")
+                user = "\n".join(
+                    f"[{row['id']}] {join_tokens(row['tokens'])}"
+                    for row in rows
+                )
+                if rows:
+                    raw = self.quality_llm.chat_json(system, user)
+                    suggestions, dropped = self._parse_filler_sweep(raw, rows)
+                else:
+                    suggestions, dropped = [], 0
+                done = {
+                    "status": "done",
+                    "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "suggestions": suggestions,
+                    "dropped": dropped,
+                }
+                self._set_ai_state(project, FILLER_SWEEP_MODE, done)
+                logger.info(
+                    "filler sweep done: project=%s cut=%s suggestions=%s dropped=%s",
+                    project.id,
+                    cut,
+                    len(suggestions),
+                    dropped,
+                )
+            except Exception as exc:  # noqa: BLE001 - 后台任务异常落回 state。
+                logger.exception(
+                    "filler sweep failed: project=%s cut=%s",
+                    project.id,
+                    cut,
+                )
+                self._set_ai_state(
+                    project,
+                    FILLER_SWEEP_MODE,
+                    {
+                        "status": "error",
+                        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                        "error": _redact_known_secrets(str(exc)),
+                    },
+                )
+
+        thread = threading.Thread(
+            target=_run,
+            daemon=True,
+            name=f"filler-sweep-{project.id}-{cut}",
+        )
+        with self._lock:
+            existing = self._filler_sweep_threads.get(sweep_key)
+            if existing and existing.is_alive():
+                raise ValueError("该 Cut 的 AI 气口复核任务已在运行")
+            self._filler_sweep_threads[sweep_key] = thread
+            self._set_ai_state(
+                project,
+                FILLER_SWEEP_MODE,
+                {
+                    "status": "running",
+                    "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                },
+            )
+            try:
+                thread.start()
+            except Exception:
+                self._filler_sweep_threads.pop(sweep_key, None)
+                raise
+        logger.info("filler sweep started: project=%s cut=%s", project.id, cut)
+        return {
+            "ok": True,
+            "mode": FILLER_SWEEP_MODE,
+            "status": "running",
+        }
+
+    def filler_sweep_report(
+        self,
+        project: Project,
+        *,
+        cut: str = "default",
+    ) -> dict[str, Any]:
+        project.read_edl(cut)
+        entry = (
+            (project.read_state().get("ai") or {}).get(FILLER_SWEEP_MODE)
+            or {}
+        )
+        if not entry:
+            return {
+                "status": "idle",
+                "suggestions": [],
+                "dropped": 0,
+            }
+        return dict(entry)
+
     # ---------- 导出 ----------
     def start_export(
         self,
@@ -1657,6 +1772,8 @@ class StudioApplication:
 
     def ai_suggestion(self, project: Project, mode: str, *, cut: str = "default") -> dict[str, Any]:
         project.read_edl(cut)
+        if mode == FILLER_SWEEP_MODE:
+            return self.filler_sweep_report(project, cut=cut)
         if mode in RETIRED_AI_MODES:
             raise GoneError(f"{mode} 已并入 AI 出剪辑方案")
         entry = (project.read_state().get("ai") or {}).get(mode) or {}
@@ -1691,6 +1808,142 @@ class StudioApplication:
             )
 
     # ---------- 内部 ----------
+    def _filler_sweep_rows(
+        self,
+        project: Project,
+        *,
+        cut: str,
+    ) -> list[dict[str, Any]]:
+        transcript = load_transcript(project.transcript_path)
+        editor = build_editor_state(
+            transcript,
+            transcript_path=str(project.transcript_path),
+            source_video=self._source_str(project),
+        )
+        rows = editor["rows"]
+        self._apply_saved_selection(project, rows, cut=cut)
+        return [
+            row
+            for row in rows
+            if row.get("checked")
+            and row.get("has_word_timestamps")
+            and row.get("tokens")
+        ]
+
+    def _parse_filler_sweep(
+        self,
+        raw: Any,
+        rows: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], int]:
+        if not isinstance(raw, dict) or not isinstance(raw.get("cuts"), list):
+            raise ValueError("AI 气口复核返回值必须包含 cuts 数组")
+
+        rows_by_id = {str(row["id"]): row for row in rows}
+        occupied_by_id = {
+            segment_id: self._filler_sweep_occupied_tokens(row)
+            for segment_id, row in rows_by_id.items()
+        }
+        coverage_by_id: dict[str, set[int]] = {
+            segment_id: set()
+            for segment_id in rows_by_id
+        }
+        blocked_segment_ids: set[str] = set()
+        suggestions: list[dict[str, Any]] = []
+        dropped = 0
+
+        for item in raw["cuts"]:
+            if not isinstance(item, dict):
+                dropped += 1
+                continue
+            segment_id = str(item.get("segment_id") or "")
+            row = rows_by_id.get(segment_id)
+            if row is None or segment_id in blocked_segment_ids:
+                dropped += 1
+                continue
+            span_text = item.get("span_text")
+            if not isinstance(span_text, str) or not span_text:
+                dropped += 1
+                continue
+
+            tokens = row["tokens"]
+            matched = match_span(
+                tokens,
+                span_text,
+                occupied=occupied_by_id[segment_id],
+            )
+            if matched is None:
+                dropped += 1
+                continue
+            start_token, end_token = matched
+            if start_token == 0 and end_token == len(tokens) - 1:
+                dropped += 1
+                continue
+
+            token_indexes = set(range(start_token, end_token + 1))
+            occupied_by_id[segment_id].update(token_indexes)
+            coverage_by_id[segment_id].update(token_indexes)
+            suggestions.append(
+                {
+                    "segment_id": segment_id,
+                    "start_token": start_token,
+                    "end_token": end_token,
+                    "kind": "ai",
+                    "text": join_tokens(tokens[start_token : end_token + 1]),
+                }
+            )
+            if len(coverage_by_id[segment_id]) * 2 <= len(tokens):
+                continue
+
+            removed_count = sum(
+                1
+                for suggestion in suggestions
+                if suggestion["segment_id"] == segment_id
+            )
+            suggestions = [
+                suggestion
+                for suggestion in suggestions
+                if suggestion["segment_id"] != segment_id
+            ]
+            dropped += removed_count
+            blocked_segment_ids.add(segment_id)
+
+        return suggestions, dropped
+
+    @staticmethod
+    def _filler_sweep_occupied_tokens(row: dict[str, Any]) -> set[int]:
+        token_count = len(row.get("tokens") or [])
+        occupied: set[int] = set()
+        if token_count <= 0:
+            return occupied
+
+        trim = row.get("trim")
+        if isinstance(trim, dict):
+            try:
+                trim_start = int(trim.get("start_token", 0))
+                trim_end = int(trim.get("end_token", token_count - 1))
+            except (TypeError, ValueError):
+                trim_start, trim_end = 0, token_count - 1
+            trim_start = max(0, trim_start)
+            trim_end = min(token_count - 1, trim_end)
+            if trim_start <= trim_end:
+                occupied.update(range(0, trim_start))
+                occupied.update(range(trim_end + 1, token_count))
+
+        for cut in row.get("cuts") or []:
+            if not isinstance(cut, dict):
+                continue
+            try:
+                start = int(cut.get("start_token"))
+                end = int(cut.get("end_token"))
+            except (TypeError, ValueError):
+                continue
+            if start > end:
+                start, end = end, start
+            start = max(0, min(token_count - 1, start))
+            end = max(0, min(token_count - 1, end))
+            occupied.update(range(start, end + 1))
+        return occupied
+
     def _corrections_path(self) -> Path:
         return self.workspace.root / "_settings" / "corrections.json"
 
@@ -1768,7 +2021,7 @@ class StudioApplication:
     def _ai_overview(self, project: Project) -> dict[str, Any]:
         state = project.read_state().get("ai") or {}
         overview: dict[str, Any] = {"available": self.selector.available(), "modes": {}}
-        for mode in AI_MODES:
+        for mode in [*AI_MODES, FILLER_SWEEP_MODE]:
             entry = dict(state.get(mode) or {})
             entry.pop("file", None)
             overview["modes"][mode] = entry or {"status": "idle"}
@@ -2073,6 +2326,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/projects/{id}/export-checklist"): "_route_export_checklist",
     ("GET", "/api/projects/{id}/quality/corrections-preview"): "_route_corrections_preview",
     ("GET", "/api/projects/{id}/quality/report"): "_route_quality_report",
+    ("GET", "/api/projects/{id}/filler-sweep/report"): "_route_filler_sweep_report",
     ("GET", "/api/projects/{id}/reference"): "_route_reference",
     ("GET", "/api/projects/{id}/{rest...}"): "_route_unknown_project_get",
     ("POST", "/api/projects/{id}/ai/suggest"): "_route_ai_suggest",
@@ -2081,6 +2335,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/projects/{id}/quality/undo/{change_id}"): "_route_undo_changeset",
     ("POST", "/api/projects/{id}/quality/analyze"): "_route_quality_analyze",
     ("POST", "/api/projects/{id}/quality/issues/{issue_id}"): "_route_quality_issue",
+    ("POST", "/api/projects/{id}/filler-sweep/analyze"): "_route_filler_sweep_analyze",
     ("POST", "/api/projects/{id}/reference"): "_route_reference",
     ("POST", "/api/projects/{id}/retranscribe"): "_route_retranscribe",
     ("POST", "/api/projects/{id}/{action}/suggest"): "_route_ai_suggest",
@@ -2332,6 +2587,14 @@ def _handler_factory(app: StudioApplication):
         def _route_quality_report(self, parsed, params: dict[str, str]) -> None:
             self._send_json(app.quality_report(self._project(params["id"]), cut=self._cut(parsed)))
 
+        def _route_filler_sweep_report(self, parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.filler_sweep_report(
+                    self._project(params["id"]),
+                    cut=self._cut(parsed),
+                )
+            )
+
         def _route_cuts(self, _parsed, params: dict[str, str]) -> None:
             project = self._project(params["id"])
             if self.command == "GET":
@@ -2408,6 +2671,15 @@ def _handler_factory(app: StudioApplication):
                 app.analyze_quality(
                     self._project(params["id"]),
                     self._read_json_body(),
+                    cut=self._cut(parsed),
+                )
+            )
+
+        def _route_filler_sweep_analyze(self, parsed, params: dict[str, str]) -> None:
+            self._read_json_body()
+            self._send_json(
+                app.start_filler_sweep(
+                    self._project(params["id"]),
                     cut=self._cut(parsed),
                 )
             )

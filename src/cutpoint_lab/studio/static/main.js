@@ -3,6 +3,7 @@ import { el, pb, state } from "./shared.js";
 import { togglePlay, setMode } from "./player.js";
 import { refreshProjects, showView, openDrawer, closeDrawer } from "./projects.js";
 import { applyAllSuggestedCuts, undoFillerBatch } from "./rows.js";
+import { runAiFillerSweep } from "./fillersweep.js";
 import "./editor.js";
 import "./exporter.js";
 import "./ai.js";
@@ -64,6 +65,7 @@ document.addEventListener("keydown", (event) => {
 el.cutFillersBtn.addEventListener("click", () => {
   if (!state.rows.length) return;
   applyAllSuggestedCuts();
+  runAiFillerSweep();
 });
 el.undoCutFillersBtn.addEventListener("click", undoFillerBatch);
 
