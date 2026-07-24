@@ -8,6 +8,7 @@ import { updateTransport } from "./player.js";
 import { loadQualityReport } from "./quality.js";
 import { loadCuts } from "./cuts.js";
 import { refreshBudget } from "./budget.js";
+import { renderJourney } from "./journey.js";
 
 export async function showEditor() {
   try {
@@ -34,6 +35,11 @@ export async function showEditor() {
     } catch { /* 无选中句或字幕缺词级时间戳时，成片范围留空即可 */ }
     updateTransport();
     refreshBudget(); // V2 预算条（旧后端 404 自动隐藏）
+    renderJourney(); // 轻引导旅程进度条 + 长视频看点提示
+    // 已梳理过看点则回填：抑制对长视频的重复提示，也让金句弹窗认出已有看点
+    api(`/api/projects/${encodeURIComponent(state.projectId)}/content-map`)
+      .then((map) => { state.contentMap = map; renderJourney(); })
+      .catch(() => { /* 未梳理，保持 null */ });
     const warning = payload.project.ai_warning;
     setStatus(warning ? warning : `已加载 ${state.rows.length} 句字幕。空格播放成片，点击句子从该处继续。`, warning ? "warn" : "");
     resumeAiPolling();

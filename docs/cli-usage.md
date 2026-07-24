@@ -101,6 +101,27 @@ python -m cutpoint_lab compose <项目id> 成片文稿.txt --cut waigao-v1 --ai 
 - `compose` 会同时写出对齐报告 `cuts/<方案名>/compose_report.json`（每段 status：`auto`/`ai`/`unmatched` + 相似度 + 命中句 id），`--json` 时在 manifest 里带 stats。
 - 未匹配段落**不会**进入成片顺序——先改文稿或手工在网页里补选，再继续。
 
+## AI 出剪辑方案（plan）
+
+`plan` 同步跑完整内容决策管线：可选分大主题 → 每主题挑金句 → 按目标时长筛句。每次运行都新建 Cut，不覆盖当前方案；整片模式从 `ai-plan` 起，分主题模式从 `topic-<id>` 起，重名自动追加 `-2`、`-3`。
+
+```bash
+# 默认：每条 3–5 分钟、分大主题、删口癖重复 + 金句前置
+python -m cutpoint_lab plan <项目id> --json
+
+# 自定义意图与时长
+python -m cutpoint_lab plan <项目id> \
+  --duration 3-5 \
+  --intent cut_fillers,hook_first,keep_insights \
+  --brief "只保留讲 AI 教育的部分" \
+  --split --json
+
+# 短片按整片单主题处理；仍然新建 ai-plan，不覆盖 default/当前手工 Cut
+python -m cutpoint_lab plan <项目id> --no-split --json
+```
+
+`--json` 的单项目结果包含实际生成的方案名 `cuts`、每份 `edl.json` 的 `outputs.edls`、规划产物路径和降级 warnings。进度写 stderr；全部主题筛选失败时退出码为 1。
+
 ## V2 内容规划（content-map / quotes / budget）
 
 内容地图和金句候选是项目级共享产物；时长预算针对某个 Cut，所有 `fit` 结果都只是建议，绝不自动修改 EDL。
@@ -137,8 +158,11 @@ python -m cutpoint_lab budget <项目id> --cut default --fit keep_quotes --json
 
 | 参数 | 适用 | 说明 |
 |---|---|---|
-| `--brief TEXT` | select / run | 剪辑意图，注入口播精剪提示词；越具体越准 |
+| `--brief TEXT` | select / run / plan | 剪辑意图；`plan` 中作为预设意图之外的自由补充 |
 | `--target-duration TEXT` | select / run | 目标时长，如 `"3分钟"` |
+| `--duration MIN-MAX` | plan | 每条成片的目标分钟区间，默认 `3-5` |
+| `--intent KEYS` | plan | 逗号分隔的意图 key，默认 `cut_fillers,hook_first` |
+| `--split` / `--no-split` | plan | 是否先分大主题；默认 `--split` |
 | `--redline PATH` | select | 生成 Markdown 修订对照到指定文件 |
 | `--redline` | run | 生成修订对照（默认写到项目目录 `redline.md`） |
 | `--redline-dir DIR` | select / run | 批量时每个项目写 `<项目id>.md` |
@@ -169,6 +193,7 @@ python -m cutpoint_lab budget <项目id> --cut default --fit keep_quotes --json
   ]}
   ```
   批量逐项隔离失败：某项失败其 `error` 非 null、不影响其他项；**任一失败进程退出码为 1**（全成功为 0，argparse 参数错误为 2）。
+- **`plan --json`**：`results[0].cuts` 是本次实际新建的方案名列表；`plan_ai.cuts` 同步写进项目 `state.json`，网页版可直接切换查看。
 - **修订对照文件**（Markdown 划线）：保留句正常显示、删除句 `~~划线~~` 并在行尾标注 AI 删除理由，文件头有保留/删除句数与时长统计。可读、可 diff、可转 Word——**先审再导出**的信任抓手。
 - **交互确认页**：`review` 总会输出完全自包含的 `review.html`，无需服务即可打开；拖动句首的 `⠿` 可重排，词块按句内文字连排，英文相邻词自动补空格。使用 `--serve` 时，页面还会把确认结果直接写回项目的 `selection.json`。
 - **项目目录** `workspace/<项目id>/`：`transcript.json`（词级字幕）、`content_map.json`（内容地图）、`quote_candidates.json`（金句候选）、`review.html`（交互确认），以及每套成片方案一个目录 `cuts/<方案名>/`（`edl.json` 编辑决策、`clip_plan.json` 切点、`compose_report.json` 文稿对齐报告、`exports/edited-*.mp4` + `.srt`）。

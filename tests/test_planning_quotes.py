@@ -103,7 +103,7 @@ class QuotePlanningTests(unittest.TestCase):
                 assemble_prompt_fn=lambda: "",
             )
 
-    def test_accept_marks_quote_locked_and_promote_materializes_original_order(self):
+    def test_accept_marks_quote_locked_and_promote_copies_after_materializing_order(self):
         edl = {
             "rows": [
                 {"id": "s1", "checked": True, "text": "第一句"},
@@ -121,8 +121,22 @@ class QuotePlanningTests(unittest.TestCase):
         self.assertTrue(rows["s2"]["checked"])
         self.assertEqual(rows["s2"]["role"], "quote")
         self.assertIs(rows["s2"]["locked"], True)
-        self.assertEqual(updated["order"], ["s2", "s1", "s3"])
+        self.assertEqual(updated["order"], ["s2", "s1", "s2", "s3"])
         self.assertFalse("role" in edl["rows"][1])
+
+    def test_materialized_order_copies_quote_even_when_quote_is_already_first(self):
+        edl = {
+            "rows": [
+                {"id": "s1", "checked": True, "text": "第一句"},
+                {"id": "s2", "checked": False, "text": "第二句"},
+            ]
+        }
+        updated = accept_quote(
+            edl,
+            {"id": "q1", "segment_id": "s1"},
+            promote=True,
+        )
+        self.assertEqual(updated["order"], ["s1", "s1"])
 
     def test_accept_without_promote_keeps_existing_order_but_makes_quote_effective(self):
         edl = {
@@ -141,7 +155,7 @@ class QuotePlanningTests(unittest.TestCase):
         self.assertEqual(updated["order"][:2], ["s3", "s1"])
         self.assertEqual(updated["order"].count("s2"), 1)
 
-    def test_promote_moves_existing_quote_to_front_without_duplicate(self):
+    def test_promote_copies_quote_to_front_and_preserves_existing_references(self):
         edl = {
             "rows": [
                 {"id": "s1", "checked": True},
@@ -154,7 +168,22 @@ class QuotePlanningTests(unittest.TestCase):
             {"id": "q1", "segment_id": "s2"},
             promote=True,
         )
-        self.assertEqual(updated["order"], ["s2", "s1"])
+        self.assertEqual(updated["order"], ["s2", "s1", "s2", "s2"])
+
+    def test_promote_is_idempotent_when_quote_is_already_at_front(self):
+        edl = {
+            "rows": [
+                {"id": "s1", "checked": True},
+                {"id": "s2", "checked": True},
+            ],
+            "order": ["s2", "s1", "s2"],
+        }
+        updated = accept_quote(
+            edl,
+            {"id": "q1", "segment_id": "s2"},
+            promote=True,
+        )
+        self.assertEqual(updated["order"], ["s2", "s1", "s2"])
 
     def test_candidate_status_update_is_copying_and_reject_is_idempotent(self):
         document = {

@@ -13,12 +13,12 @@ from .prompt_store import PromptStore
 
 logger = logging.getLogger("studio.ai")
 
-# koubo 模式逐句决策可安全分块；整体视角的两个模式单次调用并设上限。
+# koubo 模式逐句决策可安全分块。
 # 每块句数上限：逐句决策的输出规模与句数成正比，思考型大模型（kimi-k3 等）
 # 约 1s/句，300 句会撞上 DashScope 网关约 298s 的响应流超时（HTTP 504）。
 KOUBO_CHUNK_SIZE = 100
-GLOBAL_MODE_MAX_SEGMENTS = 1200
-SELECTION_MODES = {"koubo_tighten", "topic_slicing", "highlight_remix"}
+SELECTION_MODES = {"koubo_tighten"}
+RETIRED_SELECTION_MODES = {"topic_slicing", "highlight_remix"}
 
 HARD_CONSTRAINTS = (
     "\n\n【系统级硬约束（优先级最高）】"
@@ -62,22 +62,12 @@ class AiSelector:
         brief: str = "",
         target_duration: str = "",
     ) -> Suggestion:
+        if mode in RETIRED_SELECTION_MODES:
+            raise ValueError(f"{mode} 已并入 AI 出剪辑方案")
         if mode not in SELECTION_MODES:
             raise ValueError(f"未知 AI 模式：{mode}")
         system = self._render_system(mode, brief=brief, target_duration=target_duration)
-        known_ids = [segment.id for segment in transcript.segments]
-        if mode == "koubo_tighten":
-            payload, warnings = self._suggest_koubo(system, transcript)
-        else:
-            if len(known_ids) > GLOBAL_MODE_MAX_SEGMENTS:
-                raise LlmError(
-                    f"字幕句数 {len(known_ids)} 超过单次调用上限 {GLOBAL_MODE_MAX_SEGMENTS}，请先用口播精剪缩减"
-                )
-            raw = self.client.chat_json(system, _digest(transcript.segments))
-            if mode == "topic_slicing":
-                payload, warnings = _normalize_topics(raw, known_ids)
-            else:
-                payload, warnings = _normalize_remix(raw, known_ids)
+        payload, warnings = self._suggest_koubo(system, transcript)
         _attach_durations(payload, transcript)
         return Suggestion(mode=mode, payload=payload, warnings=warnings)
 

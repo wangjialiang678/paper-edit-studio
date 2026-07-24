@@ -43,9 +43,12 @@ class PlanningStorageProtocolTests(unittest.TestCase):
         quotes = store.get("quote_candidates")
 
         self.assertIn("主题≠背景", content_map["content"])
+        self.assertIn("宁少勿碎", content_map["content"])
+        self.assertIn("2–4 个主题", content_map["content"])
         self.assertIn('"claims"', MODE_PROTOCOLS["content_map"])
         self.assertIn('"topics"', content_map["assembled_template"])
         self.assertIn("背景强主张弱", quotes["content"])
+        self.assertIn("按强度从高到低", quotes["content"])
         self.assertIn('"candidates"', MODE_PROTOCOLS["quote_candidates"])
         self.assertIn('"segment_id"', quotes["assembled_template"])
 

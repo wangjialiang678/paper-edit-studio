@@ -18,7 +18,7 @@ export const el = {
   statusBox: $("statusBox"), exportResult: $("exportResult"),
   orderedBanner: $("orderedBanner"), exitOrderedBtn: $("exitOrderedBtn"), replaceBar: $("replaceBar"),
   aiPanelBtn: $("aiPanelBtn"), exportBtn: $("exportBtn"),
-  aiPanel: $("aiPanel"), aiCloseBtn: $("aiCloseBtn"), aiBrief: $("aiBrief"), aiRunBtn: $("aiRunBtn"),
+  aiPanel: $("aiPanel"), aiCloseBtn: $("aiCloseBtn"),
   aiBody: $("aiBody"), aiPromptBtn: $("aiPromptBtn"), cutFillersBtn: $("cutFillersBtn"),
   undoCutFillersBtn: $("undoCutFillersBtn"),
   settingsBtn: $("settingsBtn"), settingsPanel: $("settingsPanel"), settingsCloseBtn: $("settingsCloseBtn"),
@@ -28,6 +28,8 @@ export const el = {
   cutBar: $("cutBar"), origOrderBtn: $("origOrderBtn"),
   topicsView: $("topicsView"), topicsBody: $("topicsBody"), topicsBtn: $("topicsBtn"),
   quotesBtn: $("quotesBtn"), budgetChip: $("budgetChip"), exportChecklist: $("exportChecklist"),
+  journeyStrip: $("journeyStrip"), topicHintBanner: $("topicHintBanner"),
+  advTray: $("advTray"), moreBtn: $("moreBtn"),
 };
 
 export const STAGE_LABELS = [
@@ -54,6 +56,8 @@ export const state = {
   contentMap: null, contentMapAiRunning: false,   // V2 内容地图（屏 A）
   quotes: null, quotesAiRunning: false,           // V2 金句候选（屏 B）
   budget: null,                                    // V2 时长预算（屏 C 预算条）
+  moreOpen: false, topicHintDismissed: false,     // 高级功能托盘 / 长视频看点提示
+  planAiRunning: false, planAiStartMs: 0,         // AI 出剪辑方案（管线）运行状态
 };
 
 /* 给项目级 API 路径附加当前方案参数。 */
@@ -122,8 +126,13 @@ export function markActive(id, scroll = false) {
   if (scroll) node.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
-/* 本地偏好（自动试听开关等），localStorage 持久。 */
+/* 本地偏好（自动试听开关、出方案时长区间等），localStorage 持久。 */
 export const prefs = {
   get autoAudition() { return localStorage.getItem("pes.autoAudition") !== "off"; },
   set autoAudition(value) { localStorage.setItem("pes.autoAudition", value ? "on" : "off"); },
+  // 成片目标时长区间（分钟）：默认 3–5，记住上次填写（2026-07-24 拍板）
+  get planDurMin() { return Number(localStorage.getItem("pes.planDurMin")) || 3; },
+  set planDurMin(value) { localStorage.setItem("pes.planDurMin", String(value)); },
+  get planDurMax() { return Number(localStorage.getItem("pes.planDurMax")) || 5; },
+  set planDurMax(value) { localStorage.setItem("pes.planDurMax", String(value)); },
 };

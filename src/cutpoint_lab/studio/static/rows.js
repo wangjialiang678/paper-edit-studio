@@ -92,12 +92,11 @@ function badgesHtml(row) {
     if (row.role && ROLE_LABELS[row.role]) badges.push(`<span class="badge role">${ROLE_LABELS[row.role]}</span>`);
     if (row.checked) badges.push('<button class="btn tiny role-star" title="设为金句：锁定保留，时长预算优先，重跑 AI 不得替换">☆</button>');
   }
-  if (row.ai_keep === true) badges.push('<span class="badge keep">AI 保留</span>');
-  if (row.ai_keep === false) badges.push('<span class="badge drop">AI 删除</span>');
+  // AI 保留/删除不再出徽标（勾选状态+划线已表达，纯增视觉噪音）；删除理由仍显示在行下
   if ((row.ai_labels || []).includes("golden_quote") && row.role !== "quote") badges.push('<span class="badge quote">金句</span>');
   if (row.trim || row.nudge || (row.cuts || []).length) badges.push('<span class="badge trimmed">✂ 已微调</span>');
   if ((row.suggested_cuts || []).length) badges.push(`<span class="badge suggest">气口 ×${row.suggested_cuts.length}</span>`);
-  if ((issuesCache[row.id] || []).length) badges.push(`<span class="badge qissue" title="打开🔎质检面板处理">质检 ×${issuesCache[row.id].length}</span>`);
+  if ((issuesCache[row.id] || []).length) badges.push(`<span class="badge qissue" title="本句有 ${issuesCache[row.id].length} 处疑似识别错字，打开 🔎 字幕校对处理">疑似错字 ×${issuesCache[row.id].length}</span>`);
   if (row.has_word_timestamps) badges.push('<button class="btn tiny trim-toggle" title="句内微调：删词/剪气口/拖切点">✂ 微调</button>');
   const reason = row.ai_reason ? `<div class="row-reason">${escapeHtml(row.ai_reason)}</div>` : "";
   return badges.join("") + reason;
@@ -281,17 +280,35 @@ function bindBadgeActions(row, div) {
     if (row.role === "quote") {
       delete row.role;
       delete row.locked;
-      setStatus(`「#${row.index}」已取消金句锁定。`);
+      unpromoteQuote(row);
+      setStatus(`「#${row.index}」已取消金句：开头的置顶引用已移除，本句回到原位。`);
+      renderRows(); // 顺序变了，整表刷新
     } else {
       row.role = "quote";
       row.locked = true;
       row.checked = true;
-      setStatus(`「#${row.index}」已设为金句并锁定（🔒 重跑 AI 不会动它，时长预算优先保留）。`);
+      promoteQuote(row);
+      setStatus(`「#${row.index}」已设为金句：已复制到成片开头（原位保留，🔒 重跑 AI 不会动它）。`);
+      renderRows();
     }
     scheduleAutosave();
-    const badges = div.querySelector(".row-badges");
-    if (badges) { badges.innerHTML = badgesHtml(row); bindBadgeActions(row, div); }
   });
+}
+
+/* 金句置顶 = 复制到 order 头部（原位保留，EDL 允许重复 id）；取消金句 = 移除头部那份引用。 */
+export function promoteQuote(row) {
+  if (!orderActive()) {
+    state.order = state.rows.filter((item) => item.checked).map((item) => item.id);
+  }
+  if (state.order[0] !== row.id) state.order = [row.id, ...state.order];
+}
+
+function unpromoteQuote(row) {
+  if (!orderActive()) return;
+  // 只当头部是它、且后面还有一份（说明头部是置顶复制）时才移除头部
+  if (state.order[0] === row.id && state.order.indexOf(row.id, 1) !== -1) {
+    state.order = state.order.slice(1);
+  }
 }
 
 function rowNode(row, meta = {}) {

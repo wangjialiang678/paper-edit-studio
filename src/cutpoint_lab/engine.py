@@ -12,11 +12,16 @@ from .paper_edit.state import (
     build_plan_from_selection,
 )
 from .planning import (
+    CutNameConflict,
+    INTENT_PRESETS,
+    PlanPipelineError,
     analyze_content_map,
     analyze_quote_candidates,
     budget_report,
     fit_budget,
+    generate_plans,
     merge_topic_candidates,
+    validate_plan_request,
 )
 from .quality import (
     CorrectionSet,
@@ -56,12 +61,15 @@ __all__ = [
     "AsrRunner",
     "CachingAsrRunner",
     "CorrectionSet",
+    "CutNameConflict",
     "DEFAULT_API_VAULT_PATH",
     "EnvStore",
+    "INTENT_PRESETS",
     "LlmClient",
     "LlmConfig",
     "LlmError",
     "Project",
+    "PlanPipelineError",
     "PromptStore",
     "ShellAsrRunner",
     "Suggestion",
@@ -88,6 +96,7 @@ __all__ = [
     "empty_report",
     "ffprobe_duration_ms",
     "fit_budget",
+    "generate_plans",
     "load_rms_frames",
     "load_changeset",
     "load_report",
@@ -110,6 +119,7 @@ __all__ = [
     "scan_confidence",
     "sha256_file",
     "undo_changeset",
+    "validate_plan_request",
     "write_json",
     "write_srt",
 ]

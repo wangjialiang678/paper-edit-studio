@@ -1,20 +1,35 @@
-/* AI 选段面板：三模式运行/轮询/结果渲染、金句混剪模式、提示词查看与编辑。 */
-import { $, el, state, api, postJson, putJson, setStatus, escapeHtml, fmtClock, MODE_NAMES } from "./shared.js";
+/* AI 出剪辑方案面板：一条管线（分主题 → 挑金句 → 筛句子）替代旧三模式并列。
+   设计依据 docs/specs/unified-pipeline-design.md（2026-07-24 拍板）：
+   - 意图 = 选择题预设（多选）+ 可选自由补充；
+   - 目标时长 = 区间（默认 3–5 分钟），记住上次填写（prefs）；
+   - 长视频自动勾「分主题」；跑批期间显示阶段进度；
+   - 外部 AI 稿导入与内置 AI 平级露出（复用「套用已有剪辑稿」对话框）；
+   - 每次出方案 = 新建剪辑方案（Cut），绝不覆盖手工成果。
+   转写完成后的自动初剪（koubo_tighten）仍在后台运行，结果以行内徽标/理由呈现。 */
+import { $, el, state, pb, api, postJson, putJson, setStatus, escapeHtml, prefs } from "./shared.js";
 import { renderRows, refreshStats } from "./rows.js";
 import { scheduleAutosave } from "./plan.js";
 import { showEditor } from "./editor.js";
+import { loadCuts, openScriptDialog } from "./cuts.js";
 
-// ---------- 金句混剪 → 生成成片顺序（order 为唯一排序机制） ----------
-export function enterOrderedMode(clips) {
-  state.order = clips.flatMap((clip) => clip.segment_ids); // HOOK→BODY→ECHO 展开，允许重复
-  const union = new Set(state.order);
-  for (const row of state.rows) row.checked = union.has(row.id);
-  state.viewOriginal = false;
-  renderRows();
-  scheduleAutosave();
-  setStatus("已应用金句混剪顺序：列表、预览与导出统一按 HOOK→BODY→ECHO；可拖 ⠿ 继续调整。");
-}
+const INTENTS = [
+  { key: "cut_fillers", label: "删口癖 / 废话 / 重复", def: true },
+  { key: "hook_first", label: "开头放钩子金句", def: true },
+  { key: "keep_insights", label: "保留干货观点", def: false },
+  { key: "keep_stories", label: "保留案例 / 故事", def: false },
+  { key: "cut_smalltalk", label: "删寒暄 / 闲聊", def: false },
+  { key: "keep_data", label: "保留数据 / 结论", def: false },
+];
 
+const PROMPT_STAGES = [
+  ["koubo_tighten", "筛句子（口播精简）"],
+  ["content_map", "分主题（看点梳理）"],
+  ["quote_candidates", "挑金句"],
+];
+
+let planPollTimer = null;
+
+// ---------- 顺序横幅 ----------
 el.exitOrderedBtn.addEventListener("click", () => {
   state.order = [];
   state.viewOriginal = false;
@@ -24,183 +39,186 @@ el.exitOrderedBtn.addEventListener("click", () => {
   setStatus("已恢复按原文顺序成片。");
 });
 
-// ---------- 面板开关与 tab ----------
-el.aiPanelBtn.addEventListener("click", () => { el.aiPanel.hidden = !el.aiPanel.hidden; });
+// ---------- 面板开关 ----------
+el.aiPanelBtn.addEventListener("click", () => {
+  el.aiPanel.hidden = !el.aiPanel.hidden;
+  if (!el.aiPanel.hidden) renderAiPanel();
+});
 el.aiCloseBtn.addEventListener("click", () => { el.aiPanel.hidden = true; });
-document.querySelectorAll(".ai-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".ai-tab").forEach((node) => node.classList.remove("active"));
-    tab.classList.add("active");
-    state.aiMode = tab.dataset.mode;
-    if (promptEdit.open) openPromptEditor();
-    else renderAiPanel();
-  });
-});
 
-el.aiRunBtn.addEventListener("click", async () => {
-  el.aiRunBtn.disabled = true;
-  try {
-    await postJson(`/api/projects/${state.projectId}/ai/suggest`, { mode: state.aiMode, brief: el.aiBrief.value });
-    state.aiOverview.modes[state.aiMode] = { status: "running" };
-    promptEdit.open = false;
-    renderAiPanel();
-    pollAi(state.aiMode);
-  } catch (error) {
-    alert(error.message);
-  } finally {
-    el.aiRunBtn.disabled = false;
-  }
-});
-
-// ---------- 运行状态轮询 ----------
-export function resumeAiPolling() {
-  for (const mode of Object.keys(state.aiOverview.modes || {})) {
-    const entry = state.aiOverview.modes[mode];
-    if (entry && entry.status === "running") pollAi(mode);
-    if (entry && entry.status === "done") fetchAiData(mode);
-  }
-}
-
-async function pollAi(mode) {
-  try {
-    const payload = await api(`/api/projects/${state.projectId}/ai/${mode}`);
-    if (payload.status === "running") {
-      state.aiPollTimers[mode] = setTimeout(() => pollAi(mode), 3000);
-      state.aiOverview.modes[mode] = { status: "running" };
-    } else {
-      state.aiOverview.modes[mode] = { status: payload.status, error: payload.error };
-      if (payload.status === "done") {
-        state.aiData[mode] = payload;
-        if (mode === "koubo_tighten") await showEditor();
-      }
-    }
-    if (mode === state.aiMode) renderAiPanel();
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-async function fetchAiData(mode) {
-  if (state.aiData[mode]) return;
-  try {
-    const payload = await api(`/api/projects/${state.projectId}/ai/${mode}`);
-    if (payload.status === "done") { state.aiData[mode] = payload; if (mode === state.aiMode) renderAiPanel(); }
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-// ---------- 结果渲染 ----------
+// ---------- 主渲染 ----------
 export function renderAiPanel() {
   if (promptEdit.open) { renderPromptEditor(); return; }
-  const mode = state.aiMode;
-  const entry = (state.aiOverview.modes || {})[mode] || { status: "idle" };
-  const data = state.aiData[mode];
-  if (entry.status === "running") {
-    el.aiBody.innerHTML = `<div class="ai-hint">🤖 ${MODE_NAMES[mode]}分析中，请稍候…</div>`;
-    return;
-  }
-  if (entry.status === "error") {
-    el.aiBody.innerHTML = `<div class="ai-warning">失败：${escapeHtml(entry.error || "未知错误")}</div>`;
-    return;
-  }
-  if (!data) {
-    fetchAiData(mode);
-    el.aiBody.innerHTML = `<div class="ai-hint">还没有${MODE_NAMES[mode]}结果。点击上方"运行 AI 分析"。</div>`;
-    return;
-  }
-  if (mode === "koubo_tighten") renderKoubo(data);
-  else if (mode === "topic_slicing") renderTopics(data);
-  else renderRemix(data);
+  const planAi = state.project?.plan_ai || {};
+  if (state.planAiRunning || planAi.status === "running") { renderProgress(planAi); return; }
+  renderForm(planAi);
 }
 
-function warningsHtml(data) {
-  const warnings = data.warnings || [];
-  return warnings.length ? `<div class="ai-warning">⚠ ${warnings.map(escapeHtml).join("；")}</div>` : "";
+function savedIntents() {
+  try { return JSON.parse(localStorage.getItem("pes.planIntents") || "null"); } catch { return null; }
 }
 
-function renderKoubo(data) {
-  const keeps = (data.decisions || []).filter((item) => item.keep).length;
-  const drops = (data.decisions || []).length - keeps;
+function isLongVideo() {
+  const durationMs = state.sourceDurationMs || state.project?.duration_ms || 0;
+  return durationMs >= 10 * 60 * 1000 || state.rows.length >= 140;
+}
+
+function renderForm(planAi) {
+  const picked = savedIntents() || INTENTS.filter((i) => i.def).map((i) => i.key);
+  const chips = INTENTS.map((intent) => `
+    <label class="intent-chip"><input type="checkbox" value="${intent.key}" ${picked.includes(intent.key) ? "checked" : ""}>${escapeHtml(intent.label)}</label>`).join("");
+  const long = isLongVideo();
+  const lastDone = planAi.status === "done" && (planAi.cuts || []).length
+    ? `<div class="ai-card"><h4>上次出的方案</h4><div class="meta">${(planAi.cuts || []).map(escapeHtml).join(" · ")}（在上方方案条切换查看）</div></div>` : "";
+  const lastError = planAi.status === "error"
+    ? `<div class="ai-warning">上次运行失败：${escapeHtml(planAi.error || "未知错误")}</div>` : "";
   el.aiBody.innerHTML = `
-    ${warningsHtml(data)}
-    <div class="ai-summary">${escapeHtml(data.summary || "")}</div>
+    <div class="ai-hint" style="margin-bottom:8px">AI 通读字幕，一次完成：${long ? "分大主题 → " : ""}挑金句（复制到开头）→ 按目标时长筛句子，产出可切换的剪辑方案。</div>
     <div class="ai-card">
-      <h4>建议：保留 ${keeps} 句 · 删除 ${drops} 句</h4>
-      <div class="meta">预计成片 ${fmtClock(data.keep_duration_ms || 0)}</div>
-      <button class="btn primary" id="applyKoubo">应用到勾选</button>
+      <h4>想怎么剪？（多选）</h4>
+      <div class="intent-chips">${chips}</div>
+      <textarea class="intent-extra" id="planIntentExtra" placeholder="补充要求（可选）：如「只保留讲 AI 教育的部分」"></textarea>
     </div>
-    <div class="ai-hint">应用后每句仍可手动改；AI 判断理由显示在字幕行右侧。</div>`;
-  $("applyKoubo").addEventListener("click", () => {
-    const keepSet = new Set(data.keep_segment_ids || []);
-    for (const row of state.rows) row.checked = keepSet.has(row.id);
-    state.orderedGroups = null;
-    el.orderedBanner.hidden = true;
-    renderRows();
-    scheduleAutosave();
-    setStatus("已应用口播精剪建议，可继续手动调整。");
+    <div class="ai-card">
+      <h4>每条成片目标时长</h4>
+      <div class="budget-form">
+        <input type="number" id="planDurMin" class="settings-input" style="width:58px" min="0.5" step="0.5" value="${prefs.planDurMin}"> –
+        <input type="number" id="planDurMax" class="settings-input" style="width:58px" min="0.5" step="0.5" value="${prefs.planDurMax}"> 分钟
+      </div>
+      <label class="trim-auto" style="margin-top:8px"><input type="checkbox" id="planSplit" ${long ? "checked" : ""}>视频较长时先分大主题，每个主题各出一条${long ? `（本片 ${state.rows.length} 句，已自动勾选）` : ""}</label>
+    </div>
+    ${lastError}${lastDone}
+    <button class="btn primary" id="planRunBtn" style="width:100%">▶ 开始出方案${long ? "（长视频约 2–8 分钟）" : "（约 1–2 分钟）"}</button>
+    <div class="settings-note" id="planHint"></div>
+    <div class="alt-divider">或者</div>
+    <div class="alt-path">
+      <div class="alt-path-text">已经用自己的 AI（Codex / GPT…）挑好排好了？</div>
+      <button class="btn" id="planImportBtn" style="width:100%">📄 粘贴你的剪辑稿，直接对回视频</button>
+    </div>`;
+  $("planRunBtn").addEventListener("click", runPlan);
+  $("planImportBtn").addEventListener("click", () => {
+    el.aiPanel.hidden = true;
+    openScriptDialog();
   });
 }
 
-function renderTopics(data) {
-  const cards = (data.topics || []).map((topic, index) => `
-    <div class="ai-card">
-      <h4>${escapeHtml(topic.title)}</h4>
-      <div class="meta">主题 ${fmtClock(topic.duration_ms || 0)} · 最佳切片 ${fmtClock(topic.best_clip.duration_ms || 0)}</div>
-      <div>${escapeHtml(topic.summary || "")}</div>
-      <div class="meta" style="margin-top:4px">${escapeHtml(topic.best_clip.reason || "")}</div>
-      <button class="btn primary" data-topic="${index}" data-act="only">仅保留此切片</button>
-      <button class="btn" data-topic="${index}" data-act="add">追加此切片</button>
-    </div>`).join("");
-  el.aiBody.innerHTML = `${warningsHtml(data)}<div class="ai-summary">${escapeHtml(data.overview || "")}</div>${cards || '<div class="ai-hint">没有识别出主题。</div>'}`;
-  el.aiBody.querySelectorAll("button[data-topic]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const topic = (data.topics || [])[Number(button.dataset.topic)];
-      const clipSet = new Set(topic.best_clip.segment_ids);
-      for (const row of state.rows) {
-        if (button.dataset.act === "only") row.checked = clipSet.has(row.id);
-        else if (clipSet.has(row.id)) row.checked = true;
-      }
-      state.orderedGroups = null;
-      el.orderedBanner.hidden = true;
-      renderRows();
-      scheduleAutosave();
-      setStatus(`已${button.dataset.act === "only" ? "仅保留" : "追加"}主题切片「${topic.title}」。`);
+async function runPlan() {
+  const intent = [...el.aiBody.querySelectorAll(".intent-chip input:checked")].map((node) => node.value);
+  const intentExtra = $("planIntentExtra").value.trim();
+  const durMin = Number($("planDurMin").value) || 3;
+  const durMax = Math.max(Number($("planDurMax").value) || 5, durMin);
+  const split = $("planSplit").checked;
+  localStorage.setItem("pes.planIntents", JSON.stringify(intent));
+  prefs.planDurMin = durMin;
+  prefs.planDurMax = durMax;
+  const hint = $("planHint");
+  try {
+    await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/plans/generate`, {
+      intent, intent_extra: intentExtra || undefined,
+      duration_min_s: Math.round(durMin * 60), duration_max_s: Math.round(durMax * 60),
+      split_topics: split,
     });
-  });
+    state.planAiRunning = true;
+    state.planAiStartMs = Date.now();
+    renderProgress({ status: "running", detail: "正在启动…" });
+    pollPlan();
+  } catch (error) {
+    if (hint) hint.textContent = /not found|404/i.test(error.message)
+      ? "❌ 出方案后端还没就绪（正在升级中），稍后再试。"
+      : `❌ ${error.message}`;
+  }
 }
 
-function renderRemix(data) {
-  const quotes = (data.golden_quotes || []).map((quote) => `
-    <div class="ai-card">
-      <div class="quote-strength">${"★".repeat(quote.strength || 3)}</div>
-      <div>「${escapeHtml(quote.quote || "")}」</div>
-      <div class="meta">${escapeHtml(quote.reason || "")}</div>
-    </div>`).join("");
-  const clips = (data.clips || []).map((clip) => `
-    <div class="ai-card">
-      <span class="clip-tag ${clip.purpose}">${clip.purpose.toUpperCase()}</span>
-      ${fmtClock(clip.duration_ms || 0)} · ${clip.segment_ids.length} 句
-      <div class="meta">${escapeHtml(clip.note || "")}</div>
-    </div>`).join("");
-  const titles = (data.title_suggestions || []).map((title) => `<li>${escapeHtml(title)}</li>`).join("");
+function renderProgress(planAi) {
+  const elapsed = state.planAiStartMs ? Math.round((Date.now() - state.planAiStartMs) / 1000) : 0;
+  const stageLabel = { topics: "① 分大主题", quotes: "② 挑金句", select: "③ 筛句子" }[planAi.stage] || "准备中";
+  const topicsNote = planAi.topics_total ? ` · 主题 ${planAi.topics_done ?? 0}/${planAi.topics_total}` : "";
   el.aiBody.innerHTML = `
-    ${warningsHtml(data)}
     <div class="ai-card">
-      <h4>混剪方案 · 预计 ${fmtClock(data.clips_duration_ms || 0)}</h4>
-      <button class="btn primary" id="applyRemix">应用金句混剪（乱序成片）</button>
+      <h4>🤖 出方案中 · 已用 ${elapsed}s</h4>
+      <div class="meta">${escapeHtml(stageLabel)}${topicsNote}</div>
+      <div class="meta">${escapeHtml(planAi.detail || "AI 通读字幕中…")}</div>
     </div>
-    ${clips}
-    <h4 style="margin:12px 0 6px">金句</h4>${quotes || '<div class="ai-hint">未识别出金句。</div>'}
-    ${titles ? `<h4 style="margin:12px 0 6px">标题建议</h4><ul>${titles}</ul>` : ""}`;
-  const applyBtn = $("applyRemix");
-  if (applyBtn) applyBtn.addEventListener("click", () => enterOrderedMode(data.clips || []));
+    <div class="ai-hint">后台运行，可以先关掉面板做别的；完成后方案条会出现新方案并自动试听。</div>`;
 }
 
-// ---------- 提示词查看与编辑 ----------
-const promptEdit = { open: false, data: null, saving: false };
+function pollPlan() {
+  if (planPollTimer) clearTimeout(planPollTimer);
+  planPollTimer = setTimeout(async () => {
+    try {
+      const project = await api(`/api/projects/${encodeURIComponent(state.projectId)}`);
+      state.project = project;
+      const planAi = project.plan_ai || {};
+      if (planAi.status === "running") {
+        if (!el.aiPanel.hidden && !promptEdit.open) renderProgress(planAi);
+        pollPlan();
+        return;
+      }
+      state.planAiRunning = false;
+      if (planAi.status === "done") {
+        await finishPlan(planAi);
+      } else if (planAi.status === "error") {
+        setStatus(`AI 出方案失败：${planAi.error || "未知错误"}`, "error");
+        if (!el.aiPanel.hidden) renderAiPanel();
+      }
+    } catch {
+      pollPlan();
+    }
+  }, 3000);
+}
+
+/* 完成：切到第一个新方案，自动从头试听。 */
+async function finishPlan(planAi) {
+  const cuts = planAi.cuts || [];
+  await loadCuts();
+  if (cuts.length) {
+    state.cutName = cuts[0];
+    state.order = [];
+    state.viewOriginal = false;
+    await showEditor();
+    if (pb.ranges.length) {
+      pb.audition = null;
+      pb.rangeIndex = 0;
+      el.video.currentTime = pb.ranges[0].start_ms / 1000;
+      el.video.play();
+    }
+    setStatus(cuts.length > 1
+      ? `AI 出了 ${cuts.length} 个剪辑方案（方案条切换查看），已切到「${cuts[0]}」并从头试听。`
+      : `剪辑方案「${cuts[0]}」已生成，正在从头试听；不满意可在表里逐句调整。`);
+  } else {
+    setStatus("AI 出方案完成，但没有生成新方案（详见面板）。", "warn");
+  }
+  if (!el.aiPanel.hidden) renderAiPanel();
+}
+
+/* 编辑器载入时恢复：管线运行中则续接轮询；自动初剪 running 时轮询让徽标就位。 */
+export function resumeAiPolling() {
+  const planAi = state.project?.plan_ai;
+  if (planAi?.status === "running") {
+    state.planAiRunning = true;
+    if (!state.planAiStartMs) state.planAiStartMs = Date.now();
+    pollPlan();
+  }
+  const koubo = (state.aiOverview.modes || {}).koubo_tighten;
+  if (koubo && koubo.status === "running") pollKoubo();
+}
+
+function pollKoubo() {
+  setTimeout(async () => {
+    try {
+      const payload = await api(`/api/projects/${state.projectId}/ai/koubo_tighten`);
+      if (payload.status === "running") { pollKoubo(); return; }
+      state.aiOverview.modes.koubo_tighten = { status: payload.status, error: payload.error };
+      if (payload.status === "done") await showEditor(); // 自动初剪结果落行内徽标/勾选
+    } catch { /* 静默，编辑器重载会再取 */ }
+  }, 3000);
+}
+
+// ---------- 提示词查看与编辑（按管线阶段选择） ----------
+const promptEdit = { open: false, mode: "koubo_tighten", data: null, saving: false };
 
 el.aiPromptBtn.addEventListener("click", () => {
+  if (el.aiPanel.hidden) el.aiPanel.hidden = false;
   if (promptEdit.open) { promptEdit.open = false; renderAiPanel(); return; }
   openPromptEditor();
 });
@@ -209,7 +227,7 @@ async function openPromptEditor() {
   promptEdit.open = true;
   el.aiBody.innerHTML = '<div class="ai-hint">加载提示词…</div>';
   try {
-    promptEdit.data = await api(`/api/prompts/${state.aiMode}`);
+    promptEdit.data = await api(`/api/prompts/${promptEdit.mode}`);
     renderPromptEditor();
   } catch (error) {
     el.aiBody.innerHTML = `<div class="ai-warning">加载提示词失败：${escapeHtml(error.message)}</div>`;
@@ -218,36 +236,42 @@ async function openPromptEditor() {
 
 function renderPromptEditor() {
   const data = promptEdit.data;
-  if (!data || data.mode !== state.aiMode) { openPromptEditor(); return; }
+  if (!data || data.mode !== promptEdit.mode) { openPromptEditor(); return; }
   const sourceBadge = data.source === "override"
     ? '<span class="badge trimmed">已自定义</span>'
     : '<span class="badge">出厂默认</span>';
   const warnings = (data.warnings || []).length
     ? `<div class="ai-warning">⚠ ${data.warnings.map(escapeHtml).join("；")}</div>` : "";
+  const stageOptions = PROMPT_STAGES.map(([key, label]) =>
+    `<option value="${key}" ${key === promptEdit.mode ? "selected" : ""}>${label}</option>`).join("");
   el.aiBody.innerHTML = `
     <div class="ai-card">
-      <h4>${MODE_NAMES[state.aiMode]} · 剪辑理念 ${sourceBadge}</h4>
-      <div class="meta">用自然语言描述这个模式的判断标准和取舍偏好即可，怎么改都不会弄坏功能。<br>输出格式等技术协议由系统自动附加（见下方高级选项）。保存即生效，重启后保留。</div>
+      <h4>剪辑理念 <select id="promptStageSel" class="settings-input" style="width:auto">${stageOptions}</select> ${sourceBadge}</h4>
+      <div class="meta">用自然语言描述这个阶段的判断标准和取舍偏好即可，怎么改都不会弄坏功能。<br>输出格式等技术协议由系统自动附加（见下方高级选项）。保存即生效，重启后保留。</div>
     </div>
     ${warnings}
     <textarea class="prompt-editor" id="promptEditorText" spellcheck="false"></textarea>
     <div class="prompt-actions">
       <button class="btn primary" id="promptSaveBtn">保存</button>
       ${data.source === "override" ? '<button class="btn" id="promptResetBtn">恢复默认</button>' : ""}
-      <button class="btn" id="promptCloseBtn">返回结果</button>
+      <button class="btn" id="promptCloseBtn">返回</button>
     </div>
     <details class="prompt-extra">
       <summary>高级选项：查看发送给 AI 的完整提示词（协议与硬约束由系统维护，只读）</summary>
       <pre>${escapeHtml((data.assembled_template || data.content || "") + "\n" + (data.hard_constraints || ""))}</pre>
     </details>`;
+  $("promptStageSel").addEventListener("change", (event) => {
+    promptEdit.mode = event.target.value;
+    openPromptEditor();
+  });
   const textarea = $("promptEditorText");
   textarea.value = data.content || "";
   $("promptSaveBtn").addEventListener("click", async () => {
     if (promptEdit.saving) return;
     promptEdit.saving = true;
     try {
-      const result = await putJson(`/api/prompts/${state.aiMode}`, { content: textarea.value });
-      promptEdit.data = await api(`/api/prompts/${state.aiMode}`);
+      const result = await putJson(`/api/prompts/${promptEdit.mode}`, { content: textarea.value });
+      promptEdit.data = await api(`/api/prompts/${promptEdit.mode}`);
       const extra = (result.warnings || []).length ? `（提醒：${result.warnings.join("；")}）` : "";
       setStatus(`提示词已保存，立即生效${extra}`);
       renderPromptEditor();
@@ -261,8 +285,8 @@ function renderPromptEditor() {
   if (resetBtn) resetBtn.addEventListener("click", async () => {
     if (!confirm("恢复出厂默认提示词？你的自定义内容将被删除。")) return;
     try {
-      await api(`/api/prompts/${state.aiMode}`, { method: "DELETE" });
-      promptEdit.data = await api(`/api/prompts/${state.aiMode}`);
+      await api(`/api/prompts/${promptEdit.mode}`, { method: "DELETE" });
+      promptEdit.data = await api(`/api/prompts/${promptEdit.mode}`);
       setStatus("已恢复默认提示词。");
       renderPromptEditor();
     } catch (error) {

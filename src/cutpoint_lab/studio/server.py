@@ -40,6 +40,13 @@ from ..planning import (
     validate_content_map,
 )
 from ..planning.budget import EDL_ROLES
+from ..planning.pipeline import (
+    CutNameConflict,
+    INTENT_PRESETS,
+    PlanPipelineError,
+    generate_plans,
+    validate_plan_request,
+)
 from ..quality import (
     CorrectionSet,
     align_reference,
@@ -88,7 +95,8 @@ STUDIO_STRATEGIES = [
     "vad_snap",
 ]
 FRAME_STRATEGIES = {"rms_snap", "anchored_rms", "visual_waveform", "hybrid_valley"}
-AI_MODES = ["koubo_tighten", "topic_slicing", "highlight_remix"]
+AI_MODES = ["koubo_tighten"]
+RETIRED_AI_MODES = {"topic_slicing", "highlight_remix"}
 
 
 class ConflictError(ValueError):
@@ -97,6 +105,10 @@ class ConflictError(ValueError):
 
 class NotFoundError(ValueError):
     """请求的项目内资源不存在。"""
+
+
+class GoneError(ValueError):
+    """请求的旧能力已经被新管线替代。"""
 
 
 class StudioApplication:
@@ -147,6 +159,7 @@ class StudioApplication:
         self._quality_threads: dict[str, threading.Thread] = {}
         self._content_map_threads: dict[str, threading.Thread] = {}
         self._quotes_threads: dict[str, threading.Thread] = {}
+        self._plan_threads: dict[str, threading.Thread] = {}
         self._export_threads: dict[str, threading.Thread] = {}
         self._lock = threading.Lock()
         self._quality_io_lock = threading.RLock()
@@ -572,6 +585,152 @@ class StudioApplication:
         return {"ok": True}
 
     # ---------- V2 内容规划 ----------
+    def plan_intents(self) -> dict[str, Any]:
+        return {"intents": copy.deepcopy(list(INTENT_PRESETS))}
+
+    def start_plan_generation(
+        self,
+        project: Project,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        if not project.transcript_ready():
+            raise ValueError("字幕尚未就绪")
+        if not self.quality_llm.available():
+            raise ValueError("缺少 LLM API Key，无法生成剪辑方案")
+        request = validate_plan_request(payload)
+        initial_stage = "topics" if request["split_topics"] else "quotes"
+        initial_total = 0 if request["split_topics"] else 1
+        initial_detail = (
+            "正在划分大主题…"
+            if request["split_topics"]
+            else "正在给整片挑金句…"
+        )
+
+        def _progress(update: dict[str, Any]) -> None:
+            current = dict(project.read_state().get("plan_ai") or {})
+            current.update(update)
+            current["status"] = "running"
+            current["cuts"] = []
+            current["error"] = None
+            project.update_state(plan_ai=current)
+
+        def _create_cut(
+            name: str,
+            label: str,
+            edl: dict[str, Any],
+        ) -> dict[str, Any]:
+            with self._planning_io_lock:
+                try:
+                    return project.create_cut(name, label, edl)
+                except ValueError as exc:
+                    if str(exc).startswith("Cut 已存在："):
+                        raise CutNameConflict(str(exc)) from exc
+                    raise
+
+        def _list_cut_names() -> list[str]:
+            with self._planning_io_lock:
+                return [item["name"] for item in project.list_cuts()]
+
+        def _write_content_map(document: dict[str, Any]) -> None:
+            with self._planning_io_lock:
+                project.write_content_map(document)
+
+        def _write_quotes(document: dict[str, Any]) -> None:
+            with self._planning_io_lock:
+                project.write_quote_candidates(document)
+
+        def _run() -> None:
+            try:
+                transcript = load_transcript(project.transcript_path)
+                result = generate_plans(
+                    transcript.segments,
+                    **request,
+                    chat_json_fn=self.quality_llm.chat_json,
+                    assemble_prompt_fn=self.prompt_store.assemble,
+                    list_cut_names_fn=_list_cut_names,
+                    create_cut_fn=_create_cut,
+                    write_content_map_fn=_write_content_map,
+                    write_quote_candidates_fn=_write_quotes,
+                    progress_fn=_progress,
+                    model=self._planning_model(),
+                )
+                current = dict(project.read_state().get("plan_ai") or {})
+                project.update_state(
+                    plan_ai={
+                        **current,
+                        "status": "done",
+                        "stage": "select",
+                        "detail": f"已生成 {len(result['cuts'])} 个剪辑方案",
+                        "topics_done": current.get("topics_total", 0),
+                        "cuts": list(result["cuts"]),
+                        "warnings": [
+                            _redact_known_secrets(str(item))
+                            for item in result["warnings"]
+                        ],
+                        "error": None,
+                        "completed_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    }
+                )
+                logger.info(
+                    "plan AI done: project=%s cuts=%s",
+                    project.id,
+                    len(result["cuts"]),
+                )
+            except Exception as exc:  # noqa: BLE001 - 后台异常必须落到项目状态。
+                current = dict(project.read_state().get("plan_ai") or {})
+                warnings = (
+                    exc.warnings
+                    if isinstance(exc, PlanPipelineError)
+                    else current.get("warnings") or []
+                )
+                project.update_state(
+                    plan_ai={
+                        **current,
+                        "status": "error",
+                        "detail": "剪辑方案生成失败",
+                        "cuts": [],
+                        "warnings": [
+                            _redact_known_secrets(str(item))
+                            for item in warnings
+                        ],
+                        "error": _redact_known_secrets(str(exc)),
+                    }
+                )
+                logger.error(
+                    "plan AI failed: project=%s error_type=%s",
+                    project.id,
+                    type(exc).__name__,
+                )
+
+        thread = threading.Thread(
+            target=_run,
+            daemon=True,
+            name=f"plan-ai-{project.id}",
+        )
+        with self._lock:
+            existing = self._plan_threads.get(project.id)
+            if existing and existing.is_alive():
+                raise ConflictError("该项目的剪辑方案生成任务已在运行")
+            self._plan_threads[project.id] = thread
+            project.update_state(
+                plan_ai={
+                    "status": "running",
+                    "stage": initial_stage,
+                    "detail": initial_detail,
+                    "topics_total": initial_total,
+                    "topics_done": 0,
+                    "cuts": [],
+                    "error": None,
+                    "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                }
+            )
+            try:
+                thread.start()
+            except Exception:
+                self._plan_threads.pop(project.id, None)
+                raise
+        return {"ok": True, "status": "running"}
+
     def get_content_map(self, project: Project) -> dict[str, Any]:
         payload = project.read_content_map()
         if not payload:
@@ -1455,6 +1614,8 @@ class StudioApplication:
     def start_ai(self, project: Project, payload: dict[str, Any], *, cut: str = "default") -> dict[str, Any]:
         project.read_edl(cut)
         mode = str(payload.get("mode") or "koubo_tighten")
+        if mode in RETIRED_AI_MODES:
+            raise GoneError(f"{mode} 已并入 AI 出剪辑方案")
         if mode not in AI_MODES:
             raise ValueError(f"未知 AI 模式：{mode}")
         if not self.selector.available():
@@ -1496,6 +1657,8 @@ class StudioApplication:
 
     def ai_suggestion(self, project: Project, mode: str, *, cut: str = "default") -> dict[str, Any]:
         project.read_edl(cut)
+        if mode in RETIRED_AI_MODES:
+            raise GoneError(f"{mode} 已并入 AI 出剪辑方案")
         entry = (project.read_state().get("ai") or {}).get(mode) or {}
         if entry.get("status") != "done" or not entry.get("file"):
             return {"mode": mode, "status": entry.get("status", "idle"), "error": entry.get("error")}
@@ -1871,6 +2034,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/index.html"): "_route_index",
     ("GET", "/static/{asset}"): "_route_static",
     ("GET", "/favicon.ico"): "_route_favicon",
+    ("GET", "/api/plan-intents"): "_route_plan_intents",
     ("GET", "/api/settings"): "_route_settings",
     ("GET", "/api/settings/corrections"): "_route_corrections",
     ("PUT", "/api/settings/corrections"): "_route_save_corrections",
@@ -1912,6 +2076,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/projects/{id}/reference"): "_route_reference",
     ("GET", "/api/projects/{id}/{rest...}"): "_route_unknown_project_get",
     ("POST", "/api/projects/{id}/ai/suggest"): "_route_ai_suggest",
+    ("POST", "/api/projects/{id}/plans/generate"): "_route_plans_generate",
     ("POST", "/api/projects/{id}/quality/apply-corrections"): "_route_apply_corrections",
     ("POST", "/api/projects/{id}/quality/undo/{change_id}"): "_route_undo_changeset",
     ("POST", "/api/projects/{id}/quality/analyze"): "_route_quality_analyze",
@@ -1990,6 +2155,8 @@ def _handler_factory(app: StudioApplication):
                 self._send_error_json(404, str(exc))
             except ConflictError as exc:
                 self._send_error_json(409, str(exc))
+            except GoneError as exc:
+                self._send_error_json(410, str(exc))
             except ValueError as exc:
                 self._send_error_json(400, str(exc))
             except Exception as exc:  # noqa: BLE001 - 本地工具返回可读错误。
@@ -2007,6 +2174,9 @@ def _handler_factory(app: StudioApplication):
             self.send_response(204)
             self.send_header("Content-Length", "0")
             self.end_headers()
+
+        def _route_plan_intents(self, _parsed, _params: dict[str, str]) -> None:
+            self._send_json(app.plan_intents())
 
         def _route_settings(self, _parsed, _params: dict[str, str]) -> None:
             self._send_json(app.settings())
@@ -2214,6 +2384,14 @@ def _handler_factory(app: StudioApplication):
         def _route_ai_suggest(self, parsed, params: dict[str, str]) -> None:
             project = self._project(params["id"])
             self._send_json(app.start_ai(project, self._read_json_body(), cut=self._cut(parsed)))
+
+        def _route_plans_generate(self, _parsed, params: dict[str, str]) -> None:
+            self._send_json(
+                app.start_plan_generation(
+                    self._project(params["id"]),
+                    self._read_json_body(),
+                )
+            )
 
         def _route_apply_corrections(self, parsed, params: dict[str, str]) -> None:
             self._read_json_body()

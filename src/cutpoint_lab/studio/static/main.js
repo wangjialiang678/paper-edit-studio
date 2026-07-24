@@ -13,6 +13,7 @@ import "./budget.js";
 import { renderRows } from "./rows.js";
 import { openTopicsView } from "./topics.js";
 import { openQuotesDialog } from "./quotes.js";
+import { applyAdvTray } from "./cuts.js";
 
 el.origOrderBtn.addEventListener("click", () => {
   state.viewOriginal = !state.viewOriginal;
@@ -21,6 +22,11 @@ el.origOrderBtn.addEventListener("click", () => {
 
 el.topicsBtn.addEventListener("click", openTopicsView);
 el.quotesBtn.addEventListener("click", () => openQuotesDialog(null));
+el.moreBtn.addEventListener("click", () => {
+  state.moreOpen = !state.moreOpen;
+  applyAdvTray();
+  el.moreBtn.classList.toggle("active", state.moreOpen);
+});
 
 document.addEventListener("keydown", (event) => {
   if (el.editorView.hidden) return;

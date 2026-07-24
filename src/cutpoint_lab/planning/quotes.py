@@ -175,14 +175,15 @@ def accept_quote(
         raise ValueError("EDL 的 order 必须是数组")
     order = [str(item) for item in (raw_order or [])]
     if promote:
-        if not order:
+        materialized = not order
+        if materialized:
             order = [
                 str(row.get("id"))
                 for row in rows
                 if isinstance(row, dict) and bool(row.get("checked"))
             ]
-        order = [item for item in order if item != segment_id_value]
-        order.insert(0, segment_id_value)
+        if materialized or order[0] != segment_id_value:
+            order.insert(0, segment_id_value)
         updated["order"] = order
     elif order and segment_id_value not in order:
         # order 非空时它是实际保留集；追加一次才能让 checked=true 真正进入成片。

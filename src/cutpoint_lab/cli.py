@@ -4,6 +4,7 @@ import argparse
 import copy
 import http.server
 import json
+import re
 import shutil
 import sys
 import threading
@@ -18,6 +19,7 @@ from cutpoint_lab.engine import (
     AsrRunner,
     CachingAsrRunner,
     CorrectionSet,
+    CutNameConflict,
     EnvStore,
     LlmClient,
     Project,
@@ -40,6 +42,7 @@ from cutpoint_lab.engine import (
     extract_audio,
     ffprobe_duration_ms,
     fit_budget,
+    generate_plans,
     load_changeset,
     load_report,
     load_rms_frames,
@@ -652,6 +655,36 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     _add_shared_arguments(budget)
 
+    plan = subparsers.add_parser("plan", help="为已有项目生成新的 AI 剪辑方案")
+    plan.add_argument("project", metavar="PROJECT")
+    plan.add_argument(
+        "--duration",
+        default="3-5",
+        metavar="MIN-MAX",
+        help="每条成片目标分钟区间（默认：3-5）",
+    )
+    plan.add_argument(
+        "--intent",
+        default="cut_fillers,hook_first",
+        help="逗号分隔的意图 key",
+    )
+    plan.add_argument("--brief", default="", help="自由补充剪辑意图")
+    split_group = plan.add_mutually_exclusive_group()
+    split_group.add_argument(
+        "--split",
+        dest="split_topics",
+        action="store_true",
+        help="先按大主题拆分（默认）",
+    )
+    split_group.add_argument(
+        "--no-split",
+        dest="split_topics",
+        action="store_false",
+        help="整片作为单主题",
+    )
+    plan.set_defaults(split_topics=True)
+    _add_shared_arguments(plan)
+
     cache = subparsers.add_parser("cache", help="管理转写内容指纹缓存")
     cache_commands = cache.add_subparsers(dest="cache_command", required=True)
     cache_backfill = cache_commands.add_parser("backfill", help="登记现有项目的转写缓存")
@@ -984,6 +1017,168 @@ def _planning_ai(
         lambda: prompt_store.assemble(mode),
         str(getattr(client.config, "model", "") or ""),
     )
+
+
+def _planning_pipeline_ai(
+    workspace: Workspace,
+) -> tuple[
+    Callable[[str, str], dict],
+    Callable[[str], str],
+    str,
+]:
+    client = LlmClient(
+        env_store=EnvStore(),
+        api_vault_path=DEFAULT_API_VAULT_PATH,
+    )
+    if not client.available():
+        raise ValueError("缺少 LLM API Key，无法生成剪辑方案")
+    prompt_store = PromptStore(
+        DEFAULT_PROMPTS_DIR,
+        workspace.root / "_settings" / "prompts",
+    )
+    return (
+        client.chat_json,
+        prompt_store.assemble,
+        str(getattr(client.config, "model", "") or ""),
+    )
+
+
+def _duration_range(raw: str) -> tuple[int | float, int | float]:
+    match = re.fullmatch(
+        r"\s*(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*",
+        str(raw),
+    )
+    if match is None:
+        raise ValueError("--duration 必须是 MIN-MAX 分钟，例如 3-5")
+    minimum = float(match.group(1))
+    maximum = float(match.group(2))
+    if minimum <= 0 or maximum <= 0 or minimum > maximum:
+        raise ValueError("--duration 必须是递增的正数分钟区间")
+
+    def seconds(value: float) -> int | float:
+        result = value * 60
+        return int(result) if result.is_integer() else result
+
+    return seconds(minimum), seconds(maximum)
+
+
+def _handle_plan(
+    args: argparse.Namespace,
+    workspace: Workspace,
+) -> list[dict[str, Any]]:
+    project = workspace.get(args.project)
+    if project is None:
+        raise ValueError(f"项目不存在：{args.project}")
+    if not project.transcript_path.is_file():
+        raise ValueError(f"字幕文件不存在：{project.transcript_path}")
+    duration_min_s, duration_max_s = _duration_range(args.duration)
+    intent = [
+        key.strip()
+        for key in str(args.intent).split(",")
+        if key.strip()
+    ]
+    chat_json_fn, assemble_prompt_fn, model = _planning_pipeline_ai(workspace)
+    transcript = load_transcript(project.transcript_path)
+
+    def progress(update: dict[str, Any]) -> None:
+        current = dict(project.read_state().get("plan_ai") or {})
+        current.update(update)
+        current.update({"status": "running", "cuts": [], "error": None})
+        project.update_state(plan_ai=current)
+        _progress(str(update["detail"]))
+
+    def create_cut(
+        name: str,
+        label: str,
+        edl: dict[str, Any],
+    ) -> dict[str, Any]:
+        try:
+            return project.create_cut(name, label, edl)
+        except ValueError as exc:
+            if str(exc).startswith("Cut 已存在："):
+                raise CutNameConflict(str(exc)) from exc
+            raise
+
+    project.update_state(
+        plan_ai={
+            "status": "running",
+            "stage": "topics" if args.split_topics else "quotes",
+            "detail": (
+                "正在划分大主题…"
+                if args.split_topics
+                else "正在给整片挑金句…"
+            ),
+            "topics_total": 0 if args.split_topics else 1,
+            "topics_done": 0,
+            "cuts": [],
+            "error": None,
+        }
+    )
+    try:
+        generated = generate_plans(
+            transcript.segments,
+            intent=intent,
+            intent_extra=args.brief,
+            duration_min_s=duration_min_s,
+            duration_max_s=duration_max_s,
+            split_topics=args.split_topics,
+            chat_json_fn=chat_json_fn,
+            assemble_prompt_fn=assemble_prompt_fn,
+            list_cut_names_fn=lambda: [
+                item["name"] for item in project.list_cuts()
+            ],
+            create_cut_fn=create_cut,
+            write_content_map_fn=project.write_content_map,
+            write_quote_candidates_fn=project.write_quote_candidates,
+            progress_fn=progress,
+            model=model,
+        )
+    except Exception as exc:
+        current = dict(project.read_state().get("plan_ai") or {})
+        project.update_state(
+            plan_ai={
+                **current,
+                "status": "error",
+                "detail": "剪辑方案生成失败",
+                "cuts": [],
+                "error": str(exc),
+            }
+        )
+        raise
+
+    current = dict(project.read_state().get("plan_ai") or {})
+    project.update_state(
+        plan_ai={
+            **current,
+            "status": "done",
+            "stage": "select",
+            "detail": f"已生成 {len(generated['cuts'])} 个剪辑方案",
+            "topics_done": current.get("topics_total", 0),
+            "cuts": list(generated["cuts"]),
+            "warnings": list(generated["warnings"]),
+            "error": None,
+        }
+    )
+    result = _project_result(project)
+    result.update(
+        {
+            "cuts": list(generated["cuts"]),
+            "warnings": list(generated["warnings"]),
+            "outputs": {
+                "edls": [
+                    str(project.cut_dir(name) / "edl.json")
+                    for name in generated["cuts"]
+                ],
+                "content_map": (
+                    str(project.content_map_path)
+                    if generated["content_map"] is not None
+                    else None
+                ),
+                "quote_candidates": str(project.quote_candidates_path),
+            },
+        }
+    )
+    return [result]
 
 
 def _handle_content_map(
@@ -1728,6 +1923,8 @@ def main(argv: list[str] | None = None) -> int:
             results = _handle_quotes(args, workspace)
         elif args.command == "budget":
             results = _handle_budget(args, workspace)
+        elif args.command == "plan":
+            results = _handle_plan(args, workspace)
         elif args.command == "cache":
             results = _handle_cache_backfill(args, workspace)
         else:

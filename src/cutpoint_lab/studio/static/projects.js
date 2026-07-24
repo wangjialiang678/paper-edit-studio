@@ -85,6 +85,8 @@ export async function selectProject(projectId) {
   state.quotes = null;
   state.quotesAiRunning = false;
   state.budget = null;
+  state.moreOpen = false;
+  state.topicHintDismissed = false;
   resetBudget(); // 重新探测预算后端（换项目/后端升级后恢复）
   resetPlayback();
   clearFillerBatch();

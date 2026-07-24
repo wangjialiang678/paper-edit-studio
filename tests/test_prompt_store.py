@@ -168,7 +168,7 @@ class PromptStoreTests(unittest.TestCase):
         """仓库真实模板：理念区零协议零占位符，拼装后协议齐全。"""
         repo_prompts = Path(__file__).resolve().parents[1] / "prompts"
         store = PromptStore(repo_prompts, None)
-        for mode in ("koubo_tighten", "topic_slicing", "highlight_remix"):
+        for mode in ("koubo_tighten", "content_map", "quote_candidates"):
             result = store.get(mode)
             self.assertNotIn("## 输出格式", result["content"], mode)
             self.assertNotIn("{{", result["content"], mode)

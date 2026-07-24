@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paper Edit Studio · 用文字剪视频</title>
+<style>
+  :root{
+    --ink:#18191c; --ink-2:#565b63; --ink-3:#8a909a;
+    --line:#e9ebef; --line-2:#f0f2f5;
+    --bg:#ffffff; --bg-alt:#f7f8fa;
+    --accent:#0e9d8c; --accent-ink:#0a7365; --accent-bg:#e7f6f3;
+    --gold:#c08a12; --gold-bg:#fbf3e0;
+    --red:#d64c50; --red-bg:#fbeceb;
+    --radius:12px;
+    --fs-hero:38px; --fs-h2:23px; --fs-h3:16px; --fs-body:15px; --fs-sm:13px; --fs-xs:12px;
+    --maxw:1120px;
+    --shadow:0 1px 2px rgba(20,22,28,.04),0 8px 24px -12px rgba(20,22,28,.12);
+    --shadow-sm:0 1px 2px rgba(20,22,28,.05),0 2px 8px -4px rgba(20,22,28,.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); background:var(--bg); font-size:var(--fs-body);
+    line-height:1.65; -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  section{padding:66px 0}
+  .eyebrow{
+    font-size:var(--fs-xs); letter-spacing:.14em; text-transform:uppercase;
+    color:var(--accent-ink); font-weight:700; margin-bottom:14px;
+  }
+  h2{font-size:var(--fs-h2); font-weight:700; letter-spacing:-.01em; line-height:1.35}
+  .sub{color:var(--ink-2); font-size:var(--fs-body); margin-top:10px; max-width:640px}
+
+  /* ---------- nav ---------- */
+  nav{
+    position:sticky; top:0; z-index:50; background:rgba(255,255,255,.86);
+    backdrop-filter:saturate(180%) blur(12px); border-bottom:1px solid var(--line);
+  }
+  .nav-in{max-width:var(--maxw);margin:0 auto;padding:13px 28px;display:flex;align-items:center;gap:26px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px}
+  .brand .dot{width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#14b8a6);
+    display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800}
+  .nav-links{margin-left:auto;display:flex;gap:22px;font-size:var(--fs-sm);color:var(--ink-2)}
+  .nav-links a:hover{color:var(--accent-ink)}
+  @media(max-width:720px){.nav-links{display:none}}
+
+  /* ---------- hero ---------- */
+  .hero{padding:74px 0 52px; background:
+    radial-gradient(900px 380px at 82% -8%, #e9f7f4 0%, rgba(233,247,244,0) 60%),
+    radial-gradient(700px 320px at 8% 4%, #f2f6fb 0%, rgba(242,246,251,0) 55%);}
+  .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center}
+  @media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:36px}}
+  .hero h1{font-size:var(--fs-hero);font-weight:800;letter-spacing:-.02em;line-height:1.18}
+  .hero h1 em{font-style:normal;color:var(--accent-ink);
+    background:linear-gradient(180deg,transparent 62%,var(--accent-bg) 62%)}
+  .hero .lede{margin-top:20px;font-size:16px;color:var(--ink-2);line-height:1.7;max-width:520px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+  .chip{font-size:var(--fs-sm);color:var(--ink-2);background:#fff;border:1px solid var(--line);
+    padding:5px 12px;border-radius:20px;display:inline-flex;align-items:center;gap:6px}
+  .chip b{color:var(--accent-ink);font-weight:600}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:28px;font-size:var(--fs-sm)}
+  .flow .step{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);
+    padding:7px 13px;border-radius:9px;font-weight:600}
+  .flow .step i{width:18px;height:18px;border-radius:50%;background:var(--accent-bg);color:var(--accent-ink);
+    font-style:normal;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+  .flow .arr{color:var(--ink-3)}
+
+  /* ---------- editor mockup ---------- */
+  .mock{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .mock-bar{display:flex;align-items:center;gap:7px;padding:11px 14px;border-bottom:1px solid var(--line);background:#fbfcfd}
+  .tl{width:11px;height:11px;border-radius:50%;background:#e4e7ec}
+  .mock-bar .title{margin-left:8px;font-size:var(--fs-xs);color:var(--ink-3);font-weight:600}
+  .mock-bar .pill{margin-left:auto;font-size:11px;color:var(--accent-ink);background:var(--accent-bg);
+    border-radius:20px;padding:3px 10px;font-weight:700}
+  .player{position:relative;height:150px;background:
+    linear-gradient(135deg,#20242c 0%,#2c333e 100%);display:flex;align-items:center;justify-content:center}
+  .player .play{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.16);
+    border:1px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center}
+  .player .play::after{content:"";border-left:14px solid #fff;border-top:9px solid transparent;
+    border-bottom:9px solid transparent;margin-left:4px}
+  .player .seek{position:absolute;left:14px;right:14px;bottom:14px;height:4px;border-radius:4px;background:rgba(255,255,255,.22)}
+  .player .seek::before{content:"";position:absolute;left:0;top:0;height:100%;width:46%;border-radius:4px;background:var(--accent)}
+  .player .mode{position:absolute;top:12px;right:14px;font-size:11px;color:#fff;background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.25);border-radius:20px;padding:3px 10px;font-weight:600}
+  .rows{padding:6px 0}
+  .row{display:flex;align-items:flex-start;gap:11px;padding:9px 15px;border-bottom:1px solid var(--line-2);font-size:var(--fs-sm)}
+  .row:last-child{border-bottom:0}
+  .row .grip{color:#c7ccd4;font-size:13px;line-height:1.5;cursor:grab;user-select:none}
+  .row .box{width:16px;height:16px;border-radius:5px;border:1.5px solid #cfd4dc;flex:0 0 auto;margin-top:2px;position:relative}
+  .row.keep .box{background:var(--accent);border-color:var(--accent)}
+  .row.keep .box::after{content:"";position:absolute;left:4.5px;top:1.5px;width:4px;height:8px;
+    border:solid #fff;border-width:0 2px 2px 0;transform:rotate(43deg)}
+  .row .txt{flex:1;color:var(--ink)}
+  .row.cut .txt{color:var(--ink-3);text-decoration:line-through;text-decoration-color:#c8ccd3}
+  .row .tag{flex:0 0 auto;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;margin-top:1px;white-space:nowrap}
+  .tag.keep{color:var(--accent-ink);background:var(--accent-bg)}
+  .tag.del{color:var(--red);background:var(--red-bg)}
+  .tag.gold{color:var(--gold);background:var(--gold-bg)}
+  .row .why{display:block;font-size:11px;color:var(--ink-3);margin-top:3px}
+  /* expanded word-chip row */
+  .row.exp{flex-direction:column;gap:9px;background:#fbfcfd}
+  .chiprow{display:flex;flex-wrap:wrap;gap:5px;align-items:center;padding-left:27px}
+  .wc{font-size:12px;padding:3px 8px;border-radius:6px;background:#eef1f4;color:var(--ink-2)}
+  .wc.del{background:#fff;color:#c2c7cf;text-decoration:line-through;border:1px dashed #e0c2c0}
+  .wc.cut{position:relative}
+  .wc.cut::after{content:"";position:absolute;right:-4px;top:-2px;bottom:-2px;width:2px;background:var(--accent);border-radius:2px}
+  .wave{margin:2px 0 2px 27px;height:34px;display:flex;align-items:flex-end;gap:2px;position:relative}
+  .wave i{flex:1;background:#dfe3e8;border-radius:2px}
+  .wave .cutline{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--accent)}
+  .wave .cutline.y{background:var(--gold)}
+  .exp-note{padding-left:27px;font-size:11px;color:var(--ink-3);display:flex;gap:14px;flex-wrap:wrap}
+  .exp-note b{color:var(--accent-ink);font-weight:600}
+
+  /* ---------- why ---------- */
+  .why-wrap{background:var(--bg-alt)}
+  .why-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:center}
+  @media(max-width:860px){.why-grid{grid-template-columns:1fr;gap:30px}}
+  .quote{font-size:22px;line-height:1.55;font-weight:600;letter-spacing:-.01em}
+  .quote em{font-style:normal;color:var(--accent-ink)}
+  .why p{color:var(--ink-2);margin-top:16px}
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .cc{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 20px}
+  .cc h4{font-size:var(--fs-sm);font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .cc.old h4{color:var(--ink-3)} .cc.new h4{color:var(--accent-ink)}
+  .cc ul{list-style:none;font-size:var(--fs-sm);color:var(--ink-2);display:flex;flex-direction:column;gap:9px}
+  .cc li{display:flex;gap:9px;line-height:1.5}
+  .cc li::before{content:"";flex:0 0 auto;width:5px;height:5px;border-radius:50%;margin-top:8px;background:#cfd4dc}
+  .cc.new li::before{background:var(--accent)}
+
+  /* ---------- steps ---------- */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:34px}
+  @media(max-width:860px){.steps{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.steps{grid-template-columns:1fr}}
+  .stepc{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:20px 18px;position:relative}
+  .stepc .n{font-size:var(--fs-xs);font-weight:800;color:var(--accent-ink);letter-spacing:.06em}
+  .stepc h3{font-size:var(--fs-h3);font-weight:700;margin:9px 0 7px}
+  .stepc p{font-size:var(--fs-sm);color:var(--ink-2);line-height:1.6}
+  .stepc .ic{width:34px;height:34px;border-radius:9px;background:var(--accent-bg);color:var(--accent-ink);
+    display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:13px}
+
+  /* ---------- feature grid ---------- */
+  .feat{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:34px}
+  @media(max-width:860px){.feat{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.feat{grid-template-columns:1fr}}
+  .fc{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px 18px 19px;
+    transition:border-color .18s,box-shadow .18s,transform .18s}
+  .fc:hover{border-color:#d5dbe2;box-shadow:var(--shadow-sm);transform:translateY(-2px)}
+  .fc .ic{font-size:19px;margin-bottom:11px;display:block}
+  .fc h3{font-size:var(--fs-h3);font-weight:700;margin-bottom:6px;letter-spacing:-.01em}
+  .fc p{font-size:var(--fs-sm);color:var(--ink-2);line-height:1.6}
+  .fc p b{color:var(--ink);font-weight:600}
+
+  /* ---------- AI modes ---------- */
+  .modes-wrap{background:var(--bg-alt)}
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:34px}
+  @media(max-width:860px){.modes{grid-template-columns:1fr}}
+  .mc{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column}
+  .mc .head{padding:18px 18px 15px;border-bottom:1px solid var(--line-2)}
+  .mc .k{font-size:var(--fs-xs);font-weight:800;letter-spacing:.08em;color:var(--accent-ink);text-transform:uppercase}
+  .mc h3{font-size:17px;font-weight:700;margin:7px 0 6px}
+  .mc .head p{font-size:var(--fs-sm);color:var(--ink-2);line-height:1.6}
+  .mc .demo{padding:15px 16px 17px;background:#fbfcfd;flex:1}
+  .mc .demo .lbl{font-size:11px;color:var(--ink-3);font-weight:700;margin-bottom:9px;letter-spacing:.04em}
+  .mini{display:flex;flex-direction:column;gap:6px}
+  .mini .b{display:flex;align-items:center;gap:8px;font-size:12px;background:#fff;border:1px solid var(--line);
+    border-radius:7px;padding:6px 9px;color:var(--ink-2)}
+  .mini .b .t{flex:0 0 auto;font-size:10px;font-weight:800;padding:1px 6px;border-radius:4px}
+  .t.hook{color:#2563c9;background:#e7effb} .t.body{color:var(--ink-2);background:#eef1f4}
+  .t.echo{color:var(--gold);background:var(--gold-bg)} .t.g{color:var(--accent-ink);background:var(--accent-bg)}
+  .topicbar{display:flex;flex-direction:column;gap:7px}
+  .tb{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--ink-2)}
+  .tb .bar{flex:1;height:7px;border-radius:4px;background:#eceff2;position:relative;overflow:hidden}
+  .tb .bar span{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--accent);opacity:.85}
+  .tb .tm{flex:0 0 auto;font-size:11px;color:var(--ink-3);width:42px;text-align:right}
+
+  /* ---------- scenarios ---------- */
+  .scn{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:34px}
+  @media(max-width:860px){.scn{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.scn{grid-template-columns:1fr}}
+  .sc{border:1px solid var(--line);border-radius:var(--radius);padding:20px 18px;background:#fff}
+  .sc .ic{font-size:22px;margin-bottom:11px}
+  .sc h3{font-size:var(--fs-h3);font-weight:700;margin-bottom:6px}
+  .sc p{font-size:var(--fs-sm);color:var(--ink-2);line-height:1.6}
+
+  /* ---------- principles ---------- */
+  .prin-wrap{background:var(--bg-alt)}
+  .prin{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 34px;margin-top:30px}
+  @media(max-width:720px){.prin{grid-template-columns:1fr}}
+  .pr{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .pr .ic{flex:0 0 auto;width:36px;height:36px;border-radius:9px;background:#fff;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:17px}
+  .pr h3{font-size:var(--fs-h3);font-weight:700;margin-bottom:4px}
+  .pr p{font-size:var(--fs-sm);color:var(--ink-2);line-height:1.6}
+
+  /* ---------- usage ---------- */
+  .use{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:34px}
+  @media(max-width:760px){.use{grid-template-columns:1fr}}
+  .uc{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .uc .top{padding:20px 20px 16px}
+  .uc .k{font-size:var(--fs-xs);font-weight:800;letter-spacing:.08em;color:var(--accent-ink);text-transform:uppercase}
+  .uc h3{font-size:18px;font-weight:700;margin:8px 0 6px}
+  .uc .top p{font-size:var(--fs-sm);color:var(--ink-2);line-height:1.6}
+  .uc .code{background:#1c2027;color:#c8d0dc;font-size:12.5px;line-height:1.85;padding:15px 18px;
+    font-family:"SF Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-x:auto}
+  .uc .code .c{color:#6b7686} .uc .code .g{color:#7fd6c4}
+  .uc ul{list-style:none;padding:14px 20px 18px;display:flex;flex-direction:column;gap:8px}
+  .uc li{font-size:var(--fs-sm);color:var(--ink-2);display:flex;gap:9px;line-height:1.5}
+  .uc li::before{content:"✓";color:var(--accent);font-weight:800;flex:0 0 auto}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--line);padding:34px 0 44px;color:var(--ink-3);font-size:var(--fs-sm)}
+  .foot-in{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+  .foot-in .brand{color:var(--ink-2)}
+  footer .note{margin-left:auto;text-align:right;line-height:1.6}
+
+  .kicker{display:inline-block;font-size:var(--fs-xs);color:var(--accent-ink);background:var(--accent-bg);
+    border-radius:20px;padding:4px 12px;font-weight:700;letter-spacing:.03em}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <div class="brand"><span class="dot">P</span>Paper Edit Studio</div>
+    <div class="nav-links">
+      <a href="#why">为什么</a>
+      <a href="#how">怎么用</a>
+      <a href="#features">能做什么</a>
+      <a href="#modes">三种玩法</a>
+      <a href="#who">适合谁</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="kicker">用文字剪视频 · 本地优先</span>
+      <h1 style="margin-top:16px">把剪口播视频，<br>从「拖时间轴」<br>变成 <em>改一篇文稿</em>。</h1>
+      <p class="lede">
+        导入视频，自动转写成带时间戳的字幕。之后你面对的不再是密密麻麻的轨道，
+        而是一篇可勾选、可编辑的文稿——<b style="color:var(--ink)">留下的句子=成片，划掉的句子=删除</b>。
+        AI 先帮你挑一遍，你说了算，一键导出。
+      </p>
+      <div class="chips">
+        <div class="chip">🎯 <b>句子级</b>剪辑，而非帧级</div>
+        <div class="chip">🤖 AI 只建议，<b>你拍板</b></div>
+        <div class="chip">💻 数据留本机，<b>非破坏性</b></div>
+      </div>
+      <div class="flow">
+        <span class="step"><i>1</i>导入视频</span><span class="arr">→</span>
+        <span class="step"><i>2</i>自动转写</span><span class="arr">→</span>
+        <span class="step"><i>3</i>AI 建议</span><span class="arr">→</span>
+        <span class="step"><i>4</i>勾选确认</span><span class="arr">→</span>
+        <span class="step"><i>5</i>导出成片</span>
+      </div>
+    </div>
+
+    <!-- editor mockup -->
+    <div class="mock" aria-hidden="true">
+      <div class="mock-bar">
+        <span class="tl"></span><span class="tl"></span><span class="tl"></span>
+        <span class="title">我的口播 · 文字快剪</span>
+        <span class="pill">成片 3:24</span>
+      </div>
+      <div class="player">
+        <span class="mode">成片模式 · 只播保留</span>
+        <span class="play"></span>
+        <span class="seek"></span>
+      </div>
+      <div class="rows">
+        <div class="row keep">
+          <span class="grip">⠿</span><span class="box"></span>
+          <span class="txt">今天想聊一个我踩过很多坑才想明白的事。</span>
+          <span class="tag keep">保留</span>
+        </div>
+        <div class="row cut">
+          <span class="grip">⠿</span><span class="box"></span>
+          <span class="txt">呃……那个……就是说，我先喝口水啊。
+            <span class="why">AI：开场寒暄 + 口癖停顿，建议删除</span></span>
+          <span class="tag del">口癖·删</span>
+        </div>
+        <div class="row keep">
+          <span class="grip">⠿</span><span class="box"></span>
+          <span class="txt">核心方法其实只有三步，第一步最容易被忽略。</span>
+          <span class="tag gold">⭐ 金句</span>
+        </div>
+        <!-- expanded word-chip row -->
+        <div class="row keep exp">
+          <div style="display:flex;align-items:flex-start;gap:11px;width:100%">
+            <span class="grip">⠿</span><span class="box"></span>
+            <span class="txt">我们要 我们要先把目标拆开，再一件一件去做。 <span style="color:var(--accent-ink);font-weight:600">✂ 句内微调</span></span>
+          </div>
+          <div class="chiprow">
+            <span class="wc del">我们要</span><span class="wc">我们要</span><span class="wc cut">先把目标</span>
+            <span class="wc">拆开</span><span class="wc">再一件</span><span class="wc">一件</span><span class="wc">去做</span>
+          </div>
+          <div class="wave">
+            <i style="height:40%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:90%"></i>
+            <i style="height:45%"></i><i style="height:75%"></i><i style="height:35%"></i><i style="height:85%"></i>
+            <i style="height:60%"></i><i style="height:50%"></i><i style="height:80%"></i><i style="height:40%"></i>
+            <i style="height:65%"></i><i style="height:55%"></i><i style="height:75%"></i><i style="height:45%"></i>
+            <span class="cutline" style="left:20%"></span><span class="cutline y" style="left:62%"></span>
+          </div>
+          <div class="exp-note">
+            <span>点词块 <b>删/恢复</b>该词</span><span>拖波形 <b>微移切点</b></span><span>自动<b>接缝试听</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ WHY ============ -->
+<section id="why" class="why-wrap">
+  <div class="wrap why-grid">
+    <div class="why">
+      <div class="eyebrow">为什么做这件事</div>
+      <div class="quote">剪口播视频，真正的判断从来不是<em>「这一帧要不要留」</em>，<br>而是<em>「这句话要不要留」</em>。</div>
+      <p>
+        口播、访谈、演讲、课程——这类以「说话」为主的视频，内容都写在字幕里。
+        可传统时间轴剪辑，逼你在波形上反复拖动、试听、定位，把一个「读文稿」就能做的决定，
+        变成了一次次机械的手部操作。效率低，也累。
+      </p>
+      <p>
+        我们换了个思路：<b style="color:var(--ink)">字幕才是视频真正的索引</b>。
+        把视频摊成一篇可读、可勾选的文稿，你像审稿一样决定去留，机器负责把这些决定精确落到时间线上。
+        判断回归内容，操作交给工具。
+      </p>
+    </div>
+    <div class="compare">
+      <div class="cc old">
+        <h4>⏱ 传统时间轴</h4>
+        <ul>
+          <li>在波形里找那句话在哪</li>
+          <li>反复拖动、放大、试听</li>
+          <li>手动对齐每一个切口</li>
+          <li>删口癖、剪重复全靠肉眼</li>
+          <li>改一版重来一遍</li>
+        </ul>
+      </div>
+      <div class="cc new">
+        <h4>📝 用文字剪</h4>
+        <ul>
+          <li>整篇文稿一眼扫完</li>
+          <li>勾选=留，取消=删</li>
+          <li>切口由系统精确落位</li>
+          <li>口癖/重复 AI 自动标出</li>
+          <li>多套剪法并存、随时切换</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW ============ -->
+<section id="how">
+  <div class="wrap">
+    <div class="eyebrow">四步走完</div>
+    <h2>导入到成片，全程只跟文字打交道</h2>
+    <p class="sub">拖入视频后，转写、AI 初筛自动完成；你只做最值钱的那一步——决定留什么。</p>
+    <div class="steps">
+      <div class="stepc">
+        <div class="ic">📥</div>
+        <div class="n">STEP 01</div>
+        <h3>导入视频</h3>
+        <p>拖进一个本地视频，或粘贴文件路径。原始视频只读不改，全程非破坏性。</p>
+      </div>
+      <div class="stepc">
+        <div class="ic">🎙️</div>
+        <div class="n">STEP 02</div>
+        <h3>自动转写</h3>
+        <p>生成带<b>词级时间戳</b>的字幕，每个字都能对回视频的精确时刻。转写过的文件下次不重转。</p>
+      </div>
+      <div class="stepc">
+        <div class="ic">✨</div>
+        <div class="n">STEP 03</div>
+        <h3>AI 初筛</h3>
+        <p>寒暄、口癖、重复句默认帮你取消勾选，并在每行给出删除理由——你只需复核，不用从零挑。</p>
+      </div>
+      <div class="stepc">
+        <div class="ic">🎬</div>
+        <div class="n">STEP 04</div>
+        <h3>确认导出</h3>
+        <p>勾选、改字、调顺序，边改边试听。满意后一键导出 MP4 + 重排字幕。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section id="features" style="background:var(--bg-alt)">
+  <div class="wrap">
+    <div class="eyebrow">能做什么</div>
+    <h2>不只是「删句子」，而是一套完整的成片工作台</h2>
+    <p class="sub">从粗剪到精修，从单句微调到整片重排，一个界面里全部搞定。</p>
+    <div class="feat">
+      <div class="fc"><span class="ic">✅</span><h3>文字即时间轴</h3>
+        <p>勾选=保留，取消=<b>划线灰显</b>的删除；文本能直接改，改动与勾选自动保存，永不丢。</p></div>
+      <div class="fc"><span class="ic">🔀</span><h3>成片 / 原片双模式</h3>
+        <p>默认只播「保留」的内容，进度条走成片时间轴；一键切回原片对照，点删掉的句子可单句试听、决定要不要捞回。</p></div>
+      <div class="fc"><span class="ic">✂️</span><h3>句内微调到词</h3>
+        <p>展开词块面板，<b>点一个词就删/恢复一个词</b>；波形上的切点竖线可鼠标拖动，每次调整自动做「接缝试听」。</p></div>
+      <div class="fc"><span class="ic">🌬️</span><h3>一键剪气口</h3>
+        <p>自动检测句内「呃 / 嗯 / 唉」和紧邻重复（"我们要我们要"），标红提示，全片一键批量清理，每处可单独恢复。</p></div>
+      <div class="fc"><span class="ic">🗺️</span><h3>长视频内容地图</h3>
+        <p>AI 通读全片，把主题和背景/案例分开，每个主题给出时长与建议成片长度；一键把某个主题变成独立成片。</p></div>
+      <div class="fc"><span class="ic">⭐</span><h3>金句候选</h3>
+        <p>AI 在主题里挑 3–5 个「能单句立住」的金句并说明理由，你决定置顶/保留/弃用；任意句子也能手动点⭐自选。</p></div>
+      <div class="fc"><span class="ic">⏱️</span><h3>时长预算</h3>
+        <p>实时显示 目标 / 预计 / 差额；超支时给「可删清单」，<b>只建议、绝不静默删</b>，锁定的金句永不进删除列表。</p></div>
+      <div class="fc"><span class="ic">🔎</span><h3>字幕质检 + AI 复核</h3>
+        <p>标出转写里可能听错的词，AI 结合上下文判断：确定的自动改（可整批撤销），拿不准的高亮留人工，宁漏改不错改。</p></div>
+      <div class="fc"><span class="ic">🔁</span><h3>批量纠错闭环</h3>
+        <p>改对一个词，系统提示「其他句还有 N 处，一起换？」，并可把正词存进词典——<b>改一次，以后不再错</b>。</p></div>
+      <div class="fc"><span class="ic">↕️</span><h3>拖拽调序</h3>
+        <p>抓住句首把手上下拖，金句提前、结论前置随便排；同一句可重复出现做强调，导出严格按你排的顺序。</p></div>
+      <div class="fc"><span class="ic">📄</span><h3>从文稿反算成片</h3>
+        <p>把排好的成片文字直接粘进来，系统按原话对回视频自动生成方案；错字/标点自动容错，原片没有的改写只提醒、绝不硬凑。</p></div>
+      <div class="fc"><span class="ic">🗂️</span><h3>多套剪法并存</h3>
+        <p>同一个项目里，完整精剪 / 主题切片 / 金句混剪各存一份，方案条上一键切换，互不覆盖。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AI MODES ============ -->
+<section id="modes" class="modes-wrap">
+  <div class="wrap">
+    <div class="eyebrow">三种 AI 玩法</div>
+    <h2>同一段素材，三种成片思路</h2>
+    <p class="sub">AI 挑段的方式可以切换。它永远只从你已有的句子里选，不会凭空编造内容或时间。</p>
+    <div class="modes">
+      <!-- 口播精剪 -->
+      <div class="mc">
+        <div class="head">
+          <div class="k">Mode 01</div>
+          <h3>口播精剪</h3>
+          <p>逐句给保留 / 删除建议，优先删停顿、口癖、重复。适合快速把一条口播修干净。</p>
+        </div>
+        <div class="demo">
+          <div class="lbl">逐句建议</div>
+          <div class="mini">
+            <div class="b"><span class="t g">留</span> 今天讲三个实用技巧</div>
+            <div class="b" style="color:#c2c7cf"><span class="t" style="color:var(--red);background:var(--red-bg)">删</span> 呃……我想想啊</div>
+            <div class="b"><span class="t g">留</span> 第一个，也是最关键的</div>
+            <div class="b" style="color:#c2c7cf"><span class="t" style="color:var(--red);background:var(--red-bg)">删</span> 这个这个……就是</div>
+          </div>
+        </div>
+      </div>
+      <!-- 主题切片 -->
+      <div class="mc">
+        <div class="head">
+          <div class="k">Mode 02</div>
+          <h3>主题切片</h3>
+          <p>长视频按主题拆条，每个主题给出时长与最佳切片。一条长演讲，拆成好几条能单发的短片。</p>
+        </div>
+        <div class="demo">
+          <div class="lbl">按主题拆条</div>
+          <div class="topicbar">
+            <div class="tb"><span>① 开场与背景</span><div class="bar"><span style="width:35%"></span></div><span class="tm">2:10</span></div>
+            <div class="tb"><span>② 核心方法</span><div class="bar"><span style="width:78%"></span></div><span class="tm">5:40</span></div>
+            <div class="tb"><span>③ 真实案例</span><div class="bar"><span style="width:52%"></span></div><span class="tm">3:25</span></div>
+            <div class="tb"><span>④ 行动建议</span><div class="bar"><span style="width:44%"></span></div><span class="tm">2:55</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- 金句混剪 -->
+      <div class="mc">
+        <div class="head">
+          <div class="k">Mode 03</div>
+          <h3>金句混剪</h3>
+          <p>把金句提到最前做 HOOK，主体铺陈，结尾再重复强调（ECHO）。为传播而生的乱序成片，还附标题建议。</p>
+        </div>
+        <div class="demo">
+          <div class="lbl">HOOK → BODY → ECHO</div>
+          <div class="mini">
+            <div class="b"><span class="t hook">HOOK</span> 90% 的人第一步就做错了</div>
+            <div class="b"><span class="t body">BODY</span> 正确的做法应该是……</div>
+            <div class="b"><span class="t body">BODY</span> 我自己试了三个月，发现</div>
+            <div class="b"><span class="t echo">ECHO</span> 记住，第一步千万别错</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHO / SCENARIOS ============ -->
+<section id="who">
+  <div class="wrap">
+    <div class="eyebrow">适合谁 · 什么场景</div>
+    <h2>只要视频里「说的话」是重点，它就帮得上</h2>
+    <p class="sub">越是以语言为主、越是长的内容，用文字剪的效率优势越明显。</p>
+    <div class="scn">
+      <div class="sc"><div class="ic">🎤</div><h3>口播博主 / 自媒体</h3><p>一条几分钟的口播，删掉废话口癖、提炼金句，几分钟出干净成片。</p></div>
+      <div class="sc"><div class="ic">📚</div><h3>知识 / 课程内容</h3><p>长课程按主题切片，一次录制拆成一系列可单发的知识短片。</p></div>
+      <div class="sc"><div class="ic">💬</div><h3>访谈 / 播客</h3><p>长对话通读全片、定位重点段落，抓出可传播的高光片段。</p></div>
+      <div class="sc"><div class="ic">🎓</div><h3>演讲 / 分享回放</h3><p>把一场长演讲的精华浓缩成短片，金句前置，为社交平台重新组织节奏。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRINCIPLES ============ -->
+<section id="principles" class="prin-wrap">
+  <div class="wrap">
+    <div class="eyebrow">可以放心的地方</div>
+    <h2>四条底线，决定了你能信任它</h2>
+    <div class="prin">
+      <div class="pr"><div class="ic">💻</div><div>
+        <h3>本地优先</h3>
+        <p>项目、字幕、剪辑决策、成片都存在你自己电脑里；只把音频发去做转写。视频不上云，重启不丢。</p></div></div>
+      <div class="pr"><div class="ic">🙋</div><div>
+        <h3>AI 只建议，你拍板</h3>
+        <p>AI 的每个判断都能被你一键推翻；它只能从你已有的句子里选，不会生成或改动任何时间戳。</p></div></div>
+      <div class="pr"><div class="ic">🛡️</div><div>
+        <h3>非破坏性</h3>
+        <p>全程不修改原始视频，所有决定都可回退。删错的句子随时勾回来，改坏的方案切回上一套。</p></div></div>
+      <div class="pr"><div class="ic">🔗</div><div>
+        <h3>可追溯</h3>
+        <p>成片里的每一段都能追回到原始句子。内部用结构化数据，字幕只是导入导出的格式。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ USAGE ============ -->
+<section id="usage">
+  <div class="wrap">
+    <div class="eyebrow">两种用法</div>
+    <h2>一套引擎，人和 AI 都能开</h2>
+    <p class="sub">网页版用来人工精修，命令行用来让脚本 / AI 批量驱动——两边产物互通，可以来回接力。</p>
+    <div class="use">
+      <div class="uc">
+        <div class="top">
+          <div class="k">给人用</div>
+          <h3>网页版工作台</h3>
+          <p>浏览器里拖入视频，边看边改。播放器、字幕行、AI 面板、质检、预算、导出全在一个页面。</p>
+        </div>
+        <ul>
+          <li>拖入即用，勾选与改动自动保存</li>
+          <li>成片/原片对照、句内微调、接缝试听</li>
+          <li>主题地图、金句候选、时长预算一站式</li>
+          <li>提示词可视化编辑，随时调 AI 口味</li>
+        </ul>
+      </div>
+      <div class="uc">
+        <div class="top">
+          <div class="k">给 AI / 批处理用</div>
+          <h3>无头命令行</h3>
+          <p>同一套引擎的 CLI，适合脚本或 AI 批量跑。产物与网页版共用工作区，可来回接力。</p>
+        </div>
+        <div class="code"><span class="c"># 一条命令跑完整流程：转写 → AI 选段 → 导出</span>
+pe <span class="g">run</span> a.mp4 b.mp4 --brief <span class="g">"保留高光，删口癖重复"</span>
+
+<span class="c"># 或分步来：转写 / 选段 / 浏览器确认 / 导出</span>
+pe transcribe  ·  pe select  ·  pe review  ·  pe export</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap foot-in">
+    <div class="brand"><span class="dot" style="width:18px;height:18px;font-size:11px">P</span>Paper Edit Studio</div>
+    <div class="note">
+      用文字剪视频 · 本地优先 · AI 辅助，你做主<br>
+      导入 → 转写 → AI 建议 → 勾选确认 → 导出成片
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

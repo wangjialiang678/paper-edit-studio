@@ -93,68 +93,13 @@ class KouboSelectorTests(unittest.TestCase):
         self.assertNotIn("{{USER_BRIEF}}", system)
 
 
-class TopicSelectorTests(unittest.TestCase):
-    def test_topics_normalized(self):
-        client = FakeClient(
-            [
-                {
-                    "overview": "一条测试视频",
-                    "topics": [
-                        {
-                            "topic_id": "topic_01",
-                            "title": "主题一",
-                            "summary": "概述",
-                            "segment_ids": ["sentence_0002", "sentence_0001", "sentence_8888"],
-                            "best_clip": {
-                                "segment_ids": ["sentence_0002", "sentence_0004"],
-                                "hook_segment_id": "sentence_0004",
-                                "reason": "有金句",
-                            },
-                        },
-                        {"topic_id": "topic_02", "title": "空主题", "segment_ids": ["sentence_7777"]},
-                    ],
-                }
-            ]
-        )
-        selector = AiSelector(PROMPTS_DIR, client=client)
-        suggestion = selector.suggest(_transcript(), "topic_slicing")
-        topics = suggestion.payload["topics"]
-        self.assertEqual(len(topics), 1)
-        self.assertEqual(topics[0]["segment_ids"], ["sentence_0001", "sentence_0002"])  # 按原文顺序
-        # best_clip 必须是主题子集：sentence_0004 不在主题内被剔除
-        self.assertEqual(topics[0]["best_clip"]["segment_ids"], ["sentence_0002"])
-        self.assertEqual(topics[0]["best_clip"]["hook_segment_id"], "sentence_0002")
-        self.assertGreater(topics[0]["duration_ms"], 0)
-
-
-class RemixSelectorTests(unittest.TestCase):
-    def test_clips_and_quotes_normalized(self):
-        client = FakeClient(
-            [
-                {
-                    "golden_quotes": [
-                        {"segment_id": "sentence_0003", "quote": "金句", "strength": 5, "reason": "强"},
-                        {"segment_id": "sentence_6666", "quote": "编造", "strength": 4},
-                    ],
-                    "clips": [
-                        {"purpose": "hook", "segment_ids": ["sentence_0003"], "note": "前置"},
-                        {"purpose": "body", "segment_ids": ["sentence_0002", "sentence_0001"]},
-                        {"purpose": "echo", "segment_ids": ["sentence_0003"]},
-                        {"purpose": "outro", "segment_ids": ["sentence_0001"]},
-                    ],
-                    "title_suggestions": ["标题A"],
-                }
-            ]
-        )
-        selector = AiSelector(PROMPTS_DIR, client=client)
-        suggestion = selector.suggest(_transcript(), "highlight_remix")
-        clips = suggestion.payload["clips"]
-        self.assertEqual([clip["purpose"] for clip in clips], ["hook", "body", "echo"])
-        # hook/echo 保序允许重复；body 内部按原文顺序
-        self.assertEqual(clips[1]["segment_ids"], ["sentence_0001", "sentence_0002"])
-        self.assertEqual(len(suggestion.payload["golden_quotes"]), 1)
-        self.assertTrue(any("outro" in warning for warning in suggestion.warnings))
-        self.assertGreater(suggestion.payload["clips_duration_ms"], 0)
+class RetiredSelectorModesTests(unittest.TestCase):
+    def test_topic_slicing_and_highlight_remix_are_retired(self):
+        selector = AiSelector(PROMPTS_DIR, client=FakeClient([]))
+        for mode in ("topic_slicing", "highlight_remix"):
+            with self.subTest(mode=mode):
+                with self.assertRaisesRegex(ValueError, "已并入 AI 出剪辑方案"):
+                    selector.suggest(_transcript(), mode)
 
 
 class ChunkResilienceTests(unittest.TestCase):
@@ -249,15 +194,24 @@ class PromptFilesTests(unittest.TestCase):
         from cutpoint_lab.studio.prompt_store import PromptStore
 
         store = PromptStore(PROMPTS_DIR, None)
-        for name in ("koubo-tighten.md", "topic-slicing.md", "highlight-remix.md"):
+        for name in ("koubo-tighten.md", "content-map.md", "quote-candidates.md"):
             content = (PROMPTS_DIR / name).read_text(encoding="utf-8")
             self.assertNotIn("## 输出格式", content, name)
             self.assertNotIn("{{", content, name)
-        for mode in ("koubo_tighten", "topic_slicing", "highlight_remix"):
+        for mode in ("koubo_tighten", "content_map", "quote_candidates"):
             assembled = store.assemble(mode)
             self.assertIn("segment_id", assembled)
             self.assertIn("硬约束", assembled)
             self.assertIn("{{USER_BRIEF}}", assembled)
+
+    def test_content_map_prompt_enforces_large_complete_topics(self):
+        content = (PROMPTS_DIR / "content-map.md").read_text(encoding="utf-8")
+        self.assertIn("可独立成片的完整叙事", content)
+        self.assertIn("宁少勿碎", content)
+        self.assertIn("3–15 分钟", content)
+        self.assertIn("15 分钟", content)
+        self.assertIn("2–4 个主题", content)
+        self.assertIn("不足 3 分钟", content)
 
 
 if __name__ == "__main__":

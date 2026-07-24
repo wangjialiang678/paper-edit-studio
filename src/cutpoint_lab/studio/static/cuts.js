@@ -2,7 +2,7 @@
    数据契约（B8）：GET /api/projects/{id}/cuts → {cuts:[{name,label,...}]}
    POST /api/projects/{id}/cuts {name,label,from: blank|copy:<cut>|topic:<topic_id>}
    文稿建方案（B9）：POST /api/projects/{id}/cuts/from-script {name,label,script,ai} */
-import { $, el, state, api, postJson, escapeHtml, setStatus } from "./shared.js";
+import { $, el, state, pb, api, postJson, escapeHtml, setStatus } from "./shared.js";
 import { showEditor } from "./editor.js";
 
 export async function loadCuts() {
@@ -17,6 +17,12 @@ export async function loadCuts() {
   renderCutBar();
 }
 
+/* 高级托盘（剪辑方案条 + 看点梳理）默认收起；多于一个方案时自动展开，好让多版本用户看得见。 */
+export function applyAdvTray() {
+  if (!el.advTray) return;
+  el.advTray.hidden = !(state.moreOpen || state.cuts.length > 1);
+}
+
 export function renderCutBar() {
   if (!state.projectId) { el.cutBar.hidden = true; return; }
   el.cutBar.hidden = false;
@@ -25,18 +31,9 @@ export function renderCutBar() {
       ${escapeHtml(cut.label || cut.name)}${cut.has_export ? " ⬇" : ""}
     </button>`).join("");
   el.cutBar.innerHTML = `
-    <span class="cut-label">成片方案：</span>${pills}
-    <button class="btn small" id="cutNewBtn">＋ 新建</button>
-    <button class="btn small" id="cutScriptBtn" title="粘贴外部 AI 挑好/排好的成片文稿，自动对回原视频生成方案">📄 从文稿新建</button>
-    <span class="cut-form" id="cutNewForm" hidden>
-      <input type="text" class="settings-input cut-input" id="cutNameInput" placeholder="方案名（小写字母数字-）">
-      <select id="cutFromSel" class="settings-input cut-input">
-        <option value="blank">空白</option>
-        <option value="copy">复制当前方案</option>
-      </select>
-      <button class="btn small primary" id="cutCreateBtn">创建</button>
-      <button class="btn small" id="cutCancelBtn">取消</button>
-    </span>`;
+    <span class="cut-label">剪辑方案：</span>${pills}
+    <button class="btn small" id="cutMenuBtn" title="当前方案：复制一份试另一种剪法 / 改名 / 删除">⋯</button>
+    <button class="btn small" id="cutScriptBtn" title="你已经有一份排好的剪辑稿（哪些话、什么顺序），直接粘进来自动对回视频">📄 套用已有剪辑稿</button>`;
   el.cutBar.querySelectorAll(".cut-pill").forEach((pill) => {
     pill.addEventListener("click", async () => {
       if (pill.dataset.cut === state.cutName) return;
@@ -45,38 +42,99 @@ export function renderCutBar() {
       state.viewOriginal = false;
       await showEditor();
       renderCutBar();
-      setStatus(`已切换到方案「${pill.dataset.cut}」。`);
+      // 切方案后自动从这个方案的开头试听，马上感受剪出来的效果
+      if (pb.ranges.length) {
+        pb.audition = null;
+        pb.rangeIndex = 0;
+        el.video.currentTime = pb.ranges[0].start_ms / 1000;
+        el.video.play();
+        setStatus(`已切换到方案「${pill.dataset.cut}」，正在从头试听成片。`);
+      } else {
+        setStatus(`已切换到方案「${pill.dataset.cut}」（还没有保留句，勾选或跑 AI 选段后可试听）。`);
+      }
     });
   });
-  $("cutNewBtn").addEventListener("click", () => { $("cutNewForm").hidden = !$("cutNewForm").hidden; });
-  $("cutCancelBtn")?.addEventListener("click", () => { $("cutNewForm").hidden = true; });
-  $("cutCreateBtn")?.addEventListener("click", async () => {
-    const name = $("cutNameInput").value.trim();
+  $("cutMenuBtn").addEventListener("click", openCutMenu);
+  $("cutScriptBtn").addEventListener("click", openScriptDialog);
+  applyAdvTray();
+}
+
+/* 当前方案的 ⋯ 菜单：复制（保住手工精修成果、派生变体）/ 改名 / 删除。 */
+function openCutMenu() {
+  document.querySelector(".cut-menu")?.remove();
+  const menu = document.createElement("div");
+  menu.className = "q-popover cut-menu";
+  const isDefault = state.cutName === "default";
+  menu.innerHTML = `
+    <div class="q-pop-text">方案「${escapeHtml(state.cutName)}」</div>
+    <div class="q-actions" style="flex-direction:column;align-items:stretch">
+      <button class="btn small" data-act="copy" title="在当前方案的基础上（含你的手工微调）派生一个变体，互不影响">⧉ 复制一份试另一种剪法</button>
+      <button class="btn small" data-act="rename" ${isDefault ? "disabled title=\"默认方案不改名\"" : ""}>✏ 改名</button>
+      <button class="btn small" data-act="delete" ${isDefault ? "disabled title=\"默认方案不可删除\"" : ""}>🗑 删除此方案</button>
+    </div>`;
+  document.body.appendChild(menu);
+  const rect = $("cutMenuBtn").getBoundingClientRect();
+  menu.style.left = `${Math.min(rect.left + window.scrollX, window.innerWidth - 260)}px`;
+  menu.style.top = `${rect.bottom + window.scrollY + 6}px`;
+  const close = () => { menu.remove(); document.removeEventListener("pointerdown", outside, true); };
+  const outside = (event) => { if (!menu.contains(event.target)) close(); };
+  document.addEventListener("pointerdown", outside, true);
+
+  menu.querySelector('[data-act="copy"]').addEventListener("click", async () => {
+    close();
+    const name = prompt("新方案名（小写字母数字-）：", `${state.cutName}-v2`.slice(0, 32));
     if (!name) return;
-    const from = $("cutFromSel").value === "copy" ? `copy:${state.cutName}` : "blank";
     try {
-      await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/cuts`, { name, label: name, from });
-      state.cutName = name;
+      await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/cuts`,
+        { name: name.trim(), label: name.trim(), from: `copy:${state.cutName}` });
+      state.cutName = name.trim();
       state.order = [];
       await loadCuts();
       await showEditor();
-      setStatus(`方案「${name}」已创建并切换。`);
+      setStatus(`已复制出方案「${name.trim()}」并切换（原方案的手工调整都带过来了）。`);
     } catch (error) {
-      setStatus(`创建方案失败：${error.message}`, "error");
+      setStatus(`复制方案失败：${error.message}`, "error");
     }
   });
-  $("cutScriptBtn").addEventListener("click", openScriptDialog);
+  menu.querySelector('[data-act="rename"]').addEventListener("click", async () => {
+    if (isDefault) return;
+    close();
+    const label = prompt("方案显示名：", state.cuts.find((c) => c.name === state.cutName)?.label || state.cutName);
+    if (label === null || !label.trim()) return;
+    try {
+      await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/plan?cut=${encodeURIComponent(state.cutName)}`, { rows: [], label: label.trim() });
+      await loadCuts();
+      setStatus(`方案已改名为「${label.trim()}」。`);
+    } catch (error) {
+      setStatus(`改名失败：${error.message}`, "error");
+    }
+  });
+  menu.querySelector('[data-act="delete"]').addEventListener("click", async () => {
+    if (isDefault) return;
+    close();
+    if (!confirm(`删除方案「${state.cutName}」？其勾选/微调/导出都会删除（其他方案不受影响）。`)) return;
+    try {
+      await api(`/api/projects/${encodeURIComponent(state.projectId)}/cuts/${encodeURIComponent(state.cutName)}`, { method: "DELETE" });
+      state.cutName = "default";
+      state.order = [];
+      await loadCuts();
+      await showEditor();
+      setStatus("方案已删除，回到默认方案。");
+    } catch (error) {
+      setStatus(`删除失败：${error.message}`, "error");
+    }
+  });
 }
 
-/* 从文稿新建方案：粘贴文稿 → 对齐反算 → 新 Cut + 对齐报告。 */
-function openScriptDialog() {
+/* 套用已有剪辑稿：粘贴文稿 → 对齐反算 → 新 Cut + 对齐报告。（AI 面板的外部稿入口也用它） */
+export function openScriptDialog() {
   document.querySelector(".script-dialog")?.remove();
   const dlg = document.createElement("div");
   dlg.className = "script-dialog";
   dlg.innerHTML = `
     <div class="script-dialog-box">
-      <h4>从文稿生成成片方案</h4>
-      <div class="meta">粘贴外部 AI（或你自己）挑好/排好的成片文字。系统按原话对回视频：错字/标点/格式差异自动容错；改写过找不到原话的段落会列进报告让你裁决，不会硬凑。</div>
+      <h4>套用已有剪辑稿</h4>
+      <div class="meta">你已经有一份排好的成片文字（自己写的，或别的 AI 挑好/排好的）？粘进来，系统按原话对回视频：错字/标点/格式差异自动容错；改写过、找不到原话的段落会列进报告让你裁决，不会硬凑。</div>
       <input type="text" class="settings-input" id="scriptCutName" placeholder="新方案名（如 waigao-v1）">
       <textarea class="prompt-editor" id="scriptText" placeholder="每个空行分段；段落顺序=成片顺序"></textarea>
       <label class="trim-auto"><input type="checkbox" id="scriptAi" checked>拿不准的段落交 AI 裁决（推荐）</label>

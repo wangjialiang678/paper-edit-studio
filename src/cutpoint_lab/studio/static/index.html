@@ -71,7 +71,14 @@
           </div>
         </div>
 
-        <div class="cut-bar" id="cutBar" hidden></div>
+        <div class="journey" id="journeyStrip" hidden></div>
+
+        <div class="topic-hint-banner" id="topicHintBanner" hidden></div>
+
+        <div class="adv-tray" id="advTray" hidden>
+          <div class="cut-bar" id="cutBar" hidden></div>
+          <button class="btn small" id="topicsBtn" title="长视频先梳理看点，每个看点各剪一条短视频">🗺 看点梳理</button>
+        </div>
 
         <div class="replace-bar" id="replaceBar" hidden></div>
 
@@ -81,14 +88,14 @@
         </div>
 
         <div class="toolbar">
-          <button class="btn" id="aiPanelBtn">🤖 AI 选段</button>
-          <button class="btn" id="topicsBtn" title="长视频先确认主题边界，每个主题一个成片方案">🗺 主题</button>
+          <button class="btn" id="aiPanelBtn" title="AI 一次完成分主题→挑金句→筛句子，产出可切换的剪辑方案">🤖 AI 出方案</button>
           <button class="btn" id="quotesBtn" title="金句候选：AI 挑能单句立住的句子，你裁决置顶/保留/弃用">⭐ 金句</button>
-          <button class="btn" id="cutFillersBtn" title="对所有保留句应用检测到的气口建议（呃/嗯/重复）">✂ 一键剪气口</button>
+          <button class="btn" id="cutFillersBtn" title="对所有保留句应用检测到的气口建议（呃/嗯/重复）">✂ 剪气口</button>
           <button class="btn" id="undoCutFillersBtn" hidden>↩ 撤销剪气口</button>
-          <button class="btn" id="qualityBtn" title="低置信/疑似错词/参考字幕差异的质检报告">🔎 质检</button>
+          <button class="btn" id="qualityBtn" title="检查字幕里的错别字/识别错词/与参考字幕的差异">🔎 字幕校对</button>
           <button class="btn" id="origOrderBtn" hidden>↩ 回看原始顺序</button>
-          <span class="budget-chip idle" id="budgetChip" title="时长预算：设目标，超支时给可删建议（锁定金句永不动）" hidden>⏱</span>
+          <span class="budget-chip idle" id="budgetChip" title="时长：设目标，超支时给可删建议（锁定金句永不动）" hidden>⏱</span>
+          <button class="btn" id="moreBtn" title="多版本剪法 / 套用已有剪辑稿 / 按看点分条">⋯ 更多剪法</button>
           <span class="toolbar-gap"></span>
           <span id="exportChecklist"></span>
           <button class="btn accent" id="exportBtn">导出视频</button>
@@ -100,22 +107,13 @@
 
     <aside class="ai-panel" id="aiPanel" hidden>
       <div class="ai-head">
-        <b>AI 选段</b>
+        <b>🤖 AI 出剪辑方案</b>
         <span class="ai-head-actions">
-          <button class="btn small" id="aiPromptBtn" title="查看/编辑当前模式的提示词">📝 提示词</button>
+          <button class="btn small" id="aiPromptBtn" title="查看/编辑 AI 的剪辑理念（分主题/挑金句/筛句子）">📝 提示词</button>
           <button class="btn small" id="aiCloseBtn">✕</button>
         </span>
       </div>
-      <div class="ai-tabs">
-        <button class="ai-tab active" data-mode="koubo_tighten">口播精剪</button>
-        <button class="ai-tab" data-mode="topic_slicing">主题切片</button>
-        <button class="ai-tab" data-mode="highlight_remix">金句混剪</button>
-      </div>
-      <div class="ai-brief">
-        <textarea id="aiBrief" placeholder="可选：补充要求（如“只保留讲 AI 教育的部分”“目标 60 秒”）"></textarea>
-        <button class="btn primary" id="aiRunBtn">运行 AI 分析</button>
-      </div>
-      <div class="ai-body" id="aiBody"><div class="ai-hint">选择模式后点击"运行 AI 分析"。<br>ASR 完成时会自动跑一次口播精剪。</div></div>
+      <div class="ai-body" id="aiBody"><div class="ai-hint">加载中…</div></div>
     </aside>
 
     <aside class="ai-panel" id="settingsPanel" hidden>

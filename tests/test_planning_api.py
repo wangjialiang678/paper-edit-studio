@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 import threading
 import time
@@ -31,33 +32,41 @@ class _PlanningClient:
         if self.fail:
             raise RuntimeError("mock planning failure")
         if '"candidates"' in system:
+            topic_match = re.search(r"## \[([^\]]+)\]", user)
+            topic_id = topic_match.group(1) if topic_match else "t1"
+            segment_ids = re.findall(r"\[(s\d+)\]", user)
+            if "s2" in segment_ids:
+                segment_ids = [
+                    "s2",
+                    *[item for item in segment_ids if item != "s2"],
+                ]
             return {
                 "candidates": [
                     {
-                        "id": "q1",
-                        "topic_id": "t1",
-                        "segment_id": "s2",
-                        "type": "claim",
+                        "id": f"q{index}",
+                        "topic_id": topic_id,
+                        "segment_id": segment_id,
+                        "type": "hook" if index == 1 else "claim",
                         "context": "上下文",
                         "reason": "主张完整",
-                    },
-                    {
-                        "id": "q2",
-                        "topic_id": "t1",
-                        "segment_id": "s1",
-                        "type": "hook",
-                        "context": "上下文",
-                        "reason": "适合开场",
-                    },
-                    {
-                        "id": "q3",
-                        "topic_id": "t1",
-                        "segment_id": "s3",
-                        "type": "background",
-                        "context": "上下文",
-                        "reason": "背景说明",
-                    },
+                    }
+                    for index, segment_id in enumerate(segment_ids[:3], 1)
                 ]
+            }
+        if '"decisions"' in system:
+            segment_ids = re.findall(r"\[(s\d+)\]", user)
+            return {
+                "topic_name": "整片模型主题",
+                "title_suggestions": ["模型标题"],
+                "decisions": [
+                    {
+                        "segment_id": segment_id,
+                        "keep": True,
+                        "reason": "保留",
+                        "labels": [],
+                    }
+                    for segment_id in segment_ids
+                ],
             }
         return {
             "claims": [
@@ -226,6 +235,156 @@ class PlanningApiTests(unittest.TestCase):
         }
         for route, handler in expected.items():
             self.assertEqual(ROUTES[route], handler)
+
+    def test_route_table_contains_unified_plan_endpoints(self):
+        self.assertEqual(
+            ROUTES[("GET", "/api/plan-intents")],
+            "_route_plan_intents",
+        )
+        self.assertEqual(
+            ROUTES[("POST", "/api/projects/{id}/plans/generate")],
+            "_route_plans_generate",
+        )
+
+    def test_plan_intents_and_whole_video_generation_are_async_and_never_overwrite(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app, project, _selector = self._app_project(root)
+            before_default = project.read_edl("default")
+            server, port = bind_server(app, host="127.0.0.1", port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            api = f"http://127.0.0.1:{port}/api"
+            base = f"{api}/projects/{quote(project.id)}"
+            payload = {
+                "intent": ["cut_fillers", "hook_first"],
+                "intent_extra": "只保留 AI 教育",
+                "duration_min_s": 180,
+                "duration_max_s": 300,
+                "split_topics": False,
+            }
+            try:
+                _, presets = _request_json(f"{api}/plan-intents")
+                self.assertEqual(
+                    {item["key"] for item in presets["intents"]},
+                    {
+                        "cut_fillers",
+                        "hook_first",
+                        "keep_insights",
+                        "keep_stories",
+                        "cut_smalltalk",
+                        "keep_data",
+                    },
+                )
+
+                _, started = _request_json(
+                    f"{base}/plans/generate",
+                    method="POST",
+                    payload=payload,
+                )
+                self.assertEqual(started["status"], "running")
+                first = _wait_state(project, "plan_ai")
+                self.assertEqual(first["status"], "done", first)
+                self.assertEqual(first["cuts"], ["ai-plan"])
+                self.assertIsNone(first["error"])
+
+                _request_json(
+                    f"{base}/plans/generate",
+                    method="POST",
+                    payload=payload,
+                )
+                second = _wait_state(project, "plan_ai")
+                self.assertEqual(second["cuts"], ["ai-plan-2"])
+                self.assertEqual(project.read_edl("default"), before_default)
+                self.assertEqual(
+                    project.read_edl("ai-plan")["order"],
+                    ["s2", "s1", "s2", "s3"],
+                )
+                self.assertEqual(
+                    project.read_edl("ai-plan")["label"],
+                    "整片模型主题",
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+
+    def test_plan_ai_state_exposes_live_stage_progress(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app, project, selector = self._app_project(root)
+            entered = threading.Event()
+            release = threading.Event()
+            original_chat_json = selector.client.chat_json
+
+            def blocking_chat_json(system: str, user: str, **kwargs):
+                if '"decisions"' in system and "[s3]" in user:
+                    entered.set()
+                    if not release.wait(2):
+                        raise AssertionError("测试未释放第二主题筛选")
+                return original_chat_json(system, user, **kwargs)
+
+            selector.client.chat_json = blocking_chat_json
+            app.start_plan_generation(
+                project,
+                {
+                    "intent": ["cut_fillers", "hook_first"],
+                    "intent_extra": "",
+                    "duration_min_s": 180,
+                    "duration_max_s": 300,
+                    "split_topics": True,
+                },
+            )
+            self.assertTrue(entered.wait(2))
+            running = project.read_state()["plan_ai"]
+            self.assertEqual(running["status"], "running")
+            self.assertEqual(running["stage"], "select")
+            self.assertEqual(running["topics_total"], 1)
+            self.assertEqual(running["topics_done"], 0)
+            self.assertIn("1/1", running["detail"])
+            release.set()
+            done = _wait_state(project, "plan_ai")
+            self.assertEqual(done["status"], "done", done)
+            self.assertEqual(done["topics_done"], done["topics_total"])
+
+    def test_plan_generation_all_topic_failures_land_error(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app, project, _selector = self._app_project(root, fail=True)
+            app.start_plan_generation(
+                project,
+                {
+                    "intent": ["cut_fillers"],
+                    "duration_min_s": 180,
+                    "duration_max_s": 300,
+                    "split_topics": False,
+                },
+            )
+            state = _wait_state(project, "plan_ai")
+            self.assertEqual(state["status"], "error")
+            self.assertIn("全部主题", state["error"])
+            self.assertEqual(state["cuts"], [])
+
+    def test_retired_ai_modes_return_http_410(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            app, project, _selector = self._app_project(root)
+            server, port = bind_server(app, host="127.0.0.1", port=0)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base = f"http://127.0.0.1:{port}/api/projects/{quote(project.id)}"
+            try:
+                for mode in ("topic_slicing", "highlight_remix"):
+                    with self.subTest(mode=mode):
+                        with self.assertRaises(urllib.error.HTTPError) as caught:
+                            _request_json(f"{base}/ai/{mode}")
+                        self.assertEqual(caught.exception.code, 410)
+                        self.assertIn(
+                            "已并入 AI 出剪辑方案",
+                            caught.exception.read().decode("utf-8"),
+                        )
+            finally:
+                server.shutdown()
+                server.server_close()
 
     def test_content_map_put_get_validation_and_topic_cut_http_semantics(self):
         with tempfile.TemporaryDirectory() as tmp:

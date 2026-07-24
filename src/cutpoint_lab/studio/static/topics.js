@@ -54,18 +54,18 @@ export function renderTopicsView() {
         <h2>${escapeHtml(project.name || state.projectId || "")}</h2>
         <div class="meta">${fmtClock(state.sourceDurationMs || project.duration_ms || 0)} · ${state.rows.length} 句已转写</div>
       </div>
-      <button class="btn" id="topicsSkipBtn">跳过主题，整片直接剪 →</button>
+      <button class="btn" id="topicsSkipBtn">跳过，整片直接剪 →</button>
     </div>`;
 
   if (!map) {
     el.topicsBody.innerHTML = `${head}
       <div class="ai-card">
-        <h4>还没有内容地图</h4>
-        <div class="meta">AI 通读整片字幕，把「主题」与「背景/案例/活动名称」分开，给出每个主题的范围、原始时长与建议成片时长——先确认要表达什么，再动剪刀。</div>
+        <h4>先让 AI 看看这视频讲了哪几件事</h4>
+        <div class="meta">AI 通读整片字幕，把一段视频里的几个「看点」（可各剪一条短视频）跟「背景/案例/活动名称」分开，给出每个看点的范围、原始时长与建议成片时长——先确认要表达什么，再动剪刀。</div>
         <div class="prompt-actions" style="margin-top:8px">
-          <button class="btn primary" id="topicsAnalyzeBtn" ${state.contentMapAiRunning ? "disabled" : ""}>${state.contentMapAiRunning ? "AI 分析中…" : "🗺 AI 识别主题"}</button>
+          <button class="btn primary" id="topicsAnalyzeBtn" ${state.contentMapAiRunning ? "disabled" : ""}>${state.contentMapAiRunning ? "AI 梳理中…" : "🗺 AI 梳理看点"}</button>
         </div>
-        <div class="settings-note" id="topicsHint">${state.contentMapAiRunning ? "分析进行中（后台运行，完成自动刷新）…" : "长视频约需十几秒。"}</div>
+        <div class="settings-note" id="topicsHint">${state.contentMapAiRunning ? "梳理进行中（后台运行，完成自动刷新）…" : "短片约十几秒；长视频要分段分析再汇总，可能几分钟。"}</div>
       </div>`;
     bindCommon();
     return;
@@ -86,7 +86,7 @@ export function renderTopicsView() {
       <div class="topic-actions">
         <button class="btn primary" data-act="enter">进入剪辑 →</button>
         <button class="btn small" data-act="rename">改名</button>
-        <button class="btn small" data-act="merge">并入其他主题…</button>
+        <button class="btn small" data-act="merge">并入其他看点…</button>
         <button class="btn small ${isConfirmed ? "" : "primary"}" data-act="toggle-status">${isConfirmed ? "↩ 取消锁定" : "✅ 确认锁定"}</button>
       </div>
       <div class="topic-status">${isConfirmed ? "✅ 已锁定" : "⏳ 待处理"}</div>
@@ -98,12 +98,12 @@ export function renderTopicsView() {
   ).join(" ");
 
   el.topicsBody.innerHTML = `${head}
-    <div class="topics-tip">AI 识别出 ${topics.length} 个主题${map.backgrounds?.length ? " + 背景段" : ""}，请确认边界（可改名/合并/锁定）。每个主题 = 独立成片方案，互不影响；随时回本页换主题。</div>
-    ${cards || '<div class="ai-hint">内容地图里没有主题，可点下方重新分析。</div>'}
+    <div class="topics-tip">AI 梳理出 ${topics.length} 个看点${map.backgrounds?.length ? " + 背景段" : ""}，请确认边界（可改名/合并/锁定）。每个看点 = 一个独立剪辑方案，互不影响；随时回本页换看点。</div>
+    ${cards || '<div class="ai-hint">还没梳理出看点，可点下方重新梳理。</div>'}
     ${map.backgrounds?.length ? `<div class="topic-bg"><b>背景/过渡段（不单独成片）：</b>${backgrounds}</div>` : ""}
     <div class="prompt-actions" style="margin-top:12px">
-      <button class="btn small" id="topicsAnalyzeBtn" ${state.contentMapAiRunning ? "disabled" : ""}>${state.contentMapAiRunning ? "AI 分析中…" : "🔄 重新识别主题"}</button>
-      <button class="btn accent" id="topicsExportAllBtn" ${confirmed.length ? "" : "disabled"}>⬇ 导出全部已锁定方案（${confirmed.length}/${topics.length}）</button>
+      <button class="btn small" id="topicsAnalyzeBtn" ${state.contentMapAiRunning ? "disabled" : ""}>${state.contentMapAiRunning ? "AI 梳理中…" : "🔄 重新梳理看点"}</button>
+      <button class="btn accent" id="topicsExportAllBtn" ${confirmed.length ? "" : "disabled"}>⬇ 导出全部已锁定看点（${confirmed.length}/${topics.length}）</button>
     </div>
     <div class="settings-note" id="topicsHint"></div>`;
   bindCommon();
@@ -119,17 +119,32 @@ function bindCommon() {
   document.getElementById("topicsAnalyzeBtn")?.addEventListener("click", runAnalyze);
 }
 
+let analyzeStartMs = 0;
+
 async function runAnalyze() {
   try {
     await postJson(`/api/projects/${encodeURIComponent(state.projectId)}/content-map/analyze`);
     state.contentMapAiRunning = true;
+    analyzeStartMs = Date.now();
     renderTopicsView();
+    tickProgress();
     pollAnalyze();
   } catch (error) {
-    setStatus(`主题识别启动失败：${error.message}`, "error");
+    setStatus(`看点梳理启动失败：${error.message}`, "error");
     const hint = document.getElementById("topicsHint");
     if (hint) hint.textContent = `❌ ${error.message}`;
   }
+}
+
+/* 长视频（>150 句要分块+合并）分析可达几分钟，给个走动的进度反馈，别让人以为卡死。 */
+function tickProgress() {
+  if (!state.contentMapAiRunning) return;
+  const elapsed = Math.round((Date.now() - analyzeStartMs) / 1000);
+  const sentences = state.rows.length;
+  const longNote = sentences > 150 ? `（本片 ${sentences} 句，要分段分析再汇总，约 2–8 分钟）` : "（约十几秒到一分钟）";
+  const hint = document.getElementById("topicsHint");
+  if (hint) hint.textContent = `AI 通读字幕中 · 已用 ${elapsed}s ${longNote}`;
+  setTimeout(tickProgress, 1000);
 }
 
 function pollAnalyze() {
@@ -141,10 +156,10 @@ function pollAnalyze() {
       if (status === "running") { pollAnalyze(); return; }
       state.contentMapAiRunning = false;
       if (status === "error") {
-        setStatus(`主题识别失败：${(project.content_map_ai || {}).error || "未知错误"}`, "error");
+        setStatus(`看点梳理失败：${(project.content_map_ai || {}).error || "未知错误"}`, "error");
       } else {
         await loadContentMap();
-        setStatus("内容地图已生成：请逐个确认主题边界。");
+        setStatus("看点已梳理好：请逐个确认边界（可改名/合并/锁定）。");
       }
       if (!el.topicsView.hidden) renderTopicsView();
     } catch {
@@ -172,7 +187,7 @@ function bindTopicCards() {
         );
       } catch (error) {
         if (!/已存在|exists|409/.test(error.message)) {
-          setStatus(`创建主题方案失败：${error.message}`, "error");
+          setStatus(`创建看点方案失败：${error.message}`, "error");
           return;
         }
       }
@@ -180,12 +195,12 @@ function bindTopicCards() {
       state.order = [];
       state.viewOriginal = false;
       await showEditor();
-      setStatus(`已进入主题「${topic.name || topicId}」的成片方案。第 1 步：定金句（可跳过）。`);
+      setStatus(`已进入看点「${topic.name || topicId}」的剪辑方案。第 1 步：挑金句（可跳过）。`);
       openQuotesDialog(topicId);
     });
 
     card.querySelector('[data-act="rename"]').addEventListener("click", async () => {
-      const name = prompt("主题名称：", topic.name || "");
+      const name = prompt("看点名称：", topic.name || "");
       if (name === null || !name.trim() || name.trim() === topic.name) return;
       topic.name = name.trim();
       try { await saveMap(); renderTopicsView(); }
@@ -194,9 +209,9 @@ function bindTopicCards() {
 
     card.querySelector('[data-act="merge"]').addEventListener("click", async () => {
       const others = (state.contentMap.topics || []).filter((t) => t.id !== topicId);
-      if (!others.length) { setStatus("没有其他主题可并入。", "warn"); return; }
+      if (!others.length) { setStatus("没有其他看点可并入。", "warn"); return; }
       const choice = prompt(
-        `把「${topic.name}」的句子并入哪个主题？输入编号：\n` +
+        `把「${topic.name}」的句子并入哪个看点？输入编号：\n` +
         others.map((t, i) => `${i + 1}. ${t.name || t.id}`).join("\n")
       );
       const index = Number(choice) - 1;
@@ -226,7 +241,7 @@ function bindTopicCards() {
   document.getElementById("topicsExportAllBtn")?.addEventListener("click", exportAllConfirmed);
 }
 
-/* 逐个导出已锁定主题的方案（顺序执行，避免并发编码互抢 CPU）。 */
+/* 逐个导出已锁定看点的方案（顺序执行，避免并发编码互抢 CPU）。 */
 async function exportAllConfirmed() {
   const confirmed = (state.contentMap?.topics || []).filter((t) => t.status === "confirmed");
   if (!confirmed.length) return;
@@ -248,9 +263,9 @@ async function exportAllConfirmed() {
         else if (job.status === "error") throw new Error(job.error || "导出失败");
       }
     } catch (error) {
-      say(`❌「${topic.name}」导出失败：${error.message}（其余主题已停止）`);
+      say(`❌「${topic.name}」导出失败：${error.message}（其余看点已停止）`);
       return;
     }
   }
-  say(`✅ 已导出 ${confirmed.length} 个主题方案，文件在各方案的 exports/ 目录（也可逐个进入方案下载）。`);
+  say(`✅ 已导出 ${confirmed.length} 个看点方案，文件在各方案的 exports/ 目录（也可逐个进入方案下载）。`);
 }
